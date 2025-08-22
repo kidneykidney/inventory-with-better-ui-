@@ -1,54 +1,28 @@
-import React, { useState } from 'react';
-import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
+import React from 'react';
+import { CssBaseline, ThemeProvider, createTheme, Box } from '@mui/material';
 import Header from './components/Header';
-import Dashboard from './pages/Dashboard';
-import InventoryList from './components/InventoryList';
-import { sampleInventoryItems } from './data/sampleData';
-import './App.css';
 
 const theme = createTheme({
   palette: {
     primary: {
       main: '#1976d2',
     },
-    secondary: {
-      main: '#dc004e',
-    },
   },
 });
 
 function App() {
-  const [inventoryItems, setInventoryItems] = useState(sampleInventoryItems);
-
-  const handleEditItem = (item) => {
-    console.log('Edit item:', item);
-    // TODO: Implement edit functionality
-  };
-
-  const handleDeleteItem = (id) => {
-    console.log('Delete item:', id);
-    // TODO: Implement delete functionality
-    setInventoryItems(prev => prev.filter(item => item.id !== id));
-  };
-
-  const handleAddItem = () => {
-    console.log('Add new item');
-    // TODO: Implement add functionality
+  const handleMenuClick = () => {
+    console.log('Menu clicked');
   };
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <div className="App">
-        <Header />
-        <Dashboard />
-        <InventoryList 
-          items={inventoryItems}
-          onEdit={handleEditItem}
-          onDelete={handleDeleteItem}
-          onAdd={handleAddItem}
-        />
-      </div>
+      <Header onMenuClick={handleMenuClick} />
+      <Box sx={{ p: 4, mt: 8 }}>
+        <h1>🚀 Testing Header Component</h1>
+        <p>If you can see this, the Header component works!</p>
+      </Box>
     </ThemeProvider>
   );
 }

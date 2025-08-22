@@ -1,10 +1,12 @@
-import React from 'react';
-import { Container, Paper, Typography, Box } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Container, Paper, Typography, Box, CircularProgress } from '@mui/material';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import WarningIcon from '@mui/icons-material/Warning';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
-import { sampleInventoryItems } from '../data/sampleData';
+import PeopleIcon from '@mui/icons-material/People';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import inventoryService from '../services/inventoryService';
 
 function StatCard({ title, value, icon, color }) {
   return (
@@ -23,78 +25,136 @@ function StatCard({ title, value, icon, color }) {
 }
 
 function Dashboard() {
-  // Calculate statistics from sample data
-  const totalItems = sampleInventoryItems.reduce((sum, item) => sum + item.quantity, 0);
-  const totalValue = sampleInventoryItems.reduce((sum, item) => sum + (item.quantity * item.price), 0);
-  const lowStockItems = sampleInventoryItems.filter(item => 
-    item.quantity > 0 && item.quantity <= item.minStockLevel
-  ).length;
-  const outOfStockItems = sampleInventoryItems.filter(item => item.quantity === 0).length;
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    total_products: 0,
+    total_students: 0,
+    pending_orders: 0,
+    issued_orders: 0,
+    low_stock_alerts: 0
+  });
+  const [error, setError] = useState(null);
 
-  const stats = {
-    totalItems,
-    totalValue,
-    lowStockItems,
-    outOfStockItems,
-  };
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        const response = await inventoryService.getDashboardStats();
+        setStats(response);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching dashboard stats:', err);
+        setError('Failed to load dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  if (loading) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+          <CircularProgress />
+        </Box>
+      </Container>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Dashboard
+        </Typography>
+        <Paper sx={{ p: 3 }}>
+          <Typography color="error">{error}</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            Make sure the backend server is running on http://localhost:8001
+          </Typography>
+        </Paper>
+      </Container>
+    );
+  }
 
   const recentActivity = [
-    'Added 5 Laptop Computers to inventory',
-    'Updated price for Wireless Mouse',
-    'Office Chair stock is running low',
-    'Wireless Mouse is out of stock'
+    'Database initialized with sample data',
+    `${stats.total_products} products loaded`,
+    `${stats.total_students} students registered`,
+    `${stats.pending_orders} orders pending approval`,
+    stats.low_stock_alerts > 0 ? `${stats.low_stock_alerts} items need restocking` : 'All items adequately stocked'
   ];
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Typography variant="h4" component="h1" gutterBottom>
-        Dashboard
+        Incubation Inventory Dashboard
       </Typography>
       
       <Box display="flex" gap={3} flexWrap="wrap" mb={3}>
         <StatCard
-          title="Total Items"
-          value={stats.totalItems}
+          title="Total Products"
+          value={stats.total_products}
           icon={<InventoryIcon />}
           color="#1976d2"
         />
         <StatCard
-          title="Total Value"
-          value={`$${stats.totalValue.toFixed(2)}`}
-          icon={<AttachMoneyIcon />}
+          title="Total Students"
+          value={stats.total_students}
+          icon={<PeopleIcon />}
           color="#2e7d32"
         />
         <StatCard
-          title="Low Stock"
-          value={stats.lowStockItems}
-          icon={<WarningIcon />}
+          title="Pending Orders"
+          value={stats.pending_orders}
+          icon={<AssignmentIcon />}
           color="#ed6c02"
         />
         <StatCard
-          title="Out of Stock"
-          value={stats.outOfStockItems}
+          title="Issued Orders"
+          value={stats.issued_orders}
           icon={<TrendingUpIcon />}
-          color="#d32f2f"
+          color="#9c27b0"
+        />
+        <StatCard
+          title="Low Stock Alerts"
+          value={stats.low_stock_alerts}
+          icon={<WarningIcon />}
+          color={stats.low_stock_alerts > 0 ? "#d32f2f" : "#2e7d32"}
         />
       </Box>
       
       <Paper sx={{ p: 3 }}>
         <Typography variant="h6" gutterBottom>
-          Recent Activity
+          System Status
         </Typography>
-        {recentActivity.length > 0 ? (
-          <Box>
-            {recentActivity.map((activity, index) => (
-              <Typography key={index} variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                • {activity}
-              </Typography>
-            ))}
-          </Box>
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            No recent activity. Start by adding some inventory items!
-          </Typography>
-        )}
+        <Box>
+          {recentActivity.map((activity, index) => (
+            <Typography key={index} variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              • {activity}
+            </Typography>
+          ))}
+        </Box>
+      </Paper>
+      
+      <Paper sx={{ p: 3, mt: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Quick Actions
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          • View all products in the Inventory section
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          • Add new students and manage their information
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          • Create new orders with drag-and-drop functionality
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          • Generate invoices and track order status
+        </Typography>
       </Paper>
     </Container>
   );
