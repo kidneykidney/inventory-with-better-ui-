@@ -1,12 +1,8 @@
 import React from 'react';
 import { AppBar, Toolbar, Typography, Box, Button } from '@mui/material';
-import { Inventory as InventoryIcon } from '@mui/icons-material';
+import InventoryIcon from '@mui/icons-material/Inventory';
 
-interface HeaderProps {
-  title?: string;
-}
-
-const Header: React.FC<HeaderProps> = ({ title = 'Inventory Management System' }) => {
+function Header({ title = 'Inventory Management System' }) {
   return (
     <AppBar position="static" color="primary">
       <Toolbar>
@@ -24,6 +20,6 @@ const Header: React.FC<HeaderProps> = ({ title = 'Inventory Management System' }
       </Toolbar>
     </AppBar>
   );
-};
+}
 
 export default Header;

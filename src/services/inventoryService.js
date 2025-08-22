@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { InventoryItem, Category, Supplier } from '../types/inventory';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -10,51 +9,39 @@ const api = axios.create({
   },
 });
 
-export const inventoryService = {
-  // Inventory Items
-  getAllItems: async (): Promise<InventoryItem[]> => {
+const inventoryService = {
+  getAllItems: async () => {
     const response = await api.get('/inventory');
     return response.data;
   },
-
-  getItemById: async (id: string): Promise<InventoryItem> => {
+  getItemById: async (id) => {
     const response = await api.get(`/inventory/${id}`);
     return response.data;
   },
-
-  createItem: async (item: Omit<InventoryItem, 'id' | 'dateAdded' | 'lastUpdated'>): Promise<InventoryItem> => {
+  createItem: async (item) => {
     const response = await api.post('/inventory', item);
     return response.data;
   },
-
-  updateItem: async (id: string, item: Partial<InventoryItem>): Promise<InventoryItem> => {
+  updateItem: async (id, item) => {
     const response = await api.put(`/inventory/${id}`, item);
     return response.data;
   },
-
-  deleteItem: async (id: string): Promise<void> => {
+  deleteItem: async (id) => {
     await api.delete(`/inventory/${id}`);
   },
-
-  // Categories
-  getAllCategories: async (): Promise<Category[]> => {
+  getAllCategories: async () => {
     const response = await api.get('/categories');
     return response.data;
   },
-
-  // Suppliers
-  getAllSuppliers: async (): Promise<Supplier[]> => {
+  getAllSuppliers: async () => {
     const response = await api.get('/suppliers');
     return response.data;
   },
-
-  // Search and Filter
-  searchItems: async (searchTerm: string): Promise<InventoryItem[]> => {
+  searchItems: async (searchTerm) => {
     const response = await api.get(`/inventory/search?q=${encodeURIComponent(searchTerm)}`);
     return response.data;
   },
-
-  filterItems: async (filters: any): Promise<InventoryItem[]> => {
+  filterItems: async (filters) => {
     const queryParams = new URLSearchParams(filters).toString();
     const response = await api.get(`/inventory/filter?${queryParams}`);
     return response.data;

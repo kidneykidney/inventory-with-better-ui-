@@ -1,6 +1,39 @@
 # Inventory Management System
 
-This is a collaborative inventory management project developed by our team of three developers using React, TypeScript, and Vite.
+# Inventory Management System
+
+This is a collaborative inventory management project developed by our team of three developers using React, JavaScript, and Vite.
+
+## 🚀 Tech Stack
+
+- **React 19** - Frontend framework
+- **JavaScript (ES6+)** - Programming language  
+- **Vite** - Build tool and development server
+- **Material-UI (MUI)** - UI component library
+- **Axios** - HTTP client for API calls
+- **Vitest** - Testing framework
+
+## 📁 Project Structure
+
+```
+src/
+├── components/         # Reusable React components
+│   ├── Header.jsx     # Navigation header
+│   └── InventoryList.jsx # Inventory items table
+├── pages/             # Page components
+│   └── Dashboard.jsx  # Main dashboard page
+├── services/          # API and data services
+│   └── inventoryService.js # HTTP API calls
+├── data/              # Sample data and mock data
+│   └── sampleData.js  # Sample inventory data
+├── utils/             # Utility functions and helpers
+│   └── helpers.js     # Common utility functions
+├── tests/             # Test files
+│   └── helpers.test.js # Tests for utility functions
+├── App.jsx            # Main app component
+├── main.jsx          # App entry point
+└── index.js          # Alternative entry point
+```
 
 ## Team Branches
 - `main` - Production-ready code
