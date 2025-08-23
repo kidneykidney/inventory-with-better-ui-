@@ -27,600 +27,1073 @@ import {
   DialogContent,
   DialogActions,
   Divider,
-  Alert,
+  Avatar,
+  Stepper,
+  Step,
+  StepLabel,
+  InputAdornment,
   Badge,
+  Stack,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
-  Download as DownloadIcon,
   Print as PrintIcon,
   ShoppingCart as CartIcon,
   Person as PersonIcon,
   Receipt as ReceiptIcon,
+  CheckCircle as CheckIcon,
+  Schedule as ScheduleIcon,
+  Warning as WarningIcon,
+  Search as SearchIcon,
+  Close as CloseIcon,
+  Assignment as AssignmentIcon,
+  Payment as PaymentIcon,
+  Assessment as AnalyticsIcon,
+  TrendingUp as TrendingUpIcon,
+  AttachMoney as MoneyIcon,
 } from '@mui/icons-material';
 
-// Sample data for the order system
-const sampleOrders = [
-  {
-    id: 'ORD001',
-    studentName: 'Rahul Sharma',
-    studentId: 'STU2024001',
-    department: 'Electronics Engineering',
-    semester: '6th',
-    items: [
-      { name: 'Arduino Uno R3', quantity: 2, unitPrice: 1500, category: 'Microcontroller' },
-      { name: 'Breadboard 830 Points', quantity: 3, unitPrice: 150, category: 'Prototyping' },
-      { name: 'Jumper Wires Set', quantity: 1, unitPrice: 200, category: 'Cables' },
-    ],
-    totalAmount: 3650,
-    status: 'Pending Approval',
-    orderDate: '2024-08-20',
-    dueDate: '2024-08-27',
-    projectTitle: 'IoT Based Home Automation',
-    supervisorName: 'Dr. Priya Patel',
-  },
-  {
-    id: 'ORD002',
-    studentName: 'Anita Desai',
-    studentId: 'STU2024002',
-    department: 'Computer Science',
-    semester: '8th',
-    items: [
-      { name: 'Raspberry Pi 4 Model B', quantity: 1, unitPrice: 6500, category: 'Single Board Computer' },
-      { name: 'MicroSD Card 32GB', quantity: 1, unitPrice: 800, category: 'Storage' },
-      { name: 'HDMI Cable', quantity: 1, unitPrice: 300, category: 'Cables' },
-    ],
-    totalAmount: 7600,
-    status: 'Approved',
-    orderDate: '2024-08-18',
-    dueDate: '2024-08-25',
-    projectTitle: 'AI-Based Traffic Management',
-    supervisorName: 'Dr. Amit Kumar',
-  },
-  {
-    id: 'ORD003',
-    studentName: 'Vikram Singh',
-    studentId: 'STU2024003',
-    department: 'Mechanical Engineering',
-    semester: '7th',
-    items: [
-      { name: '3D Printing Filament PLA', quantity: 5, unitPrice: 1200, category: '3D Printing' },
-      { name: 'Servo Motor SG90', quantity: 4, unitPrice: 350, category: 'Motors' },
-    ],
-    totalAmount: 7400,
-    status: 'In Progress',
-    orderDate: '2024-08-19',
-    dueDate: '2024-08-26',
-    projectTitle: 'Automated Robotic Arm',
-    supervisorName: 'Dr. Rajesh Gupta',
-  },
-];
+const OrderManagement = () => {
+  const [activeTab, setActiveTab] = useState(0);
+  const [showCreateOrder, setShowCreateOrder] = useState(false);
+  const [orderStep, setOrderStep] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
 
-const inventoryItems = [
-  { name: 'Arduino Uno R3', category: 'Microcontroller', price: 1500, stock: 25 },
-  { name: 'Raspberry Pi 4 Model B', category: 'Single Board Computer', price: 6500, stock: 10 },
-  { name: 'Breadboard 830 Points', category: 'Prototyping', price: 150, stock: 50 },
-  { name: 'Jumper Wires Set', category: 'Cables', price: 200, stock: 30 },
-  { name: 'Servo Motor SG90', category: 'Motors', price: 350, stock: 20 },
-  { name: '3D Printing Filament PLA', category: '3D Printing', price: 1200, stock: 15 },
-  { name: 'MicroSD Card 32GB', category: 'Storage', price: 800, stock: 40 },
-  { name: 'HDMI Cable', category: 'Cables', price: 300, stock: 35 },
-  { name: 'LED Strip RGB', category: 'Lighting', price: 800, stock: 12 },
-  { name: 'Ultrasonic Sensor HC-SR04', category: 'Sensors', price: 250, stock: 25 },
-];
+  // Sample data
+  const [orders, setOrders] = useState([
+    {
+      id: 'ORD001',
+      student: 'Rahul Sharma',
+      email: 'rahul@college.edu',
+      department: 'Computer Science',
+      year: '3rd Year',
+      amount: 3650,
+      status: 'pending',
+      date: '2025-08-20',
+      items: ['Laptop Charger', 'Mouse', 'Keyboard'],
+    },
+    {
+      id: 'ORD002',
+      student: 'Anita Desai',
+      email: 'anita@college.edu',
+      department: 'Electronics',
+      year: '2nd Year',
+      amount: 7600,
+      status: 'completed',
+      date: '2025-08-19',
+      items: ['Arduino Kit', 'Sensors', 'Breadboard'],
+    },
+    {
+      id: 'ORD003',
+      student: 'Vikram Singh',
+      email: 'vikram@college.edu',
+      department: 'Mechanical',
+      year: '4th Year',
+      amount: 7400,
+      status: 'partial',
+      date: '2025-08-18',
+      items: ['3D Filament', 'Tools Set', 'Measuring Kit'],
+    },
+  ]);
 
-function TabPanel({ children, value, index, ...other }) {
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`order-tabpanel-${index}`}
-      aria-labelledby={`order-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
-}
+  const [availableProducts] = useState([
+    { id: 1, name: 'Laptop Charger', price: 850, category: 'Electronics', stock: 25 },
+    { id: 2, name: 'Wireless Mouse', price: 450, category: 'Electronics', stock: 30 },
+    { id: 3, name: 'Mechanical Keyboard', price: 2350, category: 'Electronics', stock: 15 },
+    { id: 4, name: 'Arduino Uno Kit', price: 1200, category: 'Hardware', stock: 20 },
+    { id: 5, name: 'Raspberry Pi 4', price: 3500, category: 'Hardware', stock: 12 },
+    { id: 6, name: '3D Printer Filament', price: 800, category: 'Materials', stock: 50 },
+  ]);
 
-function OrderManagement() {
-  const [tabValue, setTabValue] = useState(0);
-  const [orders, setOrders] = useState(sampleOrders);
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [openOrderDetailsDialog, setOpenOrderDetailsDialog] = useState(false);
-  const [newOrderData, setNewOrderData] = useState({
-    studentName: '',
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [studentInfo, setStudentInfo] = useState({
+    name: '',
+    email: '',
+    phone: '',
     studentId: '',
     department: '',
+    year: '',
     semester: '',
     projectTitle: '',
-    supervisorName: '',
+    projectDescription: '',
+    mentorName: '',
+    expectedDelivery: '',
   });
-  const [selectedItems, setSelectedItems] = useState([]);
 
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
-  };
+  const stats = [
+    {
+      title: 'Total Orders',
+      value: orders.length,
+      change: '+12%',
+      changeType: 'positive',
+      icon: CartIcon,
+      gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+    },
+    {
+      title: 'In Progress',
+      value: orders.filter(o => o.status === 'pending').length,
+      change: '+5%',
+      changeType: 'positive',
+      icon: ScheduleIcon,
+      gradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+    },
+    {
+      title: 'Total Revenue',
+      value: `₹${orders.reduce((sum, order) => sum + order.amount, 0).toLocaleString()}`,
+      change: '+18%',
+      changeType: 'positive',
+      icon: MoneyIcon,
+      gradient: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
+    },
+    {
+      title: 'Pending Approval',
+      value: orders.filter(o => o.status === 'partial').length,
+      change: '-3%',
+      changeType: 'negative',
+      icon: WarningIcon,
+      gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+    },
+  ];
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Pending Approval': return 'warning';
-      case 'Approved': return 'success';
-      case 'In Progress': return 'info';
-      case 'Completed': return 'primary';
-      case 'Cancelled': return 'error';
-      default: return 'default';
+      case 'completed':
+        return 'success';
+      case 'pending':
+        return 'warning';
+      case 'partial':
+        return 'info';
+      default:
+        return 'default';
     }
   };
 
-  const handleAddItemToOrder = (item) => {
-    const existingItem = selectedItems.find(selected => selected.name === item.name);
-    if (existingItem) {
-      setSelectedItems(prev => 
-        prev.map(selected => 
-          selected.name === item.name 
-            ? { ...selected, quantity: selected.quantity + 1 }
-            : selected
-        )
-      );
-    } else {
-      setSelectedItems(prev => [...prev, { ...item, quantity: 1 }]);
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'completed':
+        return <CheckIcon />;
+      case 'pending':
+        return <ScheduleIcon />;
+      case 'partial':
+        return <WarningIcon />;
+      default:
+        return <ScheduleIcon />;
     }
   };
 
-  const handleRemoveItemFromOrder = (itemName) => {
-    setSelectedItems(prev => prev.filter(item => item.name !== itemName));
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleDragStart = (e, product) => {
+    e.dataTransfer.setData('application/json', JSON.stringify(product));
+    e.dataTransfer.effectAllowed = 'copy';
   };
 
-  const calculateOrderTotal = () => {
-    return selectedItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    setDragOver(true);
   };
 
-  const handleCreateOrder = () => {
-    const newOrder = {
-      id: `ORD${String(orders.length + 1).padStart(3, '0')}`,
-      ...newOrderData,
-      items: selectedItems.map(item => ({
-        name: item.name,
-        quantity: item.quantity,
-        unitPrice: item.price,
-        category: item.category,
-      })),
-      totalAmount: calculateOrderTotal(),
-      status: 'Pending Approval',
-      orderDate: new Date().toISOString().split('T')[0],
-      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    };
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
     
-    setOrders(prev => [...prev, newOrder]);
-    setNewOrderData({
-      studentName: '',
-      studentId: '',
-      department: '',
-      semester: '',
-      projectTitle: '',
-      supervisorName: '',
-    });
-    setSelectedItems([]);
-    alert('Order created successfully!');
+    try {
+      const productData = JSON.parse(e.dataTransfer.getData('application/json'));
+      
+      // Check if product is already selected
+      const existingProduct = selectedProducts.find(p => p.id === productData.id);
+      
+      if (existingProduct) {
+        // If already selected, increase quantity
+        setSelectedProducts(prev => 
+          prev.map(p => 
+            p.id === productData.id 
+              ? { ...p, quantity: p.quantity + 1 }
+              : p
+          )
+        );
+      } else {
+        // Add new product with quantity 1
+        setSelectedProducts(prev => [...prev, { ...productData, quantity: 1 }]);
+      }
+    } catch (error) {
+      console.error('Error parsing dropped data:', error);
+    }
   };
 
-  const generateInvoice = (order) => {
-    alert(`Generating invoice for Order ${order.id}...`);
+  const removeSelectedProduct = (productId) => {
+    setSelectedProducts(selectedProducts.filter(p => p.id !== productId));
   };
+
+  const updateProductQuantity = (productId, quantity) => {
+    setSelectedProducts(selectedProducts.map(p => 
+      p.id === productId ? { ...p, quantity: Math.max(1, quantity) } : p
+    ));
+  };
+
+  const calculateTotal = () => {
+    return selectedProducts.reduce((total, product) => total + (product.price * product.quantity), 0);
+  };
+
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch = order.student.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         order.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filterStatus === 'all' || order.status === filterStatus;
+    return matchesSearch && matchesFilter;
+  });
+
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
+  const steps = ['Student Information', 'Select Products', 'Review & Submit'];
 
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <CartIcon />
-        Order Management System
-      </Typography>
-
-      {/* Statistics Cards */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>
-                    Total Orders
-                  </Typography>
-                  <Typography variant="h4">
-                    {orders.length}
-                  </Typography>
-                </Box>
-                <CartIcon color="primary" sx={{ fontSize: 40 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>
-                    Pending Approval
-                  </Typography>
-                  <Typography variant="h4">
-                    {orders.filter(o => o.status === 'Pending Approval').length}
-                  </Typography>
-                </Box>
-                <Badge badgeContent={orders.filter(o => o.status === 'Pending Approval').length} color="warning">
-                  <PersonIcon color="warning" sx={{ fontSize: 40 }} />
-                </Badge>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>
-                    In Progress
-                  </Typography>
-                  <Typography variant="h4">
-                    {orders.filter(o => o.status === 'In Progress').length}
-                  </Typography>
-                </Box>
-                <ReceiptIcon color="info" sx={{ fontSize: 40 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>
-                    Total Value
-                  </Typography>
-                  <Typography variant="h4">
-                    ₹{orders.reduce((total, order) => total + order.totalAmount, 0).toLocaleString()}
-                  </Typography>
-                </Box>
-                <ReceiptIcon color="success" sx={{ fontSize: 40 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Main Content */}
-      <Card>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={tabValue} onChange={handleTabChange} aria-label="order management tabs">
-            <Tab label="All Orders" />
-            <Tab label="Create New Order" />
-            <Tab label="Order Analytics" />
-          </Tabs>
-        </Box>
-
-        <TabPanel value={tabValue} index={0}>
-          {/* Orders List */}
-          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">Order History</Typography>
+    <>
+      <Box sx={{ width: '100%', height: '100%', backgroundColor: '#f9fafb', padding: 0, margin: 0 }}>
+      {/* Header */}
+      <Box sx={{ backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderBottom: '1px solid #e5e7eb', padding: '16px 24px' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box>
+              <Typography variant="h3" className="text-3xl font-bold text-gray-900">
+                Order Management
+              </Typography>
+              <Typography variant="body2" className="mt-1 text-sm text-gray-500">
+                Manage student orders and inventory requests
+              </Typography>
+            </Box>
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={() => setTabValue(1)}
+              onClick={() => setShowCreateOrder(true)}
+              className="btn-primary"
+              sx={{
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                },
+              }}
             >
               Create New Order
             </Button>
           </Box>
+        </Box>
+      </Box>
 
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Order ID</TableCell>
-                  <TableCell>Student</TableCell>
-                  <TableCell>Department</TableCell>
-                  <TableCell>Project</TableCell>
-                  <TableCell>Total Amount</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Order Date</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {orders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell>{order.id}</TableCell>
-                    <TableCell>
-                      <Box>
-                        <Typography variant="body2" fontWeight="bold">
-                          {order.studentName}
-                        </Typography>
-                        <Typography variant="caption" color="textSecondary">
-                          {order.studentId}
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>{order.department}</TableCell>
-                    <TableCell>{order.projectTitle}</TableCell>
-                    <TableCell>₹{order.totalAmount.toLocaleString()}</TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={order.status} 
-                        color={getStatusColor(order.status)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{order.orderDate}</TableCell>
-                    <TableCell>
-                      <IconButton 
-                        size="small" 
-                        onClick={() => {
-                          setSelectedOrder(order);
-                          setOpenOrderDetailsDialog(true);
-                        }}
-                      >
-                        <ViewIcon />
-                      </IconButton>
-                      <IconButton size="small">
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton 
-                        size="small"
-                        onClick={() => generateInvoice(order)}
-                      >
-                        <DownloadIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </TabPanel>
-
-        <TabPanel value={tabValue} index={1}>
-          {/* Create New Order Form */}
-          <Typography variant="h6" gutterBottom>Create New Student Order</Typography>
-          
-          <Grid container spacing={3}>
-            {/* Student Information */}
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom>Student Information</Typography>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Student Name"
-                value={newOrderData.studentName}
-                onChange={(e) => setNewOrderData(prev => ({ ...prev, studentName: e.target.value }))}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Student ID"
-                value={newOrderData.studentId}
-                onChange={(e) => setNewOrderData(prev => ({ ...prev, studentId: e.target.value }))}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>Department</InputLabel>
-                <Select
-                  value={newOrderData.department}
-                  onChange={(e) => setNewOrderData(prev => ({ ...prev, department: e.target.value }))}
-                >
-                  <MenuItem value="Electronics Engineering">Electronics Engineering</MenuItem>
-                  <MenuItem value="Computer Science">Computer Science</MenuItem>
-                  <MenuItem value="Mechanical Engineering">Mechanical Engineering</MenuItem>
-                  <MenuItem value="Civil Engineering">Civil Engineering</MenuItem>
-                  <MenuItem value="Electrical Engineering">Electrical Engineering</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>Semester</InputLabel>
-                <Select
-                  value={newOrderData.semester}
-                  onChange={(e) => setNewOrderData(prev => ({ ...prev, semester: e.target.value }))}
-                >
-                  {[1,2,3,4,5,6,7,8].map(sem => (
-                    <MenuItem key={sem} value={`${sem}th`}>{sem}th Semester</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Project Title"
-                value={newOrderData.projectTitle}
-                onChange={(e) => setNewOrderData(prev => ({ ...prev, projectTitle: e.target.value }))}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Supervisor Name"
-                value={newOrderData.supervisorName}
-                onChange={(e) => setNewOrderData(prev => ({ ...prev, supervisorName: e.target.value }))}
-              />
-            </Grid>
-
-            {/* Item Selection */}
-            <Grid item xs={12}>
-              <Divider sx={{ my: 2 }} />
-              <Typography variant="h6" gutterBottom>Select Items</Typography>
-            </Grid>
-            <Grid item xs={12} md={8}>
-              <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
-                <Table stickyHeader>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Item Name</TableCell>
-                      <TableCell>Category</TableCell>
-                      <TableCell>Price</TableCell>
-                      <TableCell>Stock</TableCell>
-                      <TableCell>Action</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {inventoryItems.map((item) => (
-                      <TableRow key={item.name}>
-                        <TableCell>{item.name}</TableCell>
-                        <TableCell>{item.category}</TableCell>
-                        <TableCell>₹{item.price}</TableCell>
-                        <TableCell>{item.stock}</TableCell>
-                        <TableCell>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            startIcon={<AddIcon />}
-                            onClick={() => handleAddItemToOrder(item)}
-                            disabled={item.stock === 0}
-                          >
-                            Add
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>Selected Items</Typography>
-                  {selectedItems.length === 0 ? (
-                    <Typography color="textSecondary">No items selected</Typography>
-                  ) : (
-                    <>
-                      {selectedItems.map((item) => (
-                        <Box key={item.name} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                          <Box>
-                            <Typography variant="body2">{item.name}</Typography>
-                            <Typography variant="caption" color="textSecondary">
-                              Qty: {item.quantity} × ₹{item.price}
-                            </Typography>
-                          </Box>
-                          <IconButton 
-                            size="small" 
-                            onClick={() => handleRemoveItemFromOrder(item.name)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Box>
-                      ))}
-                      <Divider sx={{ my: 2 }} />
-                      <Typography variant="h6">
-                        Total: ₹{calculateOrderTotal().toLocaleString()}
+      <Box sx={{ width: '100%', padding: '8px 24px', margin: 0 }}>
+        {/* Statistics Cards */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {stats.map((stat, index) => (
+            <Grid item xs={12} sm={6} lg={3} key={index}>
+              <Card 
+                className="card"
+                sx={{
+                  background: stat.gradient,
+                  color: 'white',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                  },
+                }}
+              >
+                <CardContent className="p-6">
+                  <Box className="flex items-center justify-between">
+                    <Box>
+                      <Typography variant="body2" className="text-white/80 text-sm font-medium">
+                        {stat.title}
                       </Typography>
-                      <Button
-                        fullWidth
-                        variant="contained"
-                        sx={{ mt: 2 }}
-                        onClick={handleCreateOrder}
-                        disabled={selectedItems.length === 0 || !newOrderData.studentName}
-                      >
-                        Create Order
-                      </Button>
-                    </>
-                  )}
+                      <Typography variant="h4" className="text-white text-2xl font-bold mt-1">
+                        {stat.value}
+                      </Typography>
+                    </Box>
+                    <Box className="bg-white/20 p-3 rounded-lg">
+                      <stat.icon className="h-6 w-6 text-white" />
+                    </Box>
+                  </Box>
+                  <Box className="mt-4">
+                    <Typography variant="body2" className="text-white/90 text-sm">
+                      <span className={stat.changeType === 'positive' ? 'text-green-200' : 'text-red-200'}>
+                        {stat.change}
+                      </span>
+                      {' from last month'}
+                    </Typography>
+                  </Box>
                 </CardContent>
               </Card>
             </Grid>
-          </Grid>
-        </TabPanel>
+          ))}
+        </Grid>
 
-        <TabPanel value={tabValue} index={2}>
-          {/* Analytics */}
-          <Typography variant="h6" gutterBottom>Order Analytics</Typography>
-          <Alert severity="info">
-            Analytics dashboard coming soon! This will include order trends, popular items, 
-            department-wise statistics, and financial reports.
-          </Alert>
-        </TabPanel>
-      </Card>
+        {/* Navigation Tabs */}
+        <Card className="mb-6">
+          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+            <Tabs 
+              value={activeTab} 
+              onChange={handleTabChange}
+              variant="fullWidth"
+              sx={{
+                '& .MuiTab-root': {
+                  minHeight: 64,
+                  textTransform: 'none',
+                  fontSize: { xs: '0.875rem', sm: '1rem' },
+                  fontWeight: 500,
+                  padding: { xs: '8px 12px', sm: '12px 24px' },
+                  minWidth: 'auto',
+                },
+                '& .Mui-selected': {
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  color: 'white !important',
+                },
+                '& .MuiTabs-flexContainer': {
+                  width: '100%',
+                },
+              }}
+            >
+              <Tab 
+                icon={<AssignmentIcon />} 
+                label="All Orders" 
+                iconPosition="start"
+                sx={{ flex: 1 }}
+              />
+              <Tab 
+                icon={<AddIcon />} 
+                label="Create Order" 
+                iconPosition="start"
+                onClick={() => setShowCreateOrder(true)}
+                sx={{ flex: 1 }}
+              />
+              <Tab 
+                icon={<PaymentIcon />} 
+                label="Invoice & Billing" 
+                iconPosition="start"
+                sx={{ flex: 1 }}
+              />
+              <Tab 
+                icon={<AnalyticsIcon />} 
+                label="Order Analytics" 
+                iconPosition="start"
+                sx={{ flex: 1 }}
+              />
+            </Tabs>
+          </Box>
 
-      {/* Order Details Dialog */}
-      <Dialog
-        open={openOrderDetailsDialog}
-        onClose={() => setOpenOrderDetailsDialog(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          Order Details - {selectedOrder?.id}
-        </DialogTitle>
-        <DialogContent>
-          {selectedOrder && (
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <Typography variant="subtitle2">Student Information</Typography>
-                <Typography>Name: {selectedOrder.studentName}</Typography>
-                <Typography>ID: {selectedOrder.studentId}</Typography>
-                <Typography>Department: {selectedOrder.department}</Typography>
-                <Typography>Semester: {selectedOrder.semester}</Typography>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Typography variant="subtitle2">Project Information</Typography>
-                <Typography>Title: {selectedOrder.projectTitle}</Typography>
-                <Typography>Supervisor: {selectedOrder.supervisorName}</Typography>
-                <Typography>Order Date: {selectedOrder.orderDate}</Typography>
-                <Typography>Due Date: {selectedOrder.dueDate}</Typography>
-              </Grid>
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ mt: 2 }}>Ordered Items</Typography>
-                <TableContainer>
+          <Box className="p-6">
+            {activeTab === 0 && (
+              <Box className="space-y-6">
+                {/* Search and Filter Bar */}
+                <Box className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                  <TextField
+                    placeholder="Search orders by student name or order ID..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    variant="outlined"
+                    size="medium"
+                    className="flex-1 max-w-lg"
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon className="text-gray-400" />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  <FormControl size="medium" sx={{ minWidth: 200 }}>
+                    <InputLabel>Filter by Status</InputLabel>
+                    <Select
+                      value={filterStatus}
+                      label="Filter by Status"
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                    >
+                      <MenuItem value="all">All Status</MenuItem>
+                      <MenuItem value="pending">Pending</MenuItem>
+                      <MenuItem value="completed">Completed</MenuItem>
+                      <MenuItem value="partial">Partial</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+
+                {/* Orders Table */}
+                <TableContainer component={Paper} className="card">
                   <Table>
                     <TableHead>
-                      <TableRow>
-                        <TableCell>Item</TableCell>
-                        <TableCell>Category</TableCell>
-                        <TableCell>Quantity</TableCell>
-                        <TableCell>Unit Price</TableCell>
-                        <TableCell>Total</TableCell>
+                      <TableRow sx={{ backgroundColor: '#f9fafb' }}>
+                        <TableCell>
+                          <Typography variant="subtitle2" className="font-semibold text-gray-900 uppercase tracking-wider">
+                            Order Details
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="subtitle2" className="font-semibold text-gray-900 uppercase tracking-wider">
+                            Student Info
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="subtitle2" className="font-semibold text-gray-900 uppercase tracking-wider">
+                            Status
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="subtitle2" className="font-semibold text-gray-900 uppercase tracking-wider">
+                            Amount
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="subtitle2" className="font-semibold text-gray-900 uppercase tracking-wider">
+                            Actions
+                          </Typography>
+                        </TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {selectedOrder.items.map((item, index) => (
-                        <TableRow key={index}>
-                          <TableCell>{item.name}</TableCell>
-                          <TableCell>{item.category}</TableCell>
-                          <TableCell>{item.quantity}</TableCell>
-                          <TableCell>₹{item.unitPrice}</TableCell>
-                          <TableCell>₹{item.quantity * item.unitPrice}</TableCell>
+                      {filteredOrders.map((order) => (
+                        <TableRow 
+                          key={order.id} 
+                          hover
+                          sx={{ '&:hover': { backgroundColor: '#f9fafb' } }}
+                        >
+                          <TableCell>
+                            <Box>
+                              <Typography variant="subtitle1" className="font-semibold text-gray-900">
+                                {order.id}
+                              </Typography>
+                              <Typography variant="body2" className="text-gray-500">
+                                {order.date}
+                              </Typography>
+                              <Box className="mt-2 flex flex-wrap gap-1">
+                                {order.items.slice(0, 2).map((item, idx) => (
+                                  <Chip
+                                    key={idx}
+                                    label={item}
+                                    size="small"
+                                    sx={{ 
+                                      backgroundColor: '#dbeafe', 
+                                      color: '#1e40af',
+                                      fontSize: '0.75rem'
+                                    }}
+                                  />
+                                ))}
+                                {order.items.length > 2 && (
+                                  <Chip
+                                    label={`+${order.items.length - 2} more`}
+                                    size="small"
+                                    sx={{ 
+                                      backgroundColor: '#f3f4f6', 
+                                      color: '#374151',
+                                      fontSize: '0.75rem'
+                                    }}
+                                  />
+                                )}
+                              </Box>
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Box>
+                              <Typography variant="subtitle1" className="font-semibold text-gray-900">
+                                {order.student}
+                              </Typography>
+                              <Typography variant="body2" className="text-gray-500">
+                                {order.email}
+                              </Typography>
+                              <Typography variant="body2" className="text-gray-500">
+                                {order.department} - {order.year}
+                              </Typography>
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              icon={getStatusIcon(order.status)}
+                              label={order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                              color={getStatusColor(order.status)}
+                              variant="outlined"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="subtitle1" className="font-semibold text-gray-900">
+                              ₹{order.amount.toLocaleString()}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Stack direction="row" spacing={1}>
+                              <IconButton size="small" color="primary">
+                                <ViewIcon />
+                              </IconButton>
+                              <IconButton size="small" color="success">
+                                <PrintIcon />
+                              </IconButton>
+                              <IconButton size="small" color="secondary">
+                                <EditIcon />
+                              </IconButton>
+                            </Stack>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </TableContainer>
-                <Typography variant="h6" sx={{ mt: 2 }}>
-                  Total Amount: ₹{selectedOrder.totalAmount.toLocaleString()}
+              </Box>
+            )}
+
+            {activeTab === 2 && (
+              <Box className="text-center py-12">
+                <PaymentIcon sx={{ fontSize: 64, color: 'gray' }} />
+                <Typography variant="h5" className="mt-4 font-semibold text-gray-900">
+                  Invoice & Billing Management
                 </Typography>
-              </Grid>
-            </Grid>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenOrderDetailsDialog(false)}>Close</Button>
-          <Button 
-            variant="contained" 
-            startIcon={<PrintIcon />}
-            onClick={() => generateInvoice(selectedOrder)}
+                <Typography variant="body1" className="mt-2 text-gray-500">
+                  Comprehensive billing dashboard coming soon! This will include invoice generation,
+                  payment tracking, financial reports, and revenue analytics.
+                </Typography>
+              </Box>
+            )}
+
+            {activeTab === 3 && (
+              <Box className="text-center py-12">
+                <AnalyticsIcon sx={{ fontSize: 64, color: 'gray' }} />
+                <Typography variant="h5" className="mt-4 font-semibold text-gray-900">
+                  Order Analytics Dashboard
+                </Typography>
+                <Typography variant="body1" className="mt-2 text-gray-500">
+                  Analytics dashboard coming soon! This will include order trends, popular items,
+                  department-wise statistics, financial reports, and revenue analytics.
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </Card>
+      </Box>
+
+      {/* Create Order Modal */}
+      <Dialog 
+        open={showCreateOrder} 
+        onClose={() => setShowCreateOrder(false)}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: { minHeight: '80vh' }
+        }}
+      >
+        <DialogTitle sx={{ 
+          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+          color: 'white',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <Typography variant="h5" className="font-bold">
+            Create New Student Order
+          </Typography>
+          <IconButton 
+            onClick={() => setShowCreateOrder(false)}
+            sx={{ color: 'white' }}
           >
-            Generate Invoice
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent sx={{ p: 0 }}>
+          {/* Step Indicator */}
+          <Box sx={{ p: 3, backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+            <Stepper activeStep={orderStep} alternativeLabel>
+              {steps.map((label) => (
+                <Step key={label}>
+                  <StepLabel>{label}</StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+          </Box>
+
+          <Box sx={{ p: 3 }}>
+            {orderStep === 0 && (
+              <Box className="space-y-6">
+                <Typography variant="h6" className="mb-4">Student Information</Typography>
+                
+                {/* Personal Details Section */}
+                <Card sx={{ backgroundColor: '#f9fafb', p: 3 }}>
+                  <Typography variant="subtitle1" className="mb-3 flex items-center font-medium">
+                    <PersonIcon sx={{ mr: 1, color: '#2563eb' }} />
+                    Personal Details
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Full Name"
+                        value={studentInfo.name}
+                        onChange={(e) => setStudentInfo({...studentInfo, name: e.target.value})}
+                        placeholder="Enter student's full name"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Email Address"
+                        type="email"
+                        value={studentInfo.email}
+                        onChange={(e) => setStudentInfo({...studentInfo, email: e.target.value})}
+                        placeholder="student@college.edu"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Phone Number"
+                        value={studentInfo.phone}
+                        onChange={(e) => setStudentInfo({...studentInfo, phone: e.target.value})}
+                        placeholder="+91 98765 43210"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Student ID"
+                        value={studentInfo.studentId}
+                        onChange={(e) => setStudentInfo({...studentInfo, studentId: e.target.value})}
+                        placeholder="STU2025001"
+                      />
+                    </Grid>
+                  </Grid>
+                </Card>
+
+                {/* Academic Information Section */}
+                <Card sx={{ backgroundColor: '#eff6ff', p: 3 }}>
+                  <Typography variant="subtitle1" className="mb-3 flex items-center font-medium">
+                    <AssignmentIcon sx={{ mr: 1, color: '#2563eb' }} />
+                    Academic Information
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={4}>
+                      <FormControl fullWidth>
+                        <InputLabel>Department</InputLabel>
+                        <Select
+                          value={studentInfo.department}
+                          label="Department"
+                          onChange={(e) => setStudentInfo({...studentInfo, department: e.target.value})}
+                        >
+                          <MenuItem value="Computer Science">Computer Science</MenuItem>
+                          <MenuItem value="Electronics">Electronics</MenuItem>
+                          <MenuItem value="Mechanical">Mechanical</MenuItem>
+                          <MenuItem value="Civil">Civil</MenuItem>
+                          <MenuItem value="Chemical">Chemical</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <FormControl fullWidth>
+                        <InputLabel>Year</InputLabel>
+                        <Select
+                          value={studentInfo.year}
+                          label="Year"
+                          onChange={(e) => setStudentInfo({...studentInfo, year: e.target.value})}
+                        >
+                          <MenuItem value="1st Year">1st Year</MenuItem>
+                          <MenuItem value="2nd Year">2nd Year</MenuItem>
+                          <MenuItem value="3rd Year">3rd Year</MenuItem>
+                          <MenuItem value="4th Year">4th Year</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <FormControl fullWidth>
+                        <InputLabel>Semester</InputLabel>
+                        <Select
+                          value={studentInfo.semester}
+                          label="Semester"
+                          onChange={(e) => setStudentInfo({...studentInfo, semester: e.target.value})}
+                        >
+                          <MenuItem value="1st Semester">1st Semester</MenuItem>
+                          <MenuItem value="2nd Semester">2nd Semester</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  </Grid>
+                </Card>
+
+                {/* Project Information Section */}
+                <Card sx={{ backgroundColor: '#f0fdf4', p: 3 }}>
+                  <Typography variant="subtitle1" className="mb-3 flex items-center font-medium">
+                    <AnalyticsIcon sx={{ mr: 1, color: '#16a34a' }} />
+                    Project Information
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Project Title"
+                        value={studentInfo.projectTitle}
+                        onChange={(e) => setStudentInfo({...studentInfo, projectTitle: e.target.value})}
+                        placeholder="Enter project title"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Mentor Name"
+                        value={studentInfo.mentorName}
+                        onChange={(e) => setStudentInfo({...studentInfo, mentorName: e.target.value})}
+                        placeholder="Enter mentor/guide name"
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        label="Project Description"
+                        multiline
+                        rows={3}
+                        value={studentInfo.projectDescription}
+                        onChange={(e) => setStudentInfo({...studentInfo, projectDescription: e.target.value})}
+                        placeholder="Brief description of the project and requirements"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Expected Delivery Date"
+                        type="date"
+                        value={studentInfo.expectedDelivery}
+                        onChange={(e) => setStudentInfo({...studentInfo, expectedDelivery: e.target.value})}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Card>
+              </Box>
+            )}
+
+            {orderStep === 1 && (
+              <Grid container spacing={4}>
+                {/* Available Products */}
+                <Grid item xs={12} lg={6}>
+                  <Typography variant="h6" sx={{ mb: 2 }}>Available Products</Typography>
+                  <Box
+                    sx={{
+                      p: 2,
+                      backgroundColor: '#fafafa',
+                      borderRadius: 2,
+                      border: '2px solid #e5e7eb',
+                      minHeight: '500px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 1.5,
+                    }}
+                  >
+                    {availableProducts.map((product, index) => (
+                      <Box
+                        key={product.id}
+                        draggable={true}
+                        onDragStart={(e) => handleDragStart(e, product)}
+                        sx={{
+                          cursor: 'grab',
+                          '&:active': { cursor: 'grabbing' },
+                        }}
+                        onMouseDown={(e) => e.currentTarget.style.cursor = 'grabbing'}
+                        onMouseUp={(e) => e.currentTarget.style.cursor = 'grab'}
+                      >
+                        <Card
+                          sx={{
+                            p: 2,
+                            transition: 'all 0.2s ease',
+                            '&:hover': {
+                              boxShadow: 4,
+                              transform: 'translateY(-2px)',
+                              backgroundColor: '#f0f9ff',
+                            },
+                            '&:active': {
+                              transform: 'scale(0.98)',
+                            },
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Box>
+                              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1f2937' }}>
+                                {product.name}
+                              </Typography>
+                              <Typography variant="body2" sx={{ color: '#6b7280', mb: 1 }}>
+                                {product.category}
+                              </Typography>
+                              <Typography variant="h6" sx={{ color: '#2563eb', fontWeight: 700 }}>
+                                ₹{product.price.toLocaleString()}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ textAlign: 'right' }}>
+                              <Typography variant="body2" sx={{ color: '#059669', fontWeight: 500 }}>
+                                Stock: {product.stock}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </Card>
+                      </Box>
+                    ))}
+                  </Box>
+                </Grid>
+
+                {/* Selected Products */}
+                <Grid item xs={12} lg={6}>
+                  <Typography variant="h6" sx={{ mb: 2 }}>Selected Products</Typography>
+                  <Box
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    sx={{
+                      minHeight: '500px',
+                      p: 2,
+                      border: dragOver ? '2px solid #10b981' : '2px dashed #d1d5db',
+                      borderRadius: 2,
+                      backgroundColor: dragOver ? '#ecfdf5' : '#f9fafb',
+                      transition: 'all 0.3s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                    }}
+                  >
+                    {selectedProducts.length === 0 ? (
+                      <Box sx={{ 
+                        textAlign: 'center', 
+                        p: 8,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flex: 1,
+                      }}>
+                        <CartIcon sx={{ fontSize: 64, color: '#9ca3af', mb: 2 }} />
+                        <Typography variant="body1" sx={{ color: '#6b7280', fontSize: '1.1rem' }}>
+                          Drag products here to add to order
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: '#9ca3af', mt: 1 }}>
+                          You can drag multiple items to build your order
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1 }}>
+                        {selectedProducts.map((product) => (
+                          <Card key={product.id} sx={{ p: 2, border: '1px solid #e5e7eb' }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Box>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1f2937' }}>
+                                  {product.name}
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: '#6b7280' }}>
+                                  {product.category}
+                                </Typography>
+                              </Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    onClick={() => updateProductQuantity(product.id, product.quantity - 1)}
+                                    sx={{ minWidth: '32px', width: '32px', height: '32px', p: 0 }}
+                                  >
+                                    -
+                                  </Button>
+                                  <Typography variant="body1" sx={{ 
+                                    minWidth: '40px', 
+                                    textAlign: 'center', 
+                                    fontWeight: 600,
+                                    fontSize: '1.1rem'
+                                  }}>
+                                    {product.quantity}
+                                  </Typography>
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    onClick={() => updateProductQuantity(product.id, product.quantity + 1)}
+                                    sx={{ minWidth: '32px', width: '32px', height: '32px', p: 0 }}
+                                  >
+                                    +
+                                  </Button>
+                                </Box>
+                                <Typography variant="h6" sx={{ 
+                                  color: '#2563eb', 
+                                  fontWeight: 700, 
+                                  minWidth: '80px',
+                                  textAlign: 'right'
+                                }}>
+                                  ₹{(product.price * product.quantity).toLocaleString()}
+                                </Typography>
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => removeSelectedProduct(product.id)}
+                                  sx={{ 
+                                    '&:hover': { 
+                                      backgroundColor: '#fef2f2',
+                                      transform: 'scale(1.1)'
+                                    }
+                                  }}
+                                >
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Box>
+                            </Box>
+                          </Card>
+                        ))}
+                      </Box>
+                    )}
+                  </Box>
+
+                  {selectedProducts.length > 0 && (
+                    <Card sx={{ 
+                      mt: 2, 
+                      p: 3, 
+                      background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                      border: '2px solid #bfdbfe',
+                      borderRadius: 2
+                    }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e40af' }}>
+                          Total Amount:
+                        </Typography>
+                        <Typography variant="h4" sx={{ 
+                          color: '#2563eb', 
+                          fontWeight: 800,
+                          textShadow: '0 2px 4px rgba(37, 99, 235, 0.1)'
+                        }}>
+                          ₹{calculateTotal().toLocaleString()}
+                        </Typography>
+                      </Box>
+                      <Typography variant="body2" sx={{ color: '#1e40af', mt: 1, fontStyle: 'italic' }}>
+                        {selectedProducts.length} item{selectedProducts.length !== 1 ? 's' : ''} selected
+                      </Typography>
+                    </Card>
+                  )}
+                </Grid>
+              </Grid>
+            )}
+
+            {orderStep === 2 && (
+              <Box className="space-y-6">
+                <Typography variant="h6">Review & Submit Order</Typography>
+                
+                {/* Student Summary */}
+                <Card sx={{ backgroundColor: '#f9fafb', p: 3 }}>
+                  <Typography variant="subtitle1" className="font-semibold mb-4">Student Information</Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="body2"><strong>Name:</strong> {studentInfo.name}</Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="body2"><strong>Email:</strong> {studentInfo.email}</Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="body2"><strong>Department:</strong> {studentInfo.department}</Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="body2"><strong>Year:</strong> {studentInfo.year}</Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="body2"><strong>Project:</strong> {studentInfo.projectTitle}</Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="body2"><strong>Expected Delivery:</strong> {studentInfo.expectedDelivery}</Typography>
+                    </Grid>
+                  </Grid>
+                </Card>
+
+                {/* Order Summary */}
+                <Card sx={{ p: 3 }}>
+                  <Typography variant="subtitle1" className="font-semibold mb-4">Order Summary</Typography>
+                  <Stack spacing={2}>
+                    {selectedProducts.map((product) => (
+                      <Box key={product.id} className="flex justify-between items-center py-2 border-b">
+                        <Box>
+                          <Typography variant="body1" className="font-medium">{product.name}</Typography>
+                          <Typography variant="body2" color="text.secondary">×{product.quantity}</Typography>
+                        </Box>
+                        <Typography variant="body1" className="font-semibold">
+                          ₹{(product.price * product.quantity).toLocaleString()}
+                        </Typography>
+                      </Box>
+                    ))}
+                    <Divider />
+                    <Box className="flex justify-between items-center pt-2">
+                      <Typography variant="h6" className="font-bold">Total Amount:</Typography>
+                      <Typography variant="h5" color="primary" className="font-bold">
+                        ₹{calculateTotal().toLocaleString()}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </Card>
+
+                <Card sx={{ backgroundColor: '#eff6ff', borderColor: '#bfdbfe', p: 2 }}>
+                  <Typography variant="body2" color="primary">
+                    <strong>Note:</strong> Once submitted, this order will be processed and an invoice will be generated. 
+                    The student will receive an email confirmation with order details and payment instructions.
+                  </Typography>
+                </Card>
+              </Box>
+            )}
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ p: 3, backgroundColor: '#d386b9ff', borderTop: '1px solid #e5e7eb' }}>
+          <Button
+            onClick={() => {
+              if (orderStep > 0) {
+                setOrderStep(orderStep - 1);
+              }
+            }}
+            disabled={orderStep === 0}
+            variant="outlined"  
+          >
+            Previous
+          </Button>
+          
+          <Button
+            onClick={() => {
+              if (orderStep < 2) {
+                setOrderStep(orderStep + 1);
+              } else {
+                // Submit order
+                const newOrder = {
+                  id: `ORD${String(orders.length + 1).padStart(3, '0')}`,
+                  student: studentInfo.name,
+                  email: studentInfo.email,
+                  department: studentInfo.department,
+                  year: studentInfo.year,
+                  amount: calculateTotal(),
+                  status: 'pending',
+                  date: new Date().toISOString().split('T')[0],
+                  items: selectedProducts.map(p => p.name),
+                };
+                setOrders([...orders, newOrder]);
+                setShowCreateOrder(false);
+                setOrderStep(0);
+                setSelectedProducts([]);
+                setStudentInfo({
+                  name: '', email: '', phone: '', studentId: '', department: '', year: '',
+                  semester: '', projectTitle: '', projectDescription: '', mentorName: '', expectedDelivery: ''
+                });
+                setActiveTab(0);
+              }
+            }}
+            disabled={
+              (orderStep === 0 && (!studentInfo.name || !studentInfo.email || !studentInfo.department)) ||
+              (orderStep === 1 && selectedProducts.length === 0)
+            }
+            variant="contained"
+            sx={{
+              background: orderStep === 2 ? 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              '&:hover': {
+                background: orderStep === 2 ? 'linear-gradient(135deg, #15803d 0%, #166534 100%)' : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+              },
+            }}
+          >
+            {orderStep === 2 ? 'Submit Order' : 'Next'}
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   );
-}
+};
 
 export default OrderManagement;

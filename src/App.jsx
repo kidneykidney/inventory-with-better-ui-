@@ -34,10 +34,10 @@ import Dashboard from './pages/Dashboard';
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#1976d2',
+      main: '#10b981',
     },
     secondary: {
-      main: '#dc004e',
+      main: '#059669',
     },
   },
 });
@@ -86,13 +86,13 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ display: 'flex' }}>
+      <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
         {/* Header */}
         <AppBar 
           position="fixed" 
           sx={{ 
             zIndex: (theme) => theme.zIndex.drawer + 1,
-            backgroundColor: '#1976d2'
+            backgroundColor: '#10b981'
           }}
         >
           <Toolbar>
@@ -150,18 +150,19 @@ function App() {
           component="main"
           sx={{
             flexGrow: 1,
-            bgcolor: 'background.default',
-            p: 3,
-            width: { sm: `calc(100% - ${sidebarOpen ? drawerWidth : 0}px)` },
-            ml: { sm: sidebarOpen ? `${drawerWidth}px` : 0 },
+            backgroundColor: '#f9fafb',
+            marginLeft: sidebarOpen ? `${drawerWidth}px` : 0,
+            width: sidebarOpen ? `calc(100% - ${drawerWidth}px)` : '100%',
             transition: (theme) =>
               theme.transitions.create(['margin', 'width'], {
                 easing: theme.transitions.easing.sharp,
-                duration: theme.transitions.duration.leavingScreen,
+                duration: theme.transitions.duration.enteringScreen,
               }),
+            height: '100vh',
+            overflow: 'auto',
+            paddingTop: '64px',
           }}
         >
-          <Toolbar />
           {renderContent()}
         </Box>
       </Box>
