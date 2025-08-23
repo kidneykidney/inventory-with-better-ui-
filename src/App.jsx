@@ -30,15 +30,21 @@ import {
 // Import our modules
 import OrderManagement from './pages/OrderManagement';
 import Dashboard from './pages/Dashboard';
+import Products from './components/Products';
+import Students from './components/Students';
+import Orders from './components/Orders';
 
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#10b981',
+      main: '#4caf50', // Green theme
     },
     secondary: {
-      main: '#059669',
+      main: '#2e7d32', // Darker green
     },
+    success: {
+      main: '#66bb6a',
+    }
   },
 });
 
@@ -46,11 +52,11 @@ const drawerWidth = 280;
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [selectedModule, setSelectedModule] = useState('orders'); // Start with orders
+  const [selectedModule, setSelectedModule] = useState('products'); // Start with products
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
-    { id: 'inventory', label: 'Inventory Management', icon: <InventoryIcon /> },
+    { id: 'products', label: 'Products Management', icon: <InventoryIcon /> },
     { id: 'students', label: 'Student Management', icon: <PeopleIcon /> },
     { id: 'orders', label: 'Order Management', icon: <ShoppingCartIcon /> },
     { id: 'invoicing', label: 'Invoicing & Billing', icon: <ReceiptIcon /> },
@@ -66,9 +72,13 @@ function App() {
   const renderContent = () => {
     switch (selectedModule) {
       case 'orders':
-        return <OrderManagement />;
+        return <Orders />;
       case 'dashboard':
         return <Dashboard />;
+      case 'products':
+        return <Products />;
+      case 'students':
+        return <Students />;
       default:
         return (
           <Box sx={{ p: 3 }}>
@@ -76,7 +86,7 @@ function App() {
               {menuItems.find(item => item.id === selectedModule)?.label || 'Module'}
             </Typography>
             <Typography variant="body1">
-              This module is coming soon! Currently working on the Order Management system.
+              This module is coming soon! Currently working on the Product Management and Order Management system.
             </Typography>
           </Box>
         );
@@ -92,7 +102,7 @@ function App() {
           position="fixed" 
           sx={{ 
             zIndex: (theme) => theme.zIndex.drawer + 1,
-            backgroundColor: '#10b981'
+            backgroundColor: '#4caf50'
           }}
         >
           <Toolbar>
@@ -151,12 +161,11 @@ function App() {
           sx={{
             flexGrow: 1,
             backgroundColor: '#f9fafb',
-            marginLeft: sidebarOpen ? `${drawerWidth}px` : 0,
-            width: sidebarOpen ? `calc(100% - ${drawerWidth}px)` : '100%',
+            marginLeft: sidebarOpen ? 0 : `-${drawerWidth}px`,
             transition: (theme) =>
-              theme.transitions.create(['margin', 'width'], {
+              theme.transitions.create('margin', {
                 easing: theme.transitions.easing.sharp,
-                duration: theme.transitions.duration.enteringScreen,
+                duration: theme.transitions.duration.leavingScreen,
               }),
             height: '100vh',
             overflow: 'auto',

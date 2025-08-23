@@ -30,9 +30,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "vite",
-    "test": "vitest",
-    "server": "node server.js",
-    "server:dev": "nodemon server.js"
+    "test": "vitest"
   },
   "eslintConfig": {
     "extends": [

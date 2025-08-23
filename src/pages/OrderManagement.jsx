@@ -131,7 +131,7 @@ const OrderManagement = () => {
       change: '+12%',
       changeType: 'positive',
       icon: CartIcon,
-      gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+      gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     },
     {
       title: 'In Progress',
@@ -139,7 +139,7 @@ const OrderManagement = () => {
       change: '+5%',
       changeType: 'positive',
       icon: ScheduleIcon,
-      gradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+      gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
     },
     {
       title: 'Total Revenue',
@@ -147,7 +147,7 @@ const OrderManagement = () => {
       change: '+18%',
       changeType: 'positive',
       icon: MoneyIcon,
-      gradient: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
+      gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
     },
     {
       title: 'Pending Approval',
@@ -155,7 +155,7 @@ const OrderManagement = () => {
       change: '-3%',
       changeType: 'negative',
       icon: WarningIcon,
-      gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+      gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
     },
   ];
 
@@ -278,9 +278,9 @@ const OrderManagement = () => {
               onClick={() => setShowCreateOrder(true)}
               className="btn-primary"
               sx={{
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                 '&:hover': {
-                  background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                  background: 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)',
                 },
               }}
             >
@@ -351,7 +351,7 @@ const OrderManagement = () => {
                   minWidth: 'auto',
                 },
                 '& .Mui-selected': {
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                   color: 'white !important',
                 },
                 '& .MuiTabs-flexContainer': {
@@ -583,7 +583,7 @@ const OrderManagement = () => {
         }}
       >
         <DialogTitle sx={{ 
-          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
           color: 'white',
           display: 'flex',
           justifyContent: 'space-between',
@@ -1082,9 +1082,9 @@ const OrderManagement = () => {
             }
             variant="contained"
             sx={{
-              background: orderStep === 2 ? 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              background: orderStep === 2 ? 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               '&:hover': {
-                background: orderStep === 2 ? 'linear-gradient(135deg, #15803d 0%, #166534 100%)' : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                background: orderStep === 2 ? 'linear-gradient(135deg, #15803d 0%, #166534 100%)' : 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)',
               },
             }}
           >
