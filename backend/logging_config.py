@@ -121,13 +121,17 @@ def setup_logging():
 def log_performance(logger_name: str = 'inventory.api'):
     """Decorator to log function performance"""
     def decorator(func):
-        def wrapper(*args, **kwargs):
-            import time
+        import asyncio
+        import time
+        from functools import wraps
+        
+        @wraps(func)
+        async def async_wrapper(*args, **kwargs):
             logger = logging.getLogger(logger_name)
             start_time = time.time()
             
             try:
-                result = func(*args, **kwargs)
+                result = await func(*args, **kwargs)
                 duration = (time.time() - start_time) * 1000  # Convert to milliseconds
                 
                 logger.info(
@@ -154,7 +158,44 @@ def log_performance(logger_name: str = 'inventory.api'):
                 )
                 raise
                 
-        return wrapper
+        # Check if function is async
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        else:
+            # For sync functions, use regular wrapper
+            @wraps(func)
+            def sync_wrapper(*args, **kwargs):
+                logger = logging.getLogger(logger_name)
+                start_time = time.time()
+                
+                try:
+                    result = func(*args, **kwargs)
+                    duration = (time.time() - start_time) * 1000
+                    
+                    logger.info(
+                        f"Function {func.__name__} completed successfully",
+                        extra={
+                            'function': func.__name__,
+                            'duration': duration,
+                            'status': 'success'
+                        }
+                    )
+                    return result
+                    
+                except Exception as e:
+                    duration = (time.time() - start_time) * 1000
+                    logger.error(
+                        f"Function {func.__name__} failed: {str(e)}",
+                        extra={
+                            'function': func.__name__,
+                            'duration': duration,
+                            'status': 'error',
+                            'error': str(e)
+                        },
+                        exc_info=True
+                    )
+                    raise
+            return sync_wrapper
     return decorator
 
 # Initialize loggers when module is imported

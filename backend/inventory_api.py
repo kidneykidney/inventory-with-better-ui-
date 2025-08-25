@@ -12,6 +12,15 @@ import logging
 
 app = FastAPI(title="Inventory Management API", version="1.0.0")
 
+# Add CORS middleware FIRST - this is crucial for proper CORS handling
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003", "http://localhost:3004"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Logging middleware
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -60,15 +69,6 @@ async def log_requests(request: Request, call_next):
     response.headers["X-Request-ID"] = request_id
     
     return response
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003", "http://localhost:3004"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # Pydantic models
 class CategoryCreate(BaseModel):
@@ -489,7 +489,7 @@ async def create_product(product: ProductCreate, db: DatabaseManager = Depends(g
     # Handle empty category_id
     category_id = product.category_id if product.category_id else None
     
-    logger.info(f"Creating product: {product.name}")
+    api_logger.info(f"Creating product: {product.name}")
     
     query = """
     INSERT INTO products (
@@ -511,7 +511,7 @@ async def create_product(product: ProductCreate, db: DatabaseManager = Depends(g
         result = db.execute_command(query, params)
         
         if result:
-            logger.info(f"Product created successfully: {product_id}")
+            api_logger.info(f"Product created successfully: {product_id}")
             
             # Log the stock addition
             if product.quantity_total > 0:
@@ -526,14 +526,25 @@ async def create_product(product: ProductCreate, db: DatabaseManager = Depends(g
                 ))
             
             # Return the created product
-            return await get_product(product_id, db)
+            query = """
+            SELECT p.*, c.name as category_name 
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.id
+            WHERE p.id = %s
+            """
+            results = db.execute_query(query, (product_id,))
+            
+            if not results:
+                raise HTTPException(status_code=404, detail="Product not found")
+            
+            return results[0]
         else:
-            logger.error("execute_command returned False")
+            api_logger.error("execute_command returned False")
             raise HTTPException(status_code=400, detail="Product creation failed. This might be due to a duplicate SKU or invalid data.")
     
     except Exception as e:
         error_msg = str(e)
-        logger.error(f"Error creating product: {error_msg}")
+        api_logger.error(f"Error creating product: {error_msg}")
         
         # Provide more helpful error messages
         if "duplicate key" in error_msg and "sku" in error_msg:
@@ -669,10 +680,18 @@ async def get_orders(
     return results
 
 @app.post("/orders", response_model=Order)
-@log_performance('inventory.orders')
+# @log_performance('inventory.orders')  # Temporarily disabled for debugging
 async def create_order(order: OrderCreate, db: DatabaseManager = Depends(get_db)):
     """Create a new order"""
     order_id = str(uuid.uuid4())
+    
+    # Debug logging - check what we receive
+    api_logger.info(f"DEBUG: Received order data: {order}")
+    api_logger.info(f"DEBUG: Order student_id: {order.student_id}")
+    api_logger.info(f"DEBUG: Order expected_return_date: {order.expected_return_date}")
+    api_logger.info(f"DEBUG: Order items count: {len(order.items)}")
+    for i, item in enumerate(order.items):
+        api_logger.info(f"DEBUG: Item {i}: product_id={item.product_id}, quantity={item.quantity_requested}, expected_return_date={item.expected_return_date}")
     
     api_logger.info(
         f"Creating new order for student {order.student_id}",
@@ -735,7 +754,7 @@ async def create_order(order: OrderCreate, db: DatabaseManager = Depends(get_db)
             if not db.execute_command(item_query, (
                 item_id, order_id, item.product_id, item.quantity_requested,
                 float(product_info['unit_price']), item_total, product_info['is_returnable'],
-                item.expected_return_date, item.notes
+                item.expected_return_date or order.expected_return_date, item.notes
             )):
                 api_logger.error(f"Failed to add item {item.product_id} to order {order_id}")
                 raise HTTPException(status_code=500, detail="Failed to add order item")
