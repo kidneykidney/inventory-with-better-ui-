@@ -38,7 +38,7 @@ import {
   Scanner as ScanIcon
 } from '@mui/icons-material';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'http://localhost:8001';
 
 const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -145,23 +145,40 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
   };
 
   const populateManualData = (data) => {
-    setManualData(prev => ({
-      ...prev,
+    console.log('🔄 Populating manual data from OCR:', data);
+    
+    const newData = {
       student_name: data.student_name || '',
       student_id: data.student_id || '',
       student_email: data.student_email || '',
       department: data.department || '',
       due_date: data.due_date || '',
       notes: data.notes || '',
-      items: data.items || []
-    }));
+      items: data.items || [],
+      invoice_type: 'lending'  // Keep existing invoice type
+    };
+    
+    console.log('✅ Setting manual data to:', newData);
+    setManualData(prev => ({ ...prev, ...newData }));
+    
+    // Also log the individual fields for debugging
+    console.log('📋 OCR Extracted Fields:');
+    console.log(`   Name: "${data.student_name}"`);
+    console.log(`   ID: "${data.student_id}"`);
+    console.log(`   Email: "${data.student_email}"`);
+    console.log(`   Department: "${data.department}"`);
   };
 
   const handleManualDataChange = (field, value) => {
-    setManualData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    console.log(`📝 Field changed: ${field} = "${value}"`);
+    setManualData(prev => {
+      const updated = {
+        ...prev,
+        [field]: value
+      };
+      console.log(`📋 Updated manualData:`, updated);
+      return updated;
+    });
   };
 
   const handleItemChange = (index, field, value) => {
@@ -198,13 +215,67 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
       setLoading(true);
       setError('');
 
-      // First, find or create student
+      // First, find or create student - PRIORITIZE OCR DATA
       let student = null;
       if (manualData.student_id) {
         try {
           const studentResponse = await fetch(`${API_BASE_URL}/students/by-student-id/${manualData.student_id}`);
           if (studentResponse.ok) {
-            student = await studentResponse.json();
+            const existingStudent = await studentResponse.json();
+            
+            // Check if OCR data differs from database
+            const ocrName = manualData.student_name?.trim();
+            const dbName = existingStudent.name?.trim();
+            
+            if (ocrName && dbName && ocrName.toLowerCase() !== dbName.toLowerCase()) {
+              console.log(`⚠️  Name mismatch detected!`);
+              console.log(`   OCR extracted: "${ocrName}"`);
+              console.log(`   Database has:   "${dbName}"`);
+              
+              // ALWAYS prioritize OCR data (more recent/accurate)
+              const updateData = {
+                name: ocrName,
+                email: manualData.student_email || existingStudent.email,
+                department: manualData.department || existingStudent.department
+              };
+              
+              const updateResponse = await fetch(`${API_BASE_URL}/students/${existingStudent.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updateData)
+              });
+              
+              if (updateResponse.ok) {
+                student = await updateResponse.json();
+                console.log(`✅ Updated student record with OCR data: ${ocrName}`);
+              } else {
+                console.warn('⚠️  Failed to update student, using OCR data for new record');
+                // If update fails, we'll create a new student below
+                student = null;
+              }
+            } else {
+              // Even if names match, update with OCR data to ensure freshness
+              console.log(`🔄 Names similar, but updating with fresh OCR data: ${ocrName}`);
+              const updateData = {
+                name: ocrName,
+                email: manualData.student_email || existingStudent.email,
+                department: manualData.department || existingStudent.department
+              };
+              
+              const updateResponse = await fetch(`${API_BASE_URL}/students/${existingStudent.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updateData)
+              });
+              
+              if (updateResponse.ok) {
+                student = await updateResponse.json();
+                console.log(`✅ Updated student with fresh OCR data: ${ocrName}`);
+              } else {
+                console.warn('⚠️  Failed to update, using existing student');
+                student = existingStudent;
+              }
+            }
           }
         } catch (err) {
           console.log('Student not found, will create new one');
@@ -230,7 +301,10 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
 
         if (createStudentResponse.ok) {
           student = await createStudentResponse.json();
+          console.log(`✅ Created new student: ${studentData.name} (${studentData.student_id})`);
         } else {
+          const errorText = await createStudentResponse.text();
+          console.error('Failed to create student:', errorText);
           throw new Error('Failed to create student record');
         }
       }
@@ -238,6 +312,8 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
       if (!student) {
         throw new Error('Student information is required to create invoice');
       }
+
+      console.log(`🎯 Using final student data: Name="${student.name}", ID="${student.student_id}", DB_ID=${student.id}`);
 
       // Create order
       // Convert extracted items to order items format
@@ -370,6 +446,13 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
       }
 
       onSuccess(invoice);
+      
+      // Force page refresh to show latest data
+      console.log("🔄 Refreshing page to show updated data...");
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+      
       handleClose();
 
     } catch (err) {

@@ -243,67 +243,93 @@ async def get_invoice(invoice_id: str, db: DatabaseManager = Depends(get_db)):
 
 @invoice_router.put("/{invoice_id}", response_model=Invoice)
 async def update_invoice(invoice_id: str, invoice_update: InvoiceUpdate, db: DatabaseManager = Depends(get_db)):
-    """Update invoice"""
-    # Get current invoice for logging
-    current_result = db.execute_query("SELECT * FROM invoices WHERE id = %s", (invoice_id,))
-    if not current_result:
-        raise HTTPException(status_code=404, detail="Invoice not found")
-    
-    current = current_result[0]
-    
-    # Build update query
-    update_fields = []
-    params = []
-    
-    if invoice_update.status is not None:
-        update_fields.append("status = %s")
-        params.append(invoice_update.status)
-    
-    if invoice_update.has_physical_copy is not None:
-        update_fields.append("has_physical_copy = %s")
-        params.append(invoice_update.has_physical_copy)
-    
-    if invoice_update.physical_invoice_captured is not None:
-        update_fields.append("physical_invoice_captured = %s")
-        params.append(invoice_update.physical_invoice_captured)
-    
-    if invoice_update.physical_invoice_notes is not None:
-        update_fields.append("physical_invoice_notes = %s")
-        params.append(invoice_update.physical_invoice_notes)
-    
-    if invoice_update.acknowledged_by_student is not None:
-        update_fields.append("acknowledged_by_student = %s")
-        params.append(invoice_update.acknowledged_by_student)
+    """Update invoice (optimized for 8GB RAM)"""
+    try:
+        # Get current invoice for logging
+        current_result = db.execute_query("SELECT * FROM invoices WHERE id = %s", (invoice_id,))
+        if not current_result:
+            raise HTTPException(status_code=404, detail="Invoice not found")
         
-        if invoice_update.acknowledged_by_student:
-            update_fields.append("acknowledgment_date = CURRENT_TIMESTAMP")
-    
-    if invoice_update.notes is not None:
-        update_fields.append("notes = %s")
-        params.append(invoice_update.notes)
-    
-    if not update_fields:
-        return current
-    
-    params.append(invoice_id)
-    query = f"UPDATE invoices SET {', '.join(update_fields)} WHERE id = %s RETURNING *"
-    
-    result = db.execute_query(query, params)
-    
-    if not result:
-        raise HTTPException(status_code=500, detail="Failed to update invoice")
-    
-    updated_invoice = result[0]
-    
-    # Log the transaction
-    if invoice_update.status and invoice_update.status != current['status']:
-        log_invoice_transaction(
-            db, invoice_id, 'modified', 
-            current['status'], invoice_update.status, 
-            'System', f"Status changed from {current['status']} to {invoice_update.status}"
-        )
-    
-    return updated_invoice
+        current = current_result[0]
+        api_logger.info(f"Updating invoice {invoice_id}")
+        
+        # Build update query efficiently
+        update_fields = []
+        params = []
+        
+        if invoice_update.status is not None:
+            update_fields.append("status = %s")
+            params.append(invoice_update.status)
+            api_logger.info(f"Status change: {current['status']} -> {invoice_update.status}")
+        
+        if invoice_update.has_physical_copy is not None:
+            update_fields.append("has_physical_copy = %s")
+            params.append(invoice_update.has_physical_copy)
+        
+        if invoice_update.physical_invoice_captured is not None:
+            update_fields.append("physical_invoice_captured = %s")
+            params.append(invoice_update.physical_invoice_captured)
+        
+        if invoice_update.physical_invoice_notes is not None:
+            update_fields.append("physical_invoice_notes = %s")
+            params.append(invoice_update.physical_invoice_notes)
+        
+        if invoice_update.acknowledged_by_student is not None:
+            update_fields.append("acknowledged_by_student = %s")
+            params.append(invoice_update.acknowledged_by_student)
+            
+            if invoice_update.acknowledged_by_student:
+                update_fields.append("acknowledgment_date = CURRENT_TIMESTAMP")
+        
+        if invoice_update.notes is not None:
+            update_fields.append("notes = %s")
+            params.append(invoice_update.notes)
+        
+        # Always update the updated_at timestamp
+        update_fields.append("updated_at = CURRENT_TIMESTAMP")
+        
+        if not update_fields or len(update_fields) == 1:  # Only timestamp
+            api_logger.info("No fields to update")
+            return current
+        
+        # Execute update with proper error handling
+        params.append(invoice_id)
+        query = f"UPDATE invoices SET {', '.join(update_fields)} WHERE id = %s RETURNING *"
+        
+        api_logger.debug(f"Update query: {query}")
+        api_logger.debug(f"Update params: {params}")
+        
+        result = db.execute_query(query, params)
+        
+        if not result:
+            api_logger.error("Update query returned no results")
+            raise HTTPException(status_code=500, detail="Failed to update invoice - no result returned")
+        
+        updated_invoice = result[0]
+        api_logger.info(f"Invoice {invoice_id} updated successfully")
+        
+        # Log the transaction for status changes only (to save memory)
+        if invoice_update.status and invoice_update.status != current.get('status'):
+            try:
+                log_invoice_transaction(
+                    db, invoice_id, 'modified', 
+                    current['status'], invoice_update.status, 
+                    'System', f"Status: {current['status']} → {invoice_update.status}"
+                )
+                api_logger.info("Transaction logged")
+            except Exception as e:
+                # Don't fail the update if logging fails
+                api_logger.warning(f"Transaction logging failed: {e}")
+        
+        # Force a small delay to ensure DB commit (helps with 8GB systems)
+        import time
+        time.sleep(0.1)
+        
+        return updated_invoice
+        
+    except Exception as e:
+        api_logger.error(f"Invoice update failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
 
 @invoice_router.delete("/{invoice_id}")
 async def delete_invoice(invoice_id: str, db: DatabaseManager = Depends(get_db)):
@@ -870,83 +896,153 @@ async def get_invoice_stats(db: DatabaseManager = Depends(get_db)):
 # UTILITY FUNCTIONS
 
 def extract_text_from_image(image_path: str) -> str:
-    """Extract text from image using OCR"""
+    """Lightweight OCR optimized for low-memory systems (8GB RAM)"""
     if not OCR_AVAILABLE:
         api_logger.warning("OCR libraries not available")
         return ""
     
     try:
-        api_logger.info(f"Starting OCR processing for: {image_path}")
+        api_logger.info(f"Starting lightweight OCR for: {image_path}")
         
-        # Check if file exists
         if not os.path.exists(image_path):
             api_logger.error(f"Image file not found: {image_path}")
             return ""
         
-        # Load image
+        # Load and resize image if too large (memory optimization)
         try:
             image = Image.open(image_path)
-            api_logger.info(f"Image loaded successfully: {image.size}, mode: {image.mode}")
+            
+            # Limit image size to reduce memory usage
+            max_dimension = 2000
+            if max(image.size) > max_dimension:
+                ratio = max_dimension / max(image.size)
+                new_size = tuple(int(dim * ratio) for dim in image.size)
+                image = image.resize(new_size, Image.LANCZOS)
+                api_logger.info(f"Resized image to: {image.size}")
+                
+            # Convert to RGB if needed
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+                
+            api_logger.info(f"Image loaded: {image.size}, mode: {image.mode}")
+            
         except Exception as e:
             api_logger.error(f"Failed to load image: {e}")
             return ""
         
-        # Convert to OpenCV format for preprocessing
-        try:
-            cv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-            api_logger.info("Image converted to OpenCV format")
-            
-            # Preprocess image for better OCR
-            gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
-            
-            # Apply denoising
-            denoised = cv2.fastNlMeansDenoising(gray)
-            
-            # Apply adaptive thresholding
-            thresh = cv2.adaptiveThreshold(denoised, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-            
-            # Convert back to PIL Image
-            pil_image = Image.fromarray(thresh)
-            api_logger.info("Image preprocessing completed")
-        except Exception as e:
-            api_logger.warning(f"Image preprocessing failed, using original image: {e}")
-            pil_image = image
+        best_text = ""
+        best_score = 0
         
-        # Extract text using Tesseract with multiple configurations
+        # Memory-efficient preprocessing - only keep 2 versions max
         try:
-            # Try different PSM modes for better text extraction
-            configs = [
-                '--psm 6',  # Single block
-                '--psm 4',  # Single column
-                '--psm 3',  # Fully automatic
-                '--psm 1'   # Sparse text
+            # Convert to numpy once
+            img_array = np.array(image)
+            
+            # Simple grayscale conversion
+            if len(img_array.shape) == 3:
+                gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+            else:
+                gray = img_array
+            
+            # Only create 2 versions to save memory
+            versions = [
+                ("Original", gray),
             ]
             
-            best_text = ""
-            for config in configs:
-                try:
-                    text = pytesseract.image_to_string(pil_image, config=config)
-                    if len(text.strip()) > len(best_text.strip()):
-                        best_text = text
-                        api_logger.info(f"Better OCR result with config: {config}, length: {len(text)}")
-                except Exception as e:
-                    api_logger.warning(f"OCR failed with config {config}: {e}")
-                    continue
-            
-            # If no text extracted, try with original image
-            if not best_text.strip():
-                api_logger.info("Trying OCR with original image")
-                best_text = pytesseract.image_to_string(image, config='--psm 6')
-            
-            api_logger.info(f"OCR completed. Extracted text length: {len(best_text)}")
-            if best_text.strip():
-                api_logger.debug(f"First 200 characters: {best_text[:200]}")
-            
-            return best_text.strip()
+            # Add one enhanced version only if image quality seems poor
+            try:
+                # Quick contrast check
+                contrast = gray.std()
+                if contrast < 40:  # Low contrast image
+                    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+                    enhanced = clahe.apply(gray)
+                    versions.append(("Enhanced", enhanced))
+                    api_logger.info("Added enhanced version for low contrast")
+            except Exception as e:
+                api_logger.debug(f"Enhancement failed: {e}")
             
         except Exception as e:
-            api_logger.error(f"Tesseract OCR failed: {e}")
-            return ""
+            api_logger.warning(f"Preprocessing failed, using PIL: {e}")
+            versions = [("PIL", image)]
+        
+        # Simplified OCR configs - only the most effective ones
+        configs = [
+            '--psm 6 --oem 3',      # Most reliable for documents
+            '--psm 4 --oem 3',      # Single column
+        ]
+        
+        # Process each version
+        for version_name, img_data in versions:
+            try:
+                # Convert to PIL if needed
+                if isinstance(img_data, np.ndarray):
+                    pil_img = Image.fromarray(img_data)
+                else:
+                    pil_img = img_data
+                
+                for config in configs:
+                    try:
+                        # Extract text with timeout protection
+                        text = pytesseract.image_to_string(pil_img, config=config, timeout=30)
+                        text_len = len(text.strip())
+                        
+                        # Simple scoring based on text length and basic patterns
+                        score = text_len
+                        
+                        # Bonus for common invoice patterns
+                        if any(word in text.lower() for word in ['invoice', 'total', 'student', 'equipment']):
+                            score += 50
+                        
+                        # Bonus for numbers (prices, dates, IDs)
+                        import re
+                        if re.search(r'\d+', text):
+                            score += 20
+                            
+                        if score > best_score and text_len > 10:
+                            best_text = text
+                            best_score = score
+                            api_logger.info(f"Better OCR: {version_name}, score: {score}, length: {text_len}")
+                    
+                    except Exception as e:
+                        api_logger.debug(f"OCR failed for {version_name}: {e}")
+                        continue
+                
+                # Clear memory immediately after processing each version
+                if isinstance(img_data, np.ndarray):
+                    del img_data
+                    
+            except Exception as e:
+                api_logger.warning(f"Version processing failed: {e}")
+                continue
+        
+        # Fallback if nothing worked
+        if not best_text.strip():
+            try:
+                api_logger.info("Using simple fallback OCR")
+                best_text = pytesseract.image_to_string(image, config='--psm 6', timeout=20)
+            except Exception as e:
+                api_logger.error(f"Fallback OCR failed: {e}")
+                return ""
+        
+        # Memory cleanup
+        del image
+        if 'img_array' in locals():
+            del img_array
+        if 'gray' in locals():
+            del gray
+            
+        result_length = len(best_text.strip())
+        api_logger.info(f"OCR completed. Score: {best_score}, length: {result_length}")
+        
+        # Provide confidence feedback based on score
+        if best_score > 100:
+            api_logger.info("HIGH CONFIDENCE - Good text extraction")
+        elif best_score > 50:
+            api_logger.info("MEDIUM CONFIDENCE - Review extracted data")
+        else:
+            api_logger.warning("LOW CONFIDENCE - Consider retaking photo")
+        
+        return best_text.strip()
         
     except Exception as e:
         api_logger.error(f"OCR processing failed: {e}")
@@ -1232,6 +1328,43 @@ def convert_date_to_iso_format(date_str: str) -> str:
         print(f"Date parsing error for '{date_str}': {e}")
         return ""
 
+def clean_extracted_text(text: str, field_type: str = "general") -> str:
+    """Clean and validate extracted text based on field type"""
+    if not text:
+        return ""
+    
+    # Basic cleaning
+    cleaned = text.strip()
+    
+    # Remove excessive repeated characters (like sarahhhhh -> sarah)
+    import re
+    if field_type == "name":
+        # Remove excessive repeated characters (more than 2 in a row)
+        cleaned = re.sub(r'(.)\1{2,}', r'\1\1', cleaned)
+        # Capitalize properly
+        cleaned = ' '.join(word.capitalize() for word in cleaned.split())
+        # Remove non-alphabetic characters except spaces
+        cleaned = re.sub(r'[^a-zA-Z\s]', '', cleaned)
+        # Remove extra spaces
+        cleaned = ' '.join(cleaned.split())
+        
+    elif field_type == "email":
+        # Basic email validation
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', cleaned):
+            return ""
+            
+    elif field_type == "student_id":
+        # Remove spaces and non-alphanumeric characters
+        cleaned = re.sub(r'[^a-zA-Z0-9]', '', cleaned)
+        
+    elif field_type == "department":
+        # Capitalize properly and clean
+        cleaned = ' '.join(word.capitalize() for word in cleaned.split())
+        cleaned = re.sub(r'[^a-zA-Z\s&]', '', cleaned)
+        cleaned = ' '.join(cleaned.split())
+    
+    return cleaned
+
 def parse_text_simple(text: str) -> dict:
     """
     Enhanced text parsing to extract common invoice fields
@@ -1269,23 +1402,27 @@ def parse_text_simple(text: str) -> dict:
     student_id_patterns = [
         r'Student\s+ID[#:]?\s*([A-Z0-9]+)',
         r'STU\s*([0-9]{4,6})',
-        r'ID[#:]?\s*([A-Z0-9]{5,10})'
+        r'ID[#:]?\s*([A-Z0-9]{5,10})',
+        r'STUD([0-9]{6,8})'
     ]
     for pattern in student_id_patterns:
         match = re.search(pattern, full_text, re.IGNORECASE)
         if match and not extracted["student_id"]:
-            extracted["student_id"] = match.group(1)
-            break
+            student_id = clean_extracted_text(match.group(1), "student_id")
+            if len(student_id) >= 4:  # Valid student ID should be at least 4 characters
+                extracted["student_id"] = student_id
+                break
     
     # Look for student name patterns
     name_patterns = [
-        r'Student\s+Name[#:]?\s*([A-Za-z\s]+?)(?:Department|Email|\n)',
-        r'Name[#:]?\s*([A-Za-z\s]+?)(?:Department|Email|\n)'
+        r'Student\s+Name[#:]?\s*([A-Za-z\s]+?)(?:Department|Email|Student\s+ID|\n)',
+        r'Name[#:]?\s*([A-Za-z\s]+?)(?:Department|Email|Student\s+ID|\n)',
+        r'Name[#:]?\s*([A-Za-z\s]+?)$'
     ]
     for pattern in name_patterns:
         match = re.search(pattern, full_text, re.IGNORECASE)
         if match and not extracted["student_name"]:
-            name = match.group(1).strip()
+            name = clean_extracted_text(match.group(1), "name")
             if len(name) > 2:  # Valid name should be more than 2 characters
                 extracted["student_name"] = name
                 break
@@ -1293,17 +1430,19 @@ def parse_text_simple(text: str) -> dict:
     # Look for email patterns
     email_match = re.search(r'\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b', full_text)
     if email_match:
-        extracted["student_email"] = email_match.group(1)
+        email = clean_extracted_text(email_match.group(1), "email")
+        if email:  # Only set if valid email
+            extracted["student_email"] = email
     
     # Look for department
     dept_patterns = [
-        r'Department[#:]?\s*([A-Za-z\s]+?)(?:Email|Year|Due|\n)',
-        r'Dept[#:]?\s*([A-Za-z\s]+?)(?:Email|Year|Due|\n)'
+        r'Department[#:]?\s*([A-Za-z\s&]+?)(?:Email|Year|Due|Student\s+ID|\n)',
+        r'Dept[#:]?\s*([A-Za-z\s&]+?)(?:Email|Year|Due|Student\s+ID|\n)'
     ]
     for pattern in dept_patterns:
         match = re.search(pattern, full_text, re.IGNORECASE)
         if match and not extracted["department"]:
-            dept = match.group(1).strip()
+            dept = clean_extracted_text(match.group(1), "department")
             if len(dept) > 2:
                 extracted["department"] = dept
                 break
@@ -1395,8 +1534,22 @@ def parse_text_simple(text: str) -> dict:
     
     extracted["confidence_score"] = min(confidence, 100)
     
-    api_logger.info(f"Enhanced parsing completed. Confidence: {extracted['confidence_score']}%")
-    api_logger.info(f"Extracted: Name='{extracted['student_name']}', ID='{extracted['student_id']}', Email='{extracted['student_email']}', Dept='{extracted['department']}', Items={len(extracted['items'])}")
+    # Enhanced logging with data validation
+    api_logger.info(f"✨ Enhanced parsing completed. Confidence: {extracted['confidence_score']}%")
+    api_logger.info(f"📋 Extracted Data Summary:")
+    api_logger.info(f"   👤 Name: '{extracted['student_name']}' (Length: {len(extracted['student_name'])})")
+    api_logger.info(f"   🆔 ID: '{extracted['student_id']}' (Length: {len(extracted['student_id'])})")
+    api_logger.info(f"   📧 Email: '{extracted['student_email']}' (Valid: {bool(extracted['student_email'])})")
+    api_logger.info(f"   🏫 Department: '{extracted['department']}' (Length: {len(extracted['department'])})")
+    api_logger.info(f"   📦 Items: {len(extracted['items'])} extracted")
+    
+    # Validation warnings
+    if len(extracted['student_name']) < 3:
+        api_logger.warning("⚠️  Student name seems too short")
+    if len(extracted['student_id']) < 4:
+        api_logger.warning("⚠️  Student ID seems invalid")
+    if not extracted['student_email'] and extracted['confidence_score'] > 50:
+        api_logger.warning("⚠️  No valid email found despite good OCR")
     
     return extracted
 

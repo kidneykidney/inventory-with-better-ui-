@@ -672,6 +672,78 @@ async def create_student(student: StudentCreate, db: DatabaseManager = Depends(g
     
     raise HTTPException(status_code=500, detail="Failed to create student")
 
+@app.put("/students/{student_db_id}", response_model=Student)
+async def update_student(student_db_id: str, student_update: dict, db: DatabaseManager = Depends(get_db)):
+    """Update an existing student with OCR data"""
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    logger.info(f"🔄 Updating student {student_db_id} with data: {student_update}")
+    
+    # Check if student exists
+    existing_query = "SELECT * FROM students WHERE id = %s"
+    existing_student = db.execute_query(existing_query, (student_db_id,))
+    
+    if not existing_student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    existing_student = existing_student[0]
+    logger.info(f"📋 Found existing student: {existing_student.get('name')}")
+    
+    # Build update query dynamically based on provided fields
+    update_fields = []
+    update_values = []
+    
+    # Map common field names to database columns
+    field_mapping = {
+        'name': 'name',
+        'student_name': 'name', 
+        'email': 'email',
+        'student_email': 'email',
+        'phone': 'phone',
+        'department': 'department',
+        'year_of_study': 'year_of_study',
+        'course': 'course'
+    }
+    
+    for field, db_column in field_mapping.items():
+        if field in student_update and student_update[field]:
+            update_fields.append(f"{db_column} = %s")
+            update_values.append(student_update[field])
+            logger.info(f"🔄 Will update {db_column}: {student_update[field]}")
+    
+    if not update_fields:
+        # No fields to update, return existing student
+        logger.info("⚠️  No valid fields to update, returning existing student")
+        return existing_student
+    
+    # Always update the updated_at timestamp
+    update_fields.append("updated_at = CURRENT_TIMESTAMP")
+    update_values.append(student_db_id)  # for WHERE clause
+    
+    # Build and execute update query
+    update_query = f"""
+    UPDATE students 
+    SET {', '.join(update_fields)}
+    WHERE id = %s
+    RETURNING *
+    """
+    
+    logger.info(f"🔧 Executing update query: {update_query}")
+    logger.info(f"🔧 With values: {update_values}")
+    
+    try:
+        result = db.execute_query(update_query, update_values)
+        if result:
+            updated_student = result[0]
+            logger.info(f"✅ Successfully updated student: {updated_student.get('name')}")
+            return updated_student
+        else:
+            raise HTTPException(status_code=500, detail="Update query returned no results")
+    except Exception as e:
+        logger.error(f"❌ Failed to update student: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update student: {str(e)}")
+
 @app.delete("/students/{student_id}")
 async def delete_student(student_id: str, db: DatabaseManager = Depends(get_db)):
     """Delete a student (hard delete - permanently removes from database)"""

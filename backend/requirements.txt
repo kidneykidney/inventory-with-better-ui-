@@ -1,6 +1,33 @@
+# Core FastAPI and database requirements (optimized for Docker/8GB RAM)
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 psycopg2-binary==2.9.7
 pydantic==2.4.2
 python-multipart==0.0.6
 python-dotenv==1.0.0
+
+# Database ORM
+sqlalchemy==2.0.23
+
+# Image processing and OCR (lightweight versions)
+Pillow==10.1.0
+opencv-python-headless==4.8.1.78
+pytesseract==0.3.10
+numpy==1.24.3
+
+# Data processing
+pandas==2.1.4
+openpyxl==3.1.2
+
+# Date/time utilities
+python-dateutil==2.8.2
+
+# Logging and utilities
+loguru==0.7.2
+httpx==0.25.2
+
+# CORS
+fastapi-cors==0.0.6
+
+# Performance monitoring (for 8GB systems)
+memory-profiler==0.61.0
