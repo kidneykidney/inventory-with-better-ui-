@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException, Depends, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime, date
@@ -10,7 +12,37 @@ from database_manager import get_db, DatabaseManager
 from logging_config import api_logger, main_logger, db_logger, log_performance
 import logging
 
+# Try to import invoice_router with error handling
+try:
+    from invoice_api import invoice_router
+    INVOICE_MODULE_LOADED = True
+except ImportError as e:
+    print(f"Warning: Could not import invoice_api: {e}")
+    INVOICE_MODULE_LOADED = False
+    invoice_router = None
+
 app = FastAPI(title="Inventory Management API", version="1.0.0")
+
+# Add validation error handler
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    body = await request.body()
+    api_logger.error(f"Validation error on {request.method} {request.url.path}: {exc}")
+    api_logger.error(f"Request body length: {len(body)} bytes")
+    # Convert body to string for logging, truncate if too long
+    body_preview = body[:500].decode('utf-8', errors='replace') if len(body) > 0 else "empty"
+    api_logger.error(f"Request body preview: {body_preview}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors(), "body": "Validation failed"}
+    )
+
+# Include invoice router only if loaded successfully
+if INVOICE_MODULE_LOADED and invoice_router:
+    app.include_router(invoice_router)
+    print("Invoice API routes loaded successfully")
+else:
+    print("Running without invoice API routes")
 
 # Add CORS middleware FIRST - this is crucial for proper CORS handling
 app.add_middleware(
@@ -610,6 +642,8 @@ async def get_students(db: DatabaseManager = Depends(get_db)):
 @app.post("/students", response_model=Student)
 async def create_student(student: StudentCreate, db: DatabaseManager = Depends(get_db)):
     """Create a new student"""
+    import psycopg2
+    
     student_id = str(uuid.uuid4())
     query = """
     INSERT INTO students (id, student_id, name, email, phone, department, year_of_study, course)
@@ -621,10 +655,20 @@ async def create_student(student: StudentCreate, db: DatabaseManager = Depends(g
         student.phone, student.department, student.year_of_study, student.course
     )
     
-    if db.execute_command(query, params):
-        result = db.execute_query("SELECT * FROM students WHERE id = %s", (student_id,))
+    try:
+        if db.execute_command(query, params):
+            result = db.execute_query("SELECT * FROM students WHERE id = %s", (student_id,))
+            if result:
+                return result[0]
+    except psycopg2.errors.UniqueViolation:
+        # Student with this student_id already exists, return the existing one
+        result = db.execute_query("SELECT * FROM students WHERE student_id = %s", (student.student_id,))
         if result:
             return result[0]
+        # If for some reason we can't find the existing student, raise an error
+        raise HTTPException(status_code=409, detail=f"Student with ID {student.student_id} already exists")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create student: {str(e)}")
     
     raise HTTPException(status_code=500, detail="Failed to create student")
 
@@ -637,6 +681,34 @@ async def delete_student(student_id: str, db: DatabaseManager = Depends(get_db))
         return {"message": "Student deleted successfully"}
     
     raise HTTPException(status_code=500, detail="Failed to delete student")
+
+@app.get("/students/by-student-id/{student_id}")
+async def get_student_by_student_id(student_id: str, db: DatabaseManager = Depends(get_db)):
+    """Get student by their student ID (not database ID)"""
+    query = """
+    SELECT id, student_id, name, email, phone, department, 
+           year_of_study, course, is_active, created_at, updated_at
+    FROM students 
+    WHERE student_id = %s AND is_active = true
+    """
+    
+    result = db.fetch_one(query, (student_id,))
+    if not result:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    return {
+        "id": result["id"],
+        "student_id": result["student_id"],
+        "name": result["name"],
+        "email": result["email"],
+        "phone": result["phone"],
+        "department": result["department"],
+        "year_of_study": result["year_of_study"],
+        "course": result["course"],
+        "is_active": result["is_active"],
+        "created_at": result["created_at"],
+        "updated_at": result["updated_at"]
+    }
 
 # Order endpoints
 @app.get("/orders", response_model=List[Order])

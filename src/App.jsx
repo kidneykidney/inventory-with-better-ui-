@@ -33,6 +33,8 @@ import Dashboard from './pages/Dashboard';
 import Products from './components/Products';
 import Students from './components/Students';
 import Orders from './components/Orders';
+import InvoiceManagement from './components/InvoiceManagement';
+import InvoiceDashboard from './components/InvoiceDashboard';
 
 const theme = createTheme({
   palette: {
@@ -79,6 +81,10 @@ function App() {
         return <Products />;
       case 'students':
         return <Students />;
+      case 'invoicing':
+        return <InvoiceManagement />;
+      case 'invoice-dashboard':
+        return <InvoiceDashboard />;
       default:
         return (
           <Box sx={{ p: 3 }}>

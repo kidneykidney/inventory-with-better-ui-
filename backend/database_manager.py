@@ -48,6 +48,18 @@ class DatabaseManager:
         except psycopg2.Error as e:
             logger.error(f"Error executing query: {e}")
             return []
+
+    def fetch_one(self, query: str, params: tuple = None) -> Optional[Dict]:
+        """Execute SELECT query and return first result"""
+        try:
+            cursor = self.connection.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(query, params)
+            result = cursor.fetchone()
+            cursor.close()
+            return dict(result) if result else None
+        except psycopg2.Error as e:
+            logger.error(f"Error executing query: {e}")
+            return None
     
     def execute_command(self, command: str, params: tuple = None) -> bool:
         """Execute INSERT, UPDATE, DELETE commands"""
