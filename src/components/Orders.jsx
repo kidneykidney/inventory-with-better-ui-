@@ -108,7 +108,7 @@ const Orders = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      let url = `${API_BASE}/orders`;
+      let url = `${API_BASE}/api/orders`;
       const params = [];
       
       if (statusFilter !== 'all') params.push(`status=${statusFilter}`);
@@ -127,7 +127,7 @@ const Orders = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch(`${API_BASE}/products?status=active`);
+      const response = await fetch(`${API_BASE}/api/products?status=active`);
       const data = await response.json();
       setProducts(data);
     } catch (error) {
@@ -159,7 +159,7 @@ const Orders = () => {
         expected_return_date: orderForm.expected_return_date || null
       };
 
-      const response = await fetch(`${API_BASE}/orders`, {
+      const response = await fetch(`${API_BASE}/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData)
@@ -181,7 +181,7 @@ const Orders = () => {
 
   const approveOrder = async (orderId) => {
     try {
-      const response = await fetch(`${API_BASE}/orders/${orderId}/approve`, {
+      const response = await fetch(`${API_BASE}/api/orders/${orderId}/approve`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ approved_by: 'Admin' })
@@ -204,7 +204,7 @@ const Orders = () => {
     }
     
     try {
-      const response = await fetch(`${API_BASE}/orders/${orderId}`, {
+      const response = await fetch(`${API_BASE}/api/orders/${orderId}`, {
         method: 'DELETE'
       });
       
@@ -222,7 +222,7 @@ const Orders = () => {
   const returnItem = async () => {
     try {
       const response = await fetch(
-        `${API_BASE}/orders/${selectedOrder.id}/items/${returnForm.item_id}/return`,
+        `${API_BASE}/api/orders/${selectedOrder.id}/items/${returnForm.item_id}/return`,
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },

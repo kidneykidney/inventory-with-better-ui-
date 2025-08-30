@@ -98,7 +98,7 @@ const Products = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      let url = `${API_BASE}/products?status=${statusFilter}`;
+      let url = `${API_BASE}/api/products?status=${statusFilter}`;
       if (selectedCategory) url += `&category_id=${selectedCategory}`;
       if (searchTerm) url += `&search=${searchTerm}`;
       
@@ -140,7 +140,7 @@ const Products = () => {
         category_id: productForm.category_id || null
       };
       
-      const response = await fetch(`${API_BASE}/products`, {
+      const response = await fetch(`${API_BASE}/api/products`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(productData)
@@ -164,7 +164,7 @@ const Products = () => {
 
   const updateProduct = async () => {
     try {
-      const response = await fetch(`${API_BASE}/products/${editingProduct.id}`, {
+      const response = await fetch(`${API_BASE}/api/products/${editingProduct.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(productForm)
@@ -185,7 +185,7 @@ const Products = () => {
 
   const deleteProduct = async (productId) => {
     try {
-      const response = await fetch(`${API_BASE}/products/${productId}`, {
+      const response = await fetch(`${API_BASE}/api/products/${productId}`, {
         method: 'DELETE'
       });
       
@@ -237,7 +237,7 @@ const Products = () => {
         expected_return_date: expectedReturnDate || null
       };
 
-      const response = await fetch(`${API_BASE}/orders`, {
+      const response = await fetch(`${API_BASE}/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData)

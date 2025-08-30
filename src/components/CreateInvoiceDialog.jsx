@@ -90,7 +90,7 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/products`);
+      const response = await fetch(`${API_BASE_URL}/api/products`);
       const data = await response.json();
       if (response.ok) {
         setProducts(data.filter(p => p.status === 'active' && p.quantity_available > 0));
@@ -190,7 +190,7 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
         }))
       };
 
-      const orderResponse = await fetch(`${API_BASE_URL}/orders`, {
+      const orderResponse = await fetch(`${API_BASE_URL}/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData)

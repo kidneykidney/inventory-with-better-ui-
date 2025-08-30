@@ -219,7 +219,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
       let student = null;
       if (manualData.student_id) {
         try {
-          const studentResponse = await fetch(`${API_BASE_URL}/students/by-student-id/${manualData.student_id}`);
+          const studentResponse = await fetch(`${API_BASE_URL}/api/students/by-student-id/${manualData.student_id}`);
           if (studentResponse.ok) {
             const existingStudent = await studentResponse.json();
             
@@ -239,7 +239,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
                 department: manualData.department || existingStudent.department
               };
               
-              const updateResponse = await fetch(`${API_BASE_URL}/students/${existingStudent.id}`, {
+              const updateResponse = await fetch(`${API_BASE_URL}/api/students/${existingStudent.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updateData)
@@ -262,7 +262,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
                 department: manualData.department || existingStudent.department
               };
               
-              const updateResponse = await fetch(`${API_BASE_URL}/students/${existingStudent.id}`, {
+              const updateResponse = await fetch(`${API_BASE_URL}/api/students/${existingStudent.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updateData)
@@ -321,7 +321,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
       
       if (manualData.items && manualData.items.length > 0) {
         // Try to match OCR items to actual products by SKU
-        const productsResponse = await fetch(`${API_BASE_URL}/products`);
+        const productsResponse = await fetch(`${API_BASE_URL}/api/products`);
         const products = await productsResponse.json();
         
         for (const ocrItem of manualData.items) {
@@ -353,7 +353,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
       // If no items matched, create default items from known products
       if (orderItems.length === 0) {
         console.log('No items matched, creating default order items');
-        const productsResponse = await fetch(`${API_BASE_URL}/products`);
+        const productsResponse = await fetch(`${API_BASE_URL}/api/products`);
         const products = await productsResponse.json();
         
         // Find our lab equipment products by SKU
@@ -378,7 +378,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
         notes: `Created from OCR upload: ${manualData.notes}`
       };
 
-      const orderResponse = await fetch(`${API_BASE_URL}/orders`, {
+      const orderResponse = await fetch(`${API_BASE_URL}/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData)

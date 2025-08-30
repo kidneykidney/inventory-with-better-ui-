@@ -59,7 +59,7 @@ class InvoiceBase(BaseModel):
     notes: Optional[str] = None
 
 class InvoiceCreate(InvoiceBase):
-    order_id: str
+    order_id: Optional[str] = None  # Allow manual invoice creation without order
     student_id: str
     issued_by: str
     due_date: Optional[datetime] = None
@@ -219,8 +219,8 @@ class InvoiceTransaction(BaseModel):
 class Invoice(InvoiceBase):
     id: str
     invoice_number: str
-    order_id: str
-    student_id: str
+    order_id: Optional[str] = None  # Allow NULL values
+    student_id: Optional[str] = None  # Allow NULL values
     status: str
     total_items: int
     total_value: float

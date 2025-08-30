@@ -1,100 +1,58 @@
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 export const dashboardAPI = {
-  // Get dashboard statistics
+  // Get dashboard statistics from backend endpoint
   async getStats() {
     try {
-      const [products, students, orders, categories] = await Promise.all([
-        fetch(`${API_BASE_URL}/products`),
-        fetch(`${API_BASE_URL}/students`),
-        fetch(`${API_BASE_URL}/orders`),
-        fetch(`${API_BASE_URL}/categories`)
-      ]);
-
-      const [productsData, studentsData, ordersData, categoriesData] = await Promise.all([
-        products.ok ? products.json() : [],
-        students.ok ? students.json() : [],
-        orders.ok ? orders.json() : [],
-        categories.ok ? categories.json() : []
-      ]);
-
-      // Calculate statistics
-      const stats = {
-        // Product statistics
-        total_products: Array.isArray(productsData) ? productsData.length : 0,
-        active_products: Array.isArray(productsData) ? productsData.filter(p => p.status === 'active').length : 0,
-        low_stock_count: Array.isArray(productsData) ? productsData.filter(p => 
-          p.status === 'active' && 
-          p.quantity_available <= (p.minimum_stock_level || 5)
-        ).length : 0,
-        out_of_stock_count: Array.isArray(productsData) ? productsData.filter(p => 
-          p.status === 'active' && p.quantity_available === 0
-        ).length : 0,
-        
-        // Calculate total inventory value
-        total_value: Array.isArray(productsData) ? productsData
-          .filter(p => p.status === 'active')
-          .reduce((sum, p) => sum + (p.quantity_available * p.unit_price), 0) : 0,
-        
-        // Student statistics
-        total_students: Array.isArray(studentsData) ? studentsData.length : 0,
-        active_students: Array.isArray(studentsData) ? studentsData.filter(s => s.is_active).length : 0,
-        
-        // Order statistics
-        total_orders: Array.isArray(ordersData) ? ordersData.length : 0,
-        pending_orders: Array.isArray(ordersData) ? ordersData.filter(o => o.status === 'pending').length : 0,
-        approved_orders: Array.isArray(ordersData) ? ordersData.filter(o => o.status === 'approved').length : 0,
-        completed_orders: Array.isArray(ordersData) ? ordersData.filter(o => o.status === 'completed').length : 0,
-        returned_orders: Array.isArray(ordersData) ? ordersData.filter(o => o.status === 'returned').length : 0,
-        
-        // Recent orders (last 7 days)
-        recent_orders: Array.isArray(ordersData) ? ordersData.filter(o => {
-          const orderDate = new Date(o.requested_date);
-          const weekAgo = new Date();
-          weekAgo.setDate(weekAgo.getDate() - 7);
-          return orderDate >= weekAgo;
-        }).length : 0,
-        
-        // Category count
-        categories: Array.isArray(categoriesData) ? categoriesData.length : 0,
-        
-        // Raw data for detailed analysis
-        products: productsData,
-        students: studentsData,
-        orders: ordersData,
-        categories: categoriesData
+      const response = await fetch(`${API_BASE_URL}/api/dashboard/stats`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const stats = await response.json();
+      
+      // Map the backend response to frontend expected format
+      return {
+        total_products: stats.totalProducts || 0,
+        active_products: stats.totalProducts || 0, // Backend doesn't distinguish, assume all are active
+        low_stock_count: stats.lowStockItems || 0,
+        out_of_stock_count: 0, // Will be calculated by low stock endpoint if needed
+        total_value: stats.totalInventoryValue || 0,
+        total_students: stats.totalStudents || 0,
+        active_students: stats.totalStudents || 0, // Backend doesn't distinguish, assume all are active
+        total_orders: stats.totalOrders || 0,
+        pending_orders: stats.pendingOrders || 0,
+        approved_orders: 0, // Calculate if needed
+        completed_orders: 0, // Calculate if needed
+        returned_orders: 0, // Calculate if needed
+        recent_orders: 0, // Will be from recent activities
+        categories: 0 // Will fetch separately if needed
       };
-
-      return stats;
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
       throw error;
     }
   },
 
-  // Get low stock items
+  // Get low stock items from backend endpoint
   async getLowStockItems() {
     try {
-      const response = await fetch(`${API_BASE_URL}/products`);
+      const response = await fetch(`${API_BASE_URL}/api/dashboard/low-stock`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const products = await response.json();
+      const lowStockItems = await response.json();
       
-      if (!Array.isArray(products)) {
+      if (!Array.isArray(lowStockItems)) {
         return [];
       }
       
-      return products.filter(p => 
-        p.status === 'active' && 
-        p.quantity_available <= (p.minimum_stock_level || 5)
-      ).map(p => ({
-        id: p.id,
-        name: p.name,
-        sku: p.sku,
-        current_stock: p.quantity_available,
-        minimum_stock: p.minimum_stock_level,
-        shortage: (p.minimum_stock_level || 5) - p.quantity_available
+      return lowStockItems.map(item => ({
+        id: item.id,
+        name: item.name,
+        sku: item.sku || 'N/A',
+        current_stock: item.quantity_available,
+        minimum_stock: item.minimum_stock_level,
+        shortage: Math.max(0, (item.minimum_stock_level || 5) - item.quantity_available)
       }));
     } catch (error) {
       console.error('Error fetching low stock items:', error);
@@ -102,31 +60,26 @@ export const dashboardAPI = {
     }
   },
 
-  // Get recent activities
+  // Get recent activities from backend endpoint
   async getRecentActivities() {
     try {
-      const response = await fetch(`${API_BASE_URL}/orders`);
+      const response = await fetch(`${API_BASE_URL}/api/dashboard/recent-activities`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const orders = await response.json();
+      const activities = await response.json();
       
-      if (!Array.isArray(orders)) {
+      if (!Array.isArray(activities)) {
         return [];
       }
       
-      // Sort by most recent and take last 10
-      const recentOrders = orders
-        .sort((a, b) => new Date(b.requested_date) - new Date(a.requested_date))
-        .slice(0, 10);
-      
-      return recentOrders.map(order => ({
-        id: order.id,
-        type: 'order',
-        description: `Order ${order.order_number} by ${order.student_name || 'Unknown Student'}`,
-        status: order.status,
-        date: order.requested_date,
-        value: order.total_value
+      return activities.map(activity => ({
+        id: activity.id || Math.random().toString(36),
+        type: activity.type || 'order',
+        description: activity.description || activity.title,
+        status: activity.status,
+        date: activity.timestamp,
+        value: null // Backend doesn't provide value in activities
       }));
     } catch (error) {
       console.error('Error fetching recent activities:', error);
@@ -134,10 +87,10 @@ export const dashboardAPI = {
     }
   },
 
-  // Get overdue orders
+  // Get overdue orders - fallback to orders endpoint since no specific backend endpoint yet
   async getOverdueOrders() {
     try {
-      const response = await fetch(`${API_BASE_URL}/orders`);
+      const response = await fetch(`${API_BASE_URL}/api/orders`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -167,11 +120,18 @@ export const dashboardAPI = {
     }
   },
 
-  // Get monthly statistics
+  // Get monthly statistics - fallback to orders endpoint
   async getMonthlyStats() {
     try {
-      const response = await fetch(`${API_BASE_URL}/orders`);
+      const response = await fetch(`${API_BASE_URL}/api/orders`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const orders = await response.json();
+      
+      if (!Array.isArray(orders)) {
+        return [];
+      }
       
       const monthlyData = {};
       const now = new Date();
