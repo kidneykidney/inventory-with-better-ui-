@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     libxrender-dev \
     libgomp1 \
     libglib2.0-0 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
@@ -37,8 +38,8 @@ ENV TESSERACT_CMD="tesseract"
 EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/products || exit 1
 
-# Start command
-CMD ["python", "-m", "uvicorn", "backend.inventory_api:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+# Start command using the correct main.py entry point
+CMD ["python", "backend/main.py"]

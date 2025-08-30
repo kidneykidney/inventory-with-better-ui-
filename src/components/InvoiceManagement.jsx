@@ -97,7 +97,7 @@ const InvoiceManagement = () => {
         if (value) params.append(key, value);
       });
       
-      const response = await fetch(`${API_BASE_URL}/invoices?${params}`);
+      const response = await fetch(`${API_BASE_URL}/api/invoices?${params}`);
       const data = await response.json();
       
       if (response.ok) {
@@ -114,7 +114,7 @@ const InvoiceManagement = () => {
 
   const fetchSummary = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/invoices/analytics/summary`);
+      const response = await fetch(`${API_BASE_URL}/api/invoices/analytics/summary`);
       const data = await response.json();
       
       if (response.ok) {
@@ -147,7 +147,7 @@ const InvoiceManagement = () => {
 
   const handleViewInvoice = async (invoiceId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/invoices/${invoiceId}`);
+      const response = await fetch(`${API_BASE_URL}/api/invoices/${invoiceId}`);
       const data = await response.json();
       
       if (response.ok) {
@@ -194,7 +194,7 @@ const InvoiceManagement = () => {
     if (!invoiceToDelete) return;
     
     try {
-      const response = await fetch(`${API_BASE_URL}/invoices/${invoiceToDelete.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/invoices/invoice/${invoiceToDelete.id}`, {
         method: 'DELETE',
       });
       
@@ -405,7 +405,7 @@ const InvoiceManagement = () => {
                               </Typography>
                               <Button
                                 size="small"
-                                onClick={() => window.open(`${API_BASE_URL}/invoices/images/${image.id}`, '_blank')}
+                                onClick={() => window.open(`${API_BASE_URL}/api/invoices/images/${image.id}`, '_blank')}
                               >
                                 View
                               </Button>

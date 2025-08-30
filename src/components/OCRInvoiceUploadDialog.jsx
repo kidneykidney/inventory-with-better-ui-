@@ -38,7 +38,7 @@ import {
   Scanner as ScanIcon
 } from '@mui/icons-material';
 
-const API_BASE_URL = 'http://localhost:8001';
+const API_BASE_URL = 'http://localhost:8000';
 
 const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -111,7 +111,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
       formData.append('image_type', 'invoice_upload');
       formData.append('extract_data', 'true');
 
-      const response = await fetch(`${API_BASE_URL}/invoices/ocr/extract`, {
+      const response = await fetch(`${API_BASE_URL}/api/invoices/ocr/extract`, {
         method: 'POST',
         body: formData
       });
@@ -395,15 +395,12 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
         order_id: order.id,
         student_id: student.id,
         invoice_type: manualData.invoice_type,
-        status: 'issued',
         due_date: manualData.due_date,
         issued_by: 'OCR System',
-        notes: manualData.notes,
-        has_physical_copy: true,
-        physical_invoice_captured: true
+        notes: manualData.notes
       };
 
-      const invoiceResponse = await fetch(`${API_BASE_URL}/invoices`, {
+      const invoiceResponse = await fetch(`${API_BASE_URL}/api/invoices`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(invoiceData)
@@ -415,6 +412,18 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
 
       const invoice = await invoiceResponse.json();
 
+      // Update invoice to mark it has physical copy and captured
+      const updateData = {
+        has_physical_copy: true,
+        physical_invoice_captured: true
+      };
+
+      await fetch(`${API_BASE_URL}/api/invoices/invoice/${invoice.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      });
+
       // Upload the original image to the invoice
       if (selectedFile) {
         const imageFormData = new FormData();
@@ -422,7 +431,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
         imageFormData.append('image_type', 'physical_invoice');
         imageFormData.append('notes', 'Original uploaded invoice image');
 
-        await fetch(`${API_BASE_URL}/invoices/${invoice.id}/upload-image`, {
+        await fetch(`${API_BASE_URL}/api/invoices/${invoice.id}/upload-image`, {
           method: 'POST',
           body: imageFormData
         });
@@ -438,7 +447,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
           processing_method: 'tesseract_ocr'
         };
 
-        await fetch(`${API_BASE_URL}/invoices/${invoice.id}/ocr-data`, {
+        await fetch(`${API_BASE_URL}/api/invoices/${invoice.id}/ocr-data`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(ocrData)

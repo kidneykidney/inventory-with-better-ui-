@@ -202,7 +202,7 @@ const CameraUploadDialog = ({
         notes: uploadData.notes
       };
       
-      const response = await fetch(`${API_BASE_URL}/invoices/${invoiceId}/upload-image`, {
+      const response = await fetch(`${API_BASE_URL}/api/invoices/${invoiceId}/upload-image`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

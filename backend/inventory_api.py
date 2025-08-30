@@ -37,9 +37,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content={"detail": exc.errors(), "body": "Validation failed"}
     )
 
-# Include invoice router only if loaded successfully
-if INVOICE_MODULE_LOADED and invoice_router:
-    app.include_router(invoice_router)
+# Invoice router is now included in main.py with proper prefix
+# This prevents duplicate route registration and ensures proper routing
+if INVOICE_MODULE_LOADED:
     print("Invoice API routes loaded successfully")
 else:
     print("Running without invoice API routes")
@@ -829,6 +829,11 @@ async def create_order(order: OrderCreate, db: DatabaseManager = Depends(get_db)
     """Create a new order"""
     order_id = str(uuid.uuid4())
     
+    # Generate unique order number
+    order_count = db.execute_query("SELECT COUNT(*) as count FROM orders")
+    next_order_num = (order_count[0]['count'] + 1) if order_count else 1
+    order_number = f"ORD{next_order_num:03d}"
+    
     # Debug logging - check what we receive
     api_logger.info(f"DEBUG: Received order data: {order}")
     api_logger.info(f"DEBUG: Order student_id: {order.student_id}")
@@ -838,9 +843,10 @@ async def create_order(order: OrderCreate, db: DatabaseManager = Depends(get_db)
         api_logger.info(f"DEBUG: Item {i}: product_id={item.product_id}, quantity={item.quantity_requested}, expected_return_date={item.expected_return_date}")
     
     api_logger.info(
-        f"Creating new order for student {order.student_id}",
+        f"Creating new order {order_number} for student {order.student_id}",
         extra={
             'order_id': order_id,
+            'order_number': order_number,
             'student_id': order.student_id,
             'items_count': len(order.items),
             'expected_return_date': str(order.expected_return_date)
@@ -856,12 +862,12 @@ async def create_order(order: OrderCreate, db: DatabaseManager = Depends(get_db)
         
         # Create the order
         order_query = """
-        INSERT INTO orders (id, student_id, total_items, total_value, notes, expected_return_date)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO orders (id, order_number, student_id, total_items, total_value, notes, expected_return_date)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         """
         
         if not db.execute_command(order_query, (
-            order_id, order.student_id, total_items, total_value, 
+            order_id, order_number, order.student_id, total_items, total_value, 
             order.notes, order.expected_return_date
         )):
             api_logger.error(f"Failed to create order {order_id} in database")

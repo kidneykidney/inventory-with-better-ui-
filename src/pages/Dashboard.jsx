@@ -354,7 +354,7 @@ const Dashboard = () => {
       
       {/* Main Stats Grid */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Total Products"
             value={typeof stats.total_products === 'number' ? stats.total_products : 0}
@@ -364,7 +364,7 @@ const Dashboard = () => {
             loading={loading}
           />
         </Grid>
-        <Grid xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Inventory Value"
             value={`$${stats.total_value?.toLocaleString ? stats.total_value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}`}
@@ -374,7 +374,7 @@ const Dashboard = () => {
             loading={loading}
           />
         </Grid>
-        <Grid xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Active Students"
             value={typeof stats.active_students === 'number' ? stats.active_students : 0}
@@ -384,7 +384,7 @@ const Dashboard = () => {
             loading={loading}
           />
         </Grid>
-        <Grid xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Pending Orders"
             value={typeof stats.pending_orders === 'number' ? stats.pending_orders : 0}
@@ -398,7 +398,7 @@ const Dashboard = () => {
 
       {/* Secondary Stats */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Categories"
             value={typeof stats.categories === 'number' ? stats.categories : 0}
@@ -408,7 +408,7 @@ const Dashboard = () => {
             loading={loading}
           />
         </Grid>
-        <Grid xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Low Stock Items"
             value={typeof stats.low_stock_count === 'number' ? stats.low_stock_count : 0}
@@ -418,7 +418,7 @@ const Dashboard = () => {
             loading={loading}
           />
         </Grid>
-        <Grid xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Recent Orders"
             value={typeof stats.recent_orders === 'number' ? stats.recent_orders : 0}
@@ -428,7 +428,7 @@ const Dashboard = () => {
             loading={loading}
           />
         </Grid>
-        <Grid xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Out of Stock"
             value={typeof stats.out_of_stock_count === 'number' ? stats.out_of_stock_count : 0}
@@ -442,7 +442,7 @@ const Dashboard = () => {
 
       {/* System Overview and Activities */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid xs={12} md={8}>
+        <Grid item xs={12} md={8}>
           <Paper sx={{ p: 3, height: '100%' }}>
             <Typography variant="h6" gutterBottom>
               📋 System Overview
@@ -453,7 +453,7 @@ const Dashboard = () => {
               </Box>
             ) : (
               <Grid container spacing={3} sx={{ mt: 1 }}>
-                <Grid xs={6} md={3}>
+                <Grid item xs={6} md={3}>
                   <Box textAlign="center" sx={{ p: 2, border: 1, borderColor: 'grey.200', borderRadius: 1 }}>
                     <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>
                       {typeof stats.total_orders === 'number' ? stats.total_orders : 0}
@@ -463,7 +463,7 @@ const Dashboard = () => {
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid xs={6} md={3}>
+                <Grid item xs={6} md={3}>
                   <Box textAlign="center" sx={{ p: 2, border: 1, borderColor: 'grey.200', borderRadius: 1 }}>
                     <Typography variant="h5" color="success.main" sx={{ fontWeight: 'bold' }}>
                       {typeof stats.completed_orders === 'number' ? stats.completed_orders : 0}
@@ -473,7 +473,7 @@ const Dashboard = () => {
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid xs={6} md={3}>
+                <Grid item xs={6} md={3}>
                   <Box textAlign="center" sx={{ p: 2, border: 1, borderColor: 'grey.200', borderRadius: 1 }}>
                     <Typography variant="h5" color="info.main" sx={{ fontWeight: 'bold' }}>
                       {typeof stats.approved_orders === 'number' ? stats.approved_orders : 0}
@@ -483,7 +483,7 @@ const Dashboard = () => {
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid xs={6} md={3}>
+                <Grid item xs={6} md={3}>
                   <Box textAlign="center" sx={{ p: 2, border: 1, borderColor: 'grey.200', borderRadius: 1 }}>
                     <Typography variant="h5" color="error.main" sx={{ fontWeight: 'bold' }}>
                       {overdueOrders.length}
@@ -497,14 +497,14 @@ const Dashboard = () => {
             )}
           </Paper>
         </Grid>
-        <Grid xs={12} md={4}>
+        <Grid item xs={12} md={4}>
           <RecentActivities activities={activities} loading={loading} />
         </Grid>
       </Grid>
 
       {/* Low Stock Items */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid xs={12}>
+        <Grid item xs={12}>
           <LowStockAlert lowStockItems={lowStockItems} loading={loading} />
         </Grid>
       </Grid>

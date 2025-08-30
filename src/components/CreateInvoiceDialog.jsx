@@ -215,7 +215,7 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
         notes: invoiceData.notes
       };
 
-      const invoiceResponse = await fetch(`${API_BASE_URL}/invoices`, {
+      const invoiceResponse = await fetch(`${API_BASE_URL}/api/invoices`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(invoicePayload)
@@ -244,7 +244,7 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
           notes: item.notes
         };
 
-        await fetch(`${API_BASE_URL}/invoices/${invoice.id}/items`, {
+        await fetch(`${API_BASE_URL}/api/invoices/${invoice.id}/items`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(invoiceItemData)

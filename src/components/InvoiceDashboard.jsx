@@ -59,9 +59,9 @@ const InvoiceDashboard = () => {
       
       // Fetch all dashboard data in parallel
       const [summaryRes, statsRes, invoicesRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/invoices/analytics/summary`),
-        fetch(`${API_BASE_URL}/invoices/analytics/stats`),
-        fetch(`${API_BASE_URL}/invoices?limit=10`)
+        fetch(`${API_BASE_URL}/api/invoices/analytics/summary`),
+        fetch(`${API_BASE_URL}/api/invoices/analytics/stats`),
+        fetch(`${API_BASE_URL}/api/invoices?limit=10`)
       ]);
 
       const [summaryData, statsData, invoicesData] = await Promise.all([

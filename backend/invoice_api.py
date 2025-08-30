@@ -14,22 +14,53 @@ import re
 from pathlib import Path
 import shutil
 
-# OCR imports
+# OCR imports with robust error handling
+CV2_AVAILABLE = False
+OCR_AVAILABLE = False
+cv2 = None
+pytesseract = None
+np = None
+
 try:
-    import pytesseract
+    # Import basic OCR dependencies first
     from PIL import Image
-    import cv2
-    import numpy as np
     from dateutil import parser as date_parser
     
-    # Configure Tesseract path for Windows
-    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+    # Try importing numpy
+    try:
+        import numpy as np
+        print("NumPy imported successfully")
+    except ImportError as np_error:
+        print(f"NumPy not available: {np_error}")
+        np = None
     
-    OCR_AVAILABLE = True
-    print("OCR libraries loaded successfully")
+    # Try importing tesseract
+    try:
+        import pytesseract
+        # Configure Tesseract path for Windows
+        pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+        print("Tesseract imported successfully")
+    except ImportError as tess_error:
+        print(f"Tesseract not available: {tess_error}")
+        pytesseract = None
+    
+    # Try importing cv2 last (most problematic)
+    try:
+        import cv2
+        CV2_AVAILABLE = True
+        print("OpenCV imported successfully")
+    except (ImportError, AttributeError) as cv2_error:
+        print(f"OpenCV not available: {cv2_error}")
+        cv2 = None
+    
+    # OCR is available if we have the basic tools
+    if pytesseract is not None:
+        OCR_AVAILABLE = True
+        print("OCR libraries loaded successfully")
+    else:
+        print("OCR not available - missing tesseract")
+        
 except ImportError as e:
-    OCR_AVAILABLE = False
-    pytesseract = None
     print(f"OCR libraries not available: {e}")
 
 from database_manager import get_db, DatabaseManager
@@ -43,7 +74,7 @@ else:
     api_logger.warning("OCR libraries not available")
 
 # Create router for invoice endpoints
-invoice_router = APIRouter(prefix="/invoices", tags=["invoices"])
+invoice_router = APIRouter(tags=["invoices"])
 
 # Configuration for file uploads
 UPLOAD_DIR = Path("uploads/invoices")
@@ -181,7 +212,8 @@ async def get_invoices(
     params.extend([skip, limit])
     return db.execute_query(query, params)
 
-@invoice_router.get("/{invoice_id}", response_model=InvoiceDetail)
+# Re-enable this route with specific path to avoid conflicts with main app routes
+@invoice_router.get("/invoice/{invoice_id}", response_model=InvoiceDetail)
 async def get_invoice(invoice_id: str, db: DatabaseManager = Depends(get_db)):
     """Get invoice by ID with all related data"""
     # Get main invoice data
@@ -241,7 +273,7 @@ async def get_invoice(invoice_id: str, db: DatabaseManager = Depends(get_db)):
     
     return result
 
-@invoice_router.put("/{invoice_id}", response_model=Invoice)
+@invoice_router.put("/invoice/{invoice_id}", response_model=Invoice)
 async def update_invoice(invoice_id: str, invoice_update: InvoiceUpdate, db: DatabaseManager = Depends(get_db)):
     """Update invoice (optimized for 8GB RAM)"""
     try:
@@ -331,7 +363,7 @@ async def update_invoice(invoice_id: str, invoice_update: InvoiceUpdate, db: Dat
         api_logger.error(f"Invoice update failed: {e}")
         raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
 
-@invoice_router.delete("/{invoice_id}")
+@invoice_router.delete("/invoice/{invoice_id}")
 async def delete_invoice(invoice_id: str, db: DatabaseManager = Depends(get_db)):
     """Delete invoice and all related data"""
     try:
@@ -940,7 +972,11 @@ def extract_text_from_image(image_path: str) -> str:
             
             # Simple grayscale conversion
             if len(img_array.shape) == 3:
-                gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+                if CV2_AVAILABLE:
+                    gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+                else:
+                    # Fallback using PIL/numpy
+                    gray = np.dot(img_array[...,:3], [0.2989, 0.5870, 0.1140]).astype(np.uint8)
             else:
                 gray = img_array
             
@@ -953,11 +989,16 @@ def extract_text_from_image(image_path: str) -> str:
             try:
                 # Quick contrast check
                 contrast = gray.std()
-                if contrast < 40:  # Low contrast image
+                if contrast < 40 and CV2_AVAILABLE:  # Low contrast image
                     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
                     enhanced = clahe.apply(gray)
                     versions.append(("Enhanced", enhanced))
                     api_logger.info("Added enhanced version for low contrast")
+                elif contrast < 40:
+                    # Simple contrast enhancement without cv2
+                    enhanced = np.clip(gray * 1.5, 0, 255).astype(np.uint8)
+                    versions.append(("Enhanced", enhanced))
+                    api_logger.info("Added simple enhanced version (no cv2)")
             except Exception as e:
                 api_logger.debug(f"Enhancement failed: {e}")
             
