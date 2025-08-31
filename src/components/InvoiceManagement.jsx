@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Box,
   Grid,
@@ -28,7 +29,9 @@ import {
   Fab,
   SpeedDial,
   SpeedDialAction,
-  SpeedDialIcon
+  SpeedDialIcon,
+  Checkbox,
+  CircularProgress
 } from '@mui/material';
 import {
   Visibility as ViewIcon,
@@ -43,7 +46,13 @@ import {
   PendingActions as PendingIcon,
   Warning as WarningIcon,
   Add as AddIcon,
-  AutoAwesome as AIIcon
+  AutoAwesome as AIIcon,
+  Refresh as RefreshIcon,
+  TrendingUp as TrendingUpIcon,
+  AttachMoney as MoneyIcon,
+  Schedule as ScheduleIcon,
+  PhotoCamera as PhotoCameraIcon,
+  SmartToy as SmartToyIcon
 } from '@mui/icons-material';
 import CameraUploadDialog from './CameraUploadDialog';
 import CreateInvoiceDialog from './CreateInvoiceDialog';
@@ -63,6 +72,11 @@ const InvoiceManagement = () => {
     invoice_type: '',
     student_id: ''
   });
+  
+  // Bulk selection states
+  const [selectedInvoices, setSelectedInvoices] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   
   // Dialog states
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -219,6 +233,79 @@ const InvoiceManagement = () => {
     setInvoiceToDelete(null);
   };
 
+  // Bulk selection handlers
+  const handleSelectAll = (event) => {
+    const checked = event.target.checked;
+    setSelectAll(checked);
+    if (checked) {
+      setSelectedInvoices(invoices.map(invoice => invoice.id));
+    } else {
+      setSelectedInvoices([]);
+    }
+  };
+
+  const handleSelectInvoice = (invoiceId) => {
+    setSelectedInvoices(prev => {
+      const newSelection = prev.includes(invoiceId)
+        ? prev.filter(id => id !== invoiceId)
+        : [...prev, invoiceId];
+      
+      // Update select all checkbox based on selection
+      setSelectAll(newSelection.length === invoices.length && invoices.length > 0);
+      
+      return newSelection;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedInvoices.length === 0) {
+      setError('Please select invoices to delete');
+      return;
+    }
+
+    const confirmMessage = `Are you sure you want to delete ${selectedInvoices.length} selected invoices? This action cannot be undone.`;
+    if (!window.confirm(confirmMessage)) return;
+
+    setBulkDeleting(true);
+    setError('');
+
+    try {
+      // Delete invoices in parallel for better performance
+      const deletePromises = selectedInvoices.map(invoiceId =>
+        fetch(`${API_BASE_URL}/api/invoices/invoice/${invoiceId}`, {
+          method: 'DELETE',
+        })
+      );
+
+      const responses = await Promise.all(deletePromises);
+      
+      // Check if all deletions were successful
+      const failedDeletions = responses.filter(response => !response.ok);
+      
+      if (failedDeletions.length > 0) {
+        throw new Error(`Failed to delete ${failedDeletions.length} invoices`);
+      }
+
+      // Clear selections and refresh data
+      setSelectedInvoices([]);
+      setSelectAll(false);
+      setSuccess(`Successfully deleted ${selectedInvoices.length} invoices!`);
+      fetchInvoices();
+      fetchSummary();
+      
+    } catch (err) {
+      setError(`Bulk delete failed: ${err.message}`);
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  // Clear selections when invoices change
+  useEffect(() => {
+    setSelectedInvoices([]);
+    setSelectAll(false);
+  }, [invoices.length]);
+
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString();
@@ -229,27 +316,118 @@ const InvoiceManagement = () => {
     return new Date(dateString).toLocaleString();
   };
 
-  const SummaryCard = ({ title, value, icon, color = 'primary' }) => (
-    <Card sx={{ height: '100%' }}>
-      <CardContent>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Box>
-            <Typography color="textSecondary" gutterBottom>
-              {title}
-            </Typography>
-            <Typography variant="h4" component="div">
-              {typeof value === 'number' && title.includes('Value') 
-                ? `$${value.toFixed(2)}` 
-                : value
-              }
-            </Typography>
+  const SummaryCard = ({ title, value, icon, color = 'primary', gradient = false }) => (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.9 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.5 }}
+      whileHover={{ 
+        scale: 1.05, 
+        y: -5,
+        transition: { duration: 0.2 }
+      }}
+      whileTap={{ scale: 0.98 }}
+    >
+      <Card 
+        sx={{ 
+          height: '100%',
+          background: gradient 
+            ? `linear-gradient(135deg, ${color === 'primary' ? '#00D4AA' : color === 'success' ? '#4CAF50' : color === 'warning' ? '#FF9800' : color === 'error' ? '#F44336' : '#2196F3'} 0%, ${color === 'primary' ? '#00B899' : color === 'success' ? '#388E3C' : color === 'warning' ? '#F57C00' : color === 'error' ? '#D32F2F' : '#1976D2'} 100%)`
+            : '#1A1A1A',
+          border: '1px solid #2A2A2A',
+          borderRadius: '16px',
+          position: 'relative',
+          overflow: 'hidden',
+          cursor: 'pointer',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: gradient 
+              ? 'transparent'
+              : `linear-gradient(135deg, ${color === 'primary' ? 'rgba(0, 212, 170, 0.1)' : color === 'success' ? 'rgba(76, 175, 80, 0.1)' : color === 'warning' ? 'rgba(255, 152, 0, 0.1)' : color === 'error' ? 'rgba(244, 67, 54, 0.1)' : 'rgba(33, 150, 243, 0.1)'} 0%, transparent 100%)`,
+            opacity: 0.8,
+            pointerEvents: 'none'
+          }
+        }}
+      >
+        <CardContent sx={{ position: 'relative', zIndex: 1 }}>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Box>
+              <Typography 
+                color={gradient ? "rgba(255,255,255,0.9)" : "textSecondary"} 
+                gutterBottom
+                sx={{ 
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}
+              >
+                {title}
+              </Typography>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
+              >
+                <Typography 
+                  variant="h3" 
+                  component="div"
+                  sx={{ 
+                    color: gradient ? '#FFFFFF' : color === 'primary' ? '#00D4AA' : color === 'success' ? '#4CAF50' : color === 'warning' ? '#FF9800' : color === 'error' ? '#F44336' : '#2196F3',
+                    fontWeight: 700,
+                    fontSize: '2.5rem'
+                  }}
+                >
+                  {typeof value === 'number' && title.includes('Value') 
+                    ? `$${value.toFixed(2)}` 
+                    : value
+                  }
+                </Typography>
+              </motion.div>
+            </Box>
+            <motion.div
+              animate={{ 
+                rotate: [0, 10, -10, 0],
+                scale: [1, 1.1, 1]
+              }}
+              transition={{ 
+                duration: 2,
+                repeat: Infinity,
+                repeatDelay: 3
+              }}
+              whileHover={{ 
+                scale: 1.2,
+                rotate: 360,
+                transition: { duration: 0.5 }
+              }}
+            >
+              <Box 
+                sx={{ 
+                  color: gradient ? 'rgba(255,255,255,0.9)' : color === 'primary' ? '#00D4AA' : color === 'success' ? '#4CAF50' : color === 'warning' ? '#FF9800' : color === 'error' ? '#F44336' : '#2196F3',
+                  fontSize: '3rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  background: gradient 
+                    ? 'rgba(255,255,255,0.1)'
+                    : color === 'primary' ? 'rgba(0, 212, 170, 0.1)' : color === 'success' ? 'rgba(76, 175, 80, 0.1)' : color === 'warning' ? 'rgba(255, 152, 0, 0.1)' : color === 'error' ? 'rgba(244, 67, 54, 0.1)' : 'rgba(33, 150, 243, 0.1)'
+                }}
+              >
+                {icon}
+              </Box>
+            </motion.div>
           </Box>
-          <Box color={`${color}.main`}>
-            {icon}
-          </Box>
-        </Box>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 
   const InvoiceDetailsDialog = () => (
@@ -431,53 +609,175 @@ const InvoiceManagement = () => {
     <ErrorBoundary>
       <Box p={3}>
       {/* Page Header */}
-      <Box display="flex" justifyContent="between" alignItems="center" mb={3}>
-        <Typography variant="h4" gutterBottom>
-          Invoice Management
-        </Typography>
-      </Box>
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+      >
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
+          <Box display="flex" alignItems="center" gap={2}>
+            <motion.div
+              animate={{ 
+                rotate: [0, 360],
+                scale: [1, 1.1, 1]
+              }}
+              transition={{ 
+                duration: 3,
+                repeat: Infinity,
+                repeatDelay: 5
+              }}
+            >
+              <Box
+                sx={{
+                  background: 'linear-gradient(135deg, #00D4AA 0%, #00B899 100%)',
+                  borderRadius: '50%',
+                  width: '64px',
+                  height: '64px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 8px 32px rgba(0, 212, 170, 0.3)'
+                }}
+              >
+                <ReceiptIcon sx={{ fontSize: '2rem', color: '#FFFFFF' }} />
+              </Box>
+            </motion.div>
+            <Box>
+              <Typography 
+                variant="h4" 
+                gutterBottom
+                sx={{ 
+                  background: 'linear-gradient(135deg, #00D4AA 0%, #6C63FF 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  fontWeight: 700,
+                  fontSize: '2.5rem'
+                }}
+              >
+                Invoice Management
+              </Typography>
+              <Typography variant="subtitle1" sx={{ color: '#888888' }}>
+                AI-Powered Invoice Processing & Analytics
+              </Typography>
+            </Box>
+          </Box>
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={() => {
+                fetchInvoices();
+                fetchSummary();
+              }}
+              sx={{
+                borderColor: '#00D4AA',
+                color: '#00D4AA',
+                '&:hover': {
+                  borderColor: '#00B899',
+                  backgroundColor: 'rgba(0, 212, 170, 0.08)'
+                }
+              }}
+            >
+              Refresh Data
+            </Button>
+          </motion.div>
+        </Box>
+      </motion.div>
 
       {/* Summary Cards */}
-      <Grid container spacing={3} mb={3}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <SummaryCard
-            title="Total Invoices"
-            value={summary.total_invoices}
-            icon={<ReceiptIcon />}
-            color="primary"
-          />
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8, delay: 0.2 }}
+      >
+        <Grid container spacing={3} mb={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <SummaryCard
+              title="Total Invoices"
+              value={summary.total_invoices}
+              icon={<ReceiptIcon sx={{ fontSize: '2.5rem' }} />}
+              color="primary"
+              gradient={true}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <SummaryCard
+              title="Issued"
+              value={summary.issued_invoices}
+              icon={<TrendingUpIcon sx={{ fontSize: '2.5rem' }} />}
+              color="info"
+              gradient={false}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <SummaryCard
+              title="Acknowledged"
+              value={summary.acknowledged_invoices}
+              icon={<CheckCircleIcon sx={{ fontSize: '2.5rem' }} />}
+              color="success"
+              gradient={true}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <SummaryCard
+              title="AI Captured"
+              value={summary.physical_invoices_captured}
+              icon={<SmartToyIcon sx={{ fontSize: '2.5rem' }} />}
+              color="warning"
+              gradient={false}
+            />
+          </Grid>
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <SummaryCard
-            title="Issued"
-            value={summary.issued_invoices}
-            icon={<PendingIcon />}
-            color="info"
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <SummaryCard
-            title="Acknowledged"
-            value={summary.acknowledged_invoices}
-            icon={<CheckCircleIcon />}
-            color="success"
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <SummaryCard
-            title="Physical Captured"
-            value={summary.physical_invoices_captured}
-            icon={<CameraIcon />}
-            color="secondary"
-          />
-        </Grid>
-      </Grid>
+      </motion.div>
 
       {/* Filters */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>Filters</Typography>
-          <Grid container spacing={2}>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.4 }}
+      >
+        <Card 
+          sx={{ 
+            mb: 4,
+            background: '#1A1A1A',
+            border: '1px solid #2A2A2A',
+            borderRadius: '16px'
+          }}
+        >
+          <CardContent>
+            <Box display="flex" alignItems="center" gap={2} mb={2}>
+              <motion.div
+                animate={{ rotate: [0, 10, -10, 0] }}
+                transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+              >
+                <Box
+                  sx={{
+                    background: 'linear-gradient(135deg, #6C63FF 0%, #5A52FF 100%)',
+                    borderRadius: '50%',
+                    width: '40px',
+                    height: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <ScheduleIcon sx={{ color: '#FFFFFF', fontSize: '1.5rem' }} />
+                </Box>
+              </motion.div>
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  color: '#FFFFFF',
+                  fontWeight: 600
+                }}
+              >
+                Smart Filters
+              </Typography>
+            </Box>
+            <Grid container spacing={3}>
             <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 select
@@ -522,47 +822,245 @@ const InvoiceManagement = () => {
           </Grid>
         </CardContent>
       </Card>
+      </motion.div>
 
       {/* Invoices Table */}
       <Card>
         <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Invoices ({invoices.length})
-          </Typography>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Invoice #</TableCell>
-                  <TableCell>Type</TableCell>
-                  <TableCell>Student</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Issue Date</TableCell>
-                  <TableCell>Items</TableCell>
-                  <TableCell>Physical</TableCell>
-                  <TableCell align="center">Actions</TableCell>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="h6">
+              Invoices ({invoices.length})
+            </Typography>
+            {/* Bulk Delete Button - only show when items are selected */}
+            {selectedInvoices.length > 0 && (
+              <Button
+                variant="outlined"
+                startIcon={<DeleteIcon />}
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+                sx={{
+                  color: '#FF5252',
+                  borderColor: 'rgba(255, 82, 82, 0.3)',
+                  '&:hover': {
+                    borderColor: 'rgba(255, 82, 82, 0.6)',
+                    backgroundColor: 'rgba(255, 82, 82, 0.08)'
+                  },
+                  '&:disabled': {
+                    borderColor: 'rgba(255, 82, 82, 0.2)',
+                    color: 'rgba(255, 82, 82, 0.5)'
+                  }
+                }}
+              >
+                {bulkDeleting ? (
+                  <CircularProgress size={16} sx={{ color: '#FF5252' }} />
+                ) : (
+                  `Delete Selected (${selectedInvoices.length})`
+                )}
+              </Button>
+            )}
+          </Box>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+          >
+            <TableContainer 
+              sx={{
+                background: '#1A1A1A',
+                borderRadius: '16px',
+                border: '1px solid #2A2A2A',
+                overflow: 'hidden'
+              }}
+            >
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ 
+                    background: 'linear-gradient(135deg, #2A2A2A 0%, #1A1A1A 100%)'
+                  }}>
+                    {/* Select All Checkbox Column */}
+                    <TableCell sx={{ 
+                      width: '60px', 
+                      textAlign: 'center',
+                      borderBottom: '1px solid #2A2A2A',
+                      color: '#FFFFFF',
+                      fontWeight: 700
+                    }}>
+                      <Tooltip title={selectAll ? 'Deselect All' : 'Select All'}>
+                        <Checkbox
+                          checked={selectAll}
+                          indeterminate={selectedInvoices.length > 0 && selectedInvoices.length < invoices.length}
+                          onChange={handleSelectAll}
+                          disabled={invoices.length === 0}
+                          sx={{
+                            color: '#00D4AA',
+                            '&.Mui-checked': {
+                              color: '#00D4AA',
+                            },
+                            '&.MuiCheckbox-indeterminate': {
+                              color: '#00D4AA',
+                            }
+                        }}
+                      />
+                    </Tooltip>
+                  </TableCell>
+                  <TableCell sx={{ 
+                    color: '#FFFFFF', 
+                    fontWeight: 700,
+                    borderBottom: '1px solid #2A2A2A'
+                  }}>
+                    Invoice #
+                  </TableCell>
+                  <TableCell sx={{ 
+                    color: '#FFFFFF', 
+                    fontWeight: 700,
+                    borderBottom: '1px solid #2A2A2A'
+                  }}>
+                    Type
+                  </TableCell>
+                  <TableCell sx={{ 
+                    color: '#FFFFFF', 
+                    fontWeight: 700,
+                    borderBottom: '1px solid #2A2A2A'
+                  }}>
+                    Student
+                  </TableCell>
+                  <TableCell sx={{ 
+                    color: '#FFFFFF', 
+                    fontWeight: 700,
+                    borderBottom: '1px solid #2A2A2A'
+                  }}>
+                    Status
+                  </TableCell>
+                  <TableCell sx={{ 
+                    color: '#FFFFFF', 
+                    fontWeight: 700,
+                    borderBottom: '1px solid #2A2A2A'
+                  }}>
+                    Issue Date
+                  </TableCell>
+                  <TableCell sx={{ 
+                    color: '#FFFFFF', 
+                    fontWeight: 700,
+                    borderBottom: '1px solid #2A2A2A'
+                  }}>
+                    Items
+                  </TableCell>
+                  <TableCell sx={{ 
+                    color: '#FFFFFF', 
+                    fontWeight: 700,
+                    borderBottom: '1px solid #2A2A2A'
+                  }}>
+                    Physical
+                  </TableCell>
+                  <TableCell 
+                    align="center"
+                    sx={{ 
+                      color: '#FFFFFF', 
+                      fontWeight: 700,
+                      borderBottom: '1px solid #2A2A2A'
+                    }}
+                  >
+                    Actions
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">Loading...</TableCell>
+                    <TableCell colSpan={9} align="center">Loading...</TableCell>
                   </TableRow>
                 ) : invoices.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">No invoices found</TableCell>
+                    <TableCell colSpan={9} align="center">No invoices found</TableCell>
                   </TableRow>
                 ) : (
-                  invoices.map((invoice) => (
-                    <TableRow key={invoice.id} hover>
-                      <TableCell>
-                        <Box display="flex" alignItems="center">
-                          {getTypeIcon(invoice.invoice_type)}
-                          <Typography variant="body2" sx={{ ml: 1 }}>
-                            {invoice.invoice_number}
-                          </Typography>
-                        </Box>
-                      </TableCell>
+                  <AnimatePresence>
+                    {invoices.map((invoice, index) => {
+                      const isSelected = selectedInvoices.includes(invoice.id);
+                      return (
+                        <motion.tr
+                          key={invoice.id}
+                          component={TableRow}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -20 }}
+                          transition={{ delay: index * 0.05, duration: 0.4 }}
+                          whileHover={{
+                            scale: 1.01,
+                            boxShadow: '0 4px 20px rgba(0, 212, 170, 0.1)',
+                            transition: { duration: 0.2 }
+                          }}
+                          sx={{
+                            backgroundColor: isSelected ? 'rgba(0, 212, 170, 0.08)' : 'transparent',
+                            borderBottom: '1px solid #2A2A2A',
+                            cursor: 'pointer',
+                            '&:hover': {
+                              backgroundColor: isSelected 
+                                ? 'rgba(0, 212, 170, 0.12)' 
+                                : 'rgba(255, 255, 255, 0.02)',
+                              '& .MuiTableCell-root': {
+                                color: '#FFFFFF'
+                              }
+                            }
+                          }}
+                        >
+                          {/* Individual Select Checkbox */}
+                          <TableCell sx={{ 
+                            textAlign: 'center', 
+                            width: '60px',
+                            borderBottom: '1px solid #2A2A2A',
+                            color: '#E0E0E0'
+                          }}>
+                            <motion.div
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                            >
+                              <Checkbox
+                                checked={isSelected}
+                                onChange={() => handleSelectInvoice(invoice.id)}
+                                sx={{
+                                  color: '#00D4AA',
+                                  '&.Mui-checked': {
+                                    color: '#00D4AA',
+                                  }
+                                }}
+                              />
+                            </motion.div>
+                          </TableCell>
+                          <TableCell sx={{ 
+                            borderBottom: '1px solid #2A2A2A',
+                            color: '#E0E0E0'
+                          }}>
+                            <motion.div
+                              whileHover={{ x: 5 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <Box display="flex" alignItems="center">
+                                <motion.div
+                                  animate={{ 
+                                    rotate: [0, 5, -5, 0],
+                                  }}
+                                  transition={{ 
+                                    duration: 2,
+                                    repeat: Infinity,
+                                    repeatDelay: 5
+                                  }}
+                                >
+                                  {getTypeIcon(invoice.invoice_type)}
+                                </motion.div>
+                                <Typography 
+                                  variant="body2" 
+                                  sx={{ 
+                                    ml: 1,
+                                    color: '#00D4AA',
+                                    fontWeight: 600
+                                  }}
+                                >
+                                  {invoice.invoice_number}
+                                </Typography>
+                              </Box>
+                            </motion.div>
+                          </TableCell>
                       <TableCell>
                         <Chip 
                           label={invoice.invoice_type}
@@ -610,29 +1108,54 @@ const InvoiceManagement = () => {
                         </Box>
                       </TableCell>
                       <TableCell align="center">
-                        <IconButton
-                          onClick={() => handleViewInvoice(invoice.id)}
-                          title="View Invoice"
-                          size="small"
-                          color="primary"
+                        <motion.div
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.95 }}
                         >
-                          <ViewIcon />
-                        </IconButton>
-                        <IconButton
-                          onClick={() => handleDeleteClick(invoice)}
-                          title="Delete Invoice"
-                          size="small"
-                          color="error"
+                          <IconButton
+                            onClick={() => handleViewInvoice(invoice.id)}
+                            title="View Invoice"
+                            size="small"
+                            sx={{
+                              color: '#00D4AA',
+                              '&:hover': {
+                                backgroundColor: 'rgba(0, 212, 170, 0.1)',
+                                transform: 'scale(1.1)'
+                              }
+                            }}
+                          >
+                            <ViewIcon />
+                          </IconButton>
+                        </motion.div>
+                        <motion.div
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.95 }}
                         >
-                          <DeleteIcon />
-                        </IconButton>
+                          <IconButton
+                            onClick={() => handleDeleteClick(invoice)}
+                            title="Delete Invoice"
+                            size="small"
+                            sx={{
+                              color: '#FF5252',
+                              '&:hover': {
+                                backgroundColor: 'rgba(255, 82, 82, 0.1)',
+                                transform: 'scale(1.1)'
+                              }
+                            }}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </motion.div>
                       </TableCell>
-                    </TableRow>
-                  ))
+                    </motion.tr>
+                    );
+                    })}
+                  </AnimatePresence>
                 )}
               </TableBody>
             </Table>
           </TableContainer>
+          </motion.div>
         </CardContent>
       </Card>
 
@@ -719,31 +1242,130 @@ const InvoiceManagement = () => {
       </Dialog>
 
       {/* Floating Action Buttons for Creating Invoices */}
-      <SpeedDial
-        ariaLabel="Create Invoice Options"
-        sx={{ position: 'fixed', bottom: 24, right: 24 }}
-        icon={<SpeedDialIcon />}
-        open={speedDialOpen}
-        onClose={() => setSpeedDialOpen(false)}
-        onOpen={() => setSpeedDialOpen(true)}
+      <motion.div
+        initial={{ scale: 0, rotate: -180 }}
+        animate={{ scale: 1, rotate: 0 }}
+        transition={{ duration: 0.8, delay: 1 }}
       >
-        <SpeedDialAction
-          icon={<AddIcon />}
-          tooltipTitle="Create Invoice Manually"
-          onClick={() => {
-            setCreateInvoiceDialogOpen(true);
-            setSpeedDialOpen(false);
+        <SpeedDial
+          ariaLabel="Create Invoice Options"
+          sx={{ 
+            position: 'fixed', 
+            bottom: 32, 
+            right: 32,
+            '& .MuiFab-primary': {
+              background: 'linear-gradient(135deg, #00D4AA 0%, #6C63FF 100%)',
+              width: '64px',
+              height: '64px',
+              boxShadow: '0 12px 48px rgba(0, 212, 170, 0.4)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #00B899 0%, #5A52FF 100%)',
+                transform: 'scale(1.1)',
+                boxShadow: '0 16px 64px rgba(0, 212, 170, 0.5)',
+              }
+            },
+            '& .MuiSpeedDialAction-fab': {
+              background: '#1A1A1A',
+              border: '2px solid #2A2A2A',
+              color: '#00D4AA',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #00D4AA 0%, #6C63FF 100%)',
+                color: '#FFFFFF',
+                transform: 'scale(1.15)',
+                boxShadow: '0 8px 32px rgba(0, 212, 170, 0.3)',
+              }
+            }
           }}
-        />
-        <SpeedDialAction
-          icon={<AIIcon />}
-          tooltipTitle="Create from Image Upload (OCR)"
-          onClick={() => {
-            setOcrInvoiceDialogOpen(true);
-            setSpeedDialOpen(false);
-          }}
-        />
-      </SpeedDial>
+          icon={
+            <motion.div
+              animate={{ 
+                rotate: speedDialOpen ? 45 : 0,
+                scale: speedDialOpen ? 1.2 : 1
+              }}
+              transition={{ duration: 0.3 }}
+            >
+              <SpeedDialIcon 
+                sx={{ 
+                  fontSize: '2rem',
+                  color: '#FFFFFF'
+                }} 
+              />
+            </motion.div>
+          }
+          open={speedDialOpen}
+          onClose={() => setSpeedDialOpen(false)}
+          onOpen={() => setSpeedDialOpen(true)}
+        >
+          <SpeedDialAction
+            icon={
+              <motion.div
+                whileHover={{ rotate: 360, scale: 1.2 }}
+                transition={{ duration: 0.5 }}
+              >
+                <AddIcon sx={{ fontSize: '1.5rem' }} />
+              </motion.div>
+            }
+            tooltipTitle="Create Invoice Manually"
+            onClick={() => {
+              setCreateInvoiceDialogOpen(true);
+              setSpeedDialOpen(false);
+            }}
+          />
+          <SpeedDialAction
+            icon={
+              <motion.div
+                animate={{ 
+                  rotate: [0, 10, -10, 0],
+                  scale: [1, 1.1, 1]
+                }}
+                transition={{ 
+                  duration: 2,
+                  repeat: Infinity,
+                  repeatDelay: 2
+                }}
+                whileHover={{ 
+                  rotate: 360, 
+                  scale: 1.3,
+                  transition: { duration: 0.5 }
+                }}
+              >
+                <SmartToyIcon sx={{ fontSize: '1.5rem' }} />
+              </motion.div>
+            }
+            tooltipTitle="AI-Powered OCR Upload"
+            onClick={() => {
+              setOcrInvoiceDialogOpen(true);
+              setSpeedDialOpen(false);
+            }}
+          />
+          <SpeedDialAction
+            icon={
+              <motion.div
+                animate={{ 
+                  scale: [1, 1.2, 1]
+                }}
+                transition={{ 
+                  duration: 1.5,
+                  repeat: Infinity,
+                  repeatDelay: 3
+                }}
+                whileHover={{ 
+                  rotate: 15, 
+                  scale: 1.3,
+                  transition: { duration: 0.3 }
+                }}
+              >
+                <PhotoCameraIcon sx={{ fontSize: '1.5rem' }} />
+              </motion.div>
+            }
+            tooltipTitle="Quick Camera Capture"
+            onClick={() => {
+              setCameraDialogOpen(true);
+              setSpeedDialOpen(false);
+            }}
+          />
+        </SpeedDial>
+      </motion.div>
 
       {/* Snackbar for messages */}
       <Snackbar 

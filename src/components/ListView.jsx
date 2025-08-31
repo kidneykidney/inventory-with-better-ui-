@@ -25,7 +25,8 @@ import {
   CircularProgress,
   Tooltip,
   Badge,
-  Button
+  Button,
+  Checkbox
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -59,6 +60,11 @@ const ListView = ({ type = 'products' }) => {
   const [students, setStudents] = useState([]);
   const [products, setProducts] = useState([]);
   const [showStudentForm, setShowStudentForm] = useState(false);
+  
+  // Bulk selection states
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   // Configuration for different list types
   const config = {
@@ -377,10 +383,87 @@ const ListView = ({ type = 'products' }) => {
       }
 
       await fetchData();
+      // Clear selections after successful delete
+      setSelectedItems([]);
+      setSelectAll(false);
     } catch (err) {
       setError(err.message);
     }
   };
+
+  // Bulk selection handlers
+  const handleSelectAll = (event) => {
+    const checked = event.target.checked;
+    setSelectAll(checked);
+    if (checked) {
+      setSelectedItems(data.map(item => item.id));
+    } else {
+      setSelectedItems([]);
+    }
+  };
+
+  const handleSelectItem = (itemId) => {
+    setSelectedItems(prev => {
+      const newSelection = prev.includes(itemId)
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId];
+      
+      // Update select all checkbox based on selection
+      setSelectAll(newSelection.length === data.length && data.length > 0);
+      
+      return newSelection;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedItems.length === 0) {
+      setError('Please select items to delete');
+      return;
+    }
+
+    const confirmMessage = `Are you sure you want to delete ${selectedItems.length} selected ${type}? This action cannot be undone.`;
+    if (!window.confirm(confirmMessage)) return;
+
+    setBulkDeleting(true);
+    setError(null);
+
+    try {
+      // Delete items in parallel for better performance
+      const deletePromises = selectedItems.map(itemId =>
+        fetch(`${API_BASE_URL}${currentConfig.endpoint}/${itemId}`, {
+          method: 'DELETE',
+        })
+      );
+
+      const responses = await Promise.all(deletePromises);
+      
+      // Check if all deletions were successful
+      const failedDeletions = responses.filter(response => !response.ok);
+      
+      if (failedDeletions.length > 0) {
+        throw new Error(`Failed to delete ${failedDeletions.length} items`);
+      }
+
+      // Clear selections and refresh data
+      setSelectedItems([]);
+      setSelectAll(false);
+      await fetchData();
+      
+      // Show success message
+      console.log(`Successfully deleted ${selectedItems.length} ${type}`);
+      
+    } catch (err) {
+      setError(`Bulk delete failed: ${err.message}`);
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  // Clear selections when data changes (e.g., when switching between modules)
+  useEffect(() => {
+    setSelectedItems([]);
+    setSelectAll(false);
+  }, [type, data.length]);
 
   // Dialog handlers
   const handleOpenDialog = (item = null) => {
@@ -477,18 +560,47 @@ const ListView = ({ type = 'products' }) => {
       // Prevent any layout issues
       boxSizing: 'border-box'
     }}>
-    }}>
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ 
+        p: 3,
+        // Ensure the card has proper overflow handling
+        overflow: 'visible',
+        position: 'relative',
+        // Ensure proper width calculation
+        width: '100%',
+        boxSizing: 'border-box'
+      }}>
         {/* Header */}
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
-          alignItems: 'center',
-          mb: 3
+          alignItems: 'flex-start',  // Changed to flex-start to prevent overlap
+          mb: 4,  // Increased margin bottom
+          // Enhanced padding and spacing for better button accessibility
+          pr: 0,  // Remove right padding to prevent overflow
+          pb: 2,
+          pt: 1,
+          overflow: 'visible',
+          position: 'relative',
+          minHeight: '70px', // Increased height
+          width: '100%',  // Ensure full width
+          boxSizing: 'border-box'
         }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2, 
+            flex: '1 1 auto',  // Allow shrinking
+            minWidth: 0,  // Allow shrinking
+            maxWidth: selectedItems.length > 0 ? 'calc(100% - 320px)' : 'calc(100% - 240px)'  // Reserve more space when bulk delete is visible
+          }}>
             {currentConfig.icon}
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#FFFFFF' }}>
+            <Typography variant="h5" sx={{ 
+              fontWeight: 700, 
+              color: '#FFFFFF',
+              whiteSpace: 'nowrap',  // Prevent text wrapping
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}>
               {currentConfig.title}
             </Typography>
             <Badge badgeContent={data.length} color="primary" sx={{
@@ -503,7 +615,7 @@ const ListView = ({ type = 'products' }) => {
           
           <Box sx={{ 
             // Fixed button container to prevent overlap
-            width: '240px',  // Increased width for both buttons
+            width: selectedItems.length > 0 ? '320px' : '240px',  // Increased width when bulk delete is visible
             display: 'flex',
             justifyContent: 'flex-end',
             alignItems: 'center',
@@ -514,6 +626,42 @@ const ListView = ({ type = 'products' }) => {
             flexShrink: 0,  // Prevent shrinking
             ml: 2  // Small left margin
           }}>
+            {/* Bulk Delete Button - only show when items are selected */}
+            {selectedItems.length > 0 && (
+              <Button
+                variant="outlined"
+                startIcon={<DeleteIcon />}
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+                sx={{
+                  minHeight: '44px',
+                  px: 2,
+                  py: 1.25,
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  border: '1px solid rgba(255, 82, 82, 0.3)',
+                  color: '#FF5252',
+                  '&:hover': {
+                    border: '1px solid rgba(255, 82, 82, 0.6)',
+                    backgroundColor: 'rgba(255, 82, 82, 0.08)'
+                  },
+                  '&:disabled': {
+                    border: '1px solid rgba(255, 82, 82, 0.2)',
+                    color: 'rgba(255, 82, 82, 0.5)'
+                  }
+                }}
+              >
+                {bulkDeleting ? (
+                  <CircularProgress size={16} sx={{ color: '#FF5252' }} />
+                ) : (
+                  `Delete (${selectedItems.length})`
+                )}
+              </Button>
+            )}
+            
             <Button
               variant="outlined"
               startIcon={<RefreshIcon />}
@@ -594,6 +742,34 @@ const ListView = ({ type = 'products' }) => {
           <Table stickyHeader={false}>
             <TableHead>
               <TableRow sx={{ backgroundColor: '#252525' }}>
+                {/* Select All Checkbox Column */}
+                <TableCell 
+                  sx={{ 
+                    color: '#FFFFFF', 
+                    fontWeight: 700,
+                    borderBottom: '1px solid #2A2A2A',
+                    width: '60px',
+                    textAlign: 'center'
+                  }}
+                >
+                  <Tooltip title={selectAll ? 'Deselect All' : 'Select All'}>
+                    <Checkbox
+                      checked={selectAll}
+                      indeterminate={selectedItems.length > 0 && selectedItems.length < data.length}
+                      onChange={handleSelectAll}
+                      disabled={data.length === 0}
+                      sx={{
+                        color: '#00D4AA',
+                        '&.Mui-checked': {
+                          color: '#00D4AA',
+                        },
+                        '&.MuiCheckbox-indeterminate': {
+                          color: '#00D4AA',
+                        }
+                      }}
+                    />
+                  </Tooltip>
+                </TableCell>
                 {currentConfig.columns.map((column) => (
                   <TableCell 
                     key={column.key}
@@ -626,6 +802,7 @@ const ListView = ({ type = 'products' }) => {
               <AnimatePresence>
                 {data && data.length > 0 ? data.map((item, index) => {
                   console.log(`Rendering row ${index}:`, item);
+                  const isSelected = selectedItems.includes(item.id);
                   return (
                     <motion.tr
                       key={item.id || `item-${index}`}
@@ -638,9 +815,29 @@ const ListView = ({ type = 'products' }) => {
                         '&:hover': {
                           backgroundColor: '#252525'
                         },
+                        backgroundColor: isSelected ? 'rgba(0, 212, 170, 0.08)' : 'transparent',
                         borderBottom: '1px solid #2A2A2A'
                       }}
                     >
+                      {/* Individual Select Checkbox */}
+                      <TableCell 
+                        sx={{ 
+                          borderBottom: '1px solid #2A2A2A',
+                          textAlign: 'center',
+                          width: '60px'
+                        }}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onChange={() => handleSelectItem(item.id)}
+                          sx={{
+                            color: '#00D4AA',
+                            '&.Mui-checked': {
+                              color: '#00D4AA',
+                            }
+                          }}
+                        />
+                      </TableCell>
                       {currentConfig.columns.map((column) => (
                         <TableCell 
                           key={`${item.id}-${column.key}`}
@@ -682,7 +879,7 @@ const ListView = ({ type = 'products' }) => {
               {(!data || data.length === 0) && (
                 <TableRow>
                   <TableCell 
-                    colSpan={currentConfig.columns.length + 1}
+                    colSpan={currentConfig.columns.length + 2} // +2 for checkbox and actions columns
                     sx={{ 
                       textAlign: 'center', 
                       py: 4,
