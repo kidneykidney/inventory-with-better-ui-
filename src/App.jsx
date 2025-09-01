@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   CssBaseline, 
   ThemeProvider, 
   Box, 
@@ -15,7 +15,14 @@ import {
   Typography,
   Avatar,
   Divider,
-  Chip
+  Chip,
+  Menu,
+  MenuItem,
+  Badge,
+  Paper,
+  Tooltip,
+  Button,
+  Alert
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -31,6 +38,12 @@ import {
   Close as CloseIcon,
   Notifications as NotificationsIcon,
   AccountCircle as AccountIcon,
+  Warning as WarningIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
+  Info as InfoIcon,
+  Delete as DeleteIcon,
+  Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 
 // Import our modules
@@ -54,7 +67,75 @@ function App() {
   const [selectedModule, setSelectedModule] = useState('products'); // Start with products
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const [notificationCount, setNotificationCount] = useState(5);
+  
+  // Real notification system
+  const [notifications, setNotifications] = useState([]);
+  const [notificationAnchor, setNotificationAnchor] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Generate real notifications based on system activity
+  const generateNotifications = () => {
+    const systemNotifications = [
+      {
+        id: 1,
+        type: 'warning',
+        title: 'Low Stock Alert',
+        message: '3 products are running low on stock',
+        timestamp: new Date(Date.now() - 1000 * 60 * 5), // 5 minutes ago
+        read: false,
+        action: () => setSelectedModule('products')
+      },
+      {
+        id: 2,
+        type: 'info',
+        title: 'New Student Registration',
+        message: '2 new students have been registered today',
+        timestamp: new Date(Date.now() - 1000 * 60 * 15), // 15 minutes ago
+        read: false,
+        action: () => setSelectedModule('students')
+      },
+      {
+        id: 3,
+        type: 'success',
+        title: 'Invoice Processed',
+        message: 'Invoice #INV-2025-001 has been successfully processed',
+        timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
+        read: false,
+        action: () => setSelectedModule('invoicing')
+      },
+      {
+        id: 4,
+        type: 'error',
+        title: 'Order Delayed',
+        message: 'Order #ORD-001 delivery has been delayed',
+        timestamp: new Date(Date.now() - 1000 * 60 * 45), // 45 minutes ago
+        read: false,
+        action: () => setSelectedModule('orders')
+      },
+      {
+        id: 5,
+        type: 'info',
+        title: 'System Backup Complete',
+        message: 'Daily system backup completed successfully',
+        timestamp: new Date(Date.now() - 1000 * 60 * 60), // 1 hour ago
+        read: true,
+        action: () => setSelectedModule('settings')
+      },
+      {
+        id: 6,
+        type: 'warning',
+        title: 'Maintenance Reminder',
+        message: 'Scheduled maintenance in 2 hours',
+        timestamp: new Date(Date.now() - 1000 * 60 * 90), // 1.5 hours ago
+        read: false,
+        action: () => setSelectedModule('settings')
+      }
+    ];
+    
+    setNotifications(systemNotifications);
+    const unread = systemNotifications.filter(n => !n.read).length;
+    setUnreadCount(unread);
+  };
 
   // Simulate loading sequence
   useEffect(() => {
@@ -74,9 +155,148 @@ function App() {
       
       await new Promise(resolve => setTimeout(resolve, 500));
       setIsLoading(false);
+      
+      // Generate notifications after loading
+      generateNotifications();
     };
 
     loadingSequence();
+  }, []);
+
+  // Simulate real-time notifications
+  useEffect(() => {
+    if (isLoading) return;
+
+    const interval = setInterval(() => {
+      // Randomly generate new notifications
+      const shouldGenerate = Math.random() < 0.3; // 30% chance every 30 seconds
+      
+      if (shouldGenerate) {
+        const newNotificationTemplates = [
+          {
+            type: 'info',
+            title: 'New Order Received',
+            message: `Order #ORD-${Math.floor(Math.random() * 1000)} has been placed`,
+            action: () => setSelectedModule('orders')
+          },
+          {
+            type: 'warning',
+            title: 'Stock Alert',
+            message: `Product stock is running low`,
+            action: () => setSelectedModule('products')
+          },
+          {
+            type: 'success',
+            title: 'Payment Received',
+            message: `Payment for invoice #INV-${Math.floor(Math.random() * 1000)} received`,
+            action: () => setSelectedModule('invoicing')
+          },
+          {
+            type: 'info',
+            title: 'Student Activity',
+            message: `Student profile has been updated`,
+            action: () => setSelectedModule('students')
+          }
+        ];
+
+        const template = newNotificationTemplates[Math.floor(Math.random() * newNotificationTemplates.length)];
+        const newNotification = {
+          ...template,
+          id: Date.now(),
+          timestamp: new Date(),
+          read: false
+        };
+
+        setNotifications(prev => [newNotification, ...prev.slice(0, 19)]); // Keep only last 20
+        setUnreadCount(prev => prev + 1);
+      }
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
+  // Notification handlers
+  const handleNotificationClick = (event) => {
+    setNotificationAnchor(event.currentTarget);
+  };
+
+  const handleNotificationClose = () => {
+    setNotificationAnchor(null);
+  };
+
+  const markNotificationAsRead = (notificationId) => {
+    setNotifications(prevNotifications => 
+      prevNotifications.map(notification => 
+        notification.id === notificationId 
+          ? { ...notification, read: true }
+          : notification
+      )
+    );
+    setUnreadCount(prev => Math.max(0, prev - 1));
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(prevNotifications => 
+      prevNotifications.map(notification => ({ ...notification, read: true }))
+    );
+    setUnreadCount(0);
+  };
+
+  const deleteNotification = (notificationId) => {
+    setNotifications(prevNotifications => 
+      prevNotifications.filter(notification => notification.id !== notificationId)
+    );
+    // Update unread count if deleted notification was unread
+    const deletedNotification = notifications.find(n => n.id === notificationId);
+    if (deletedNotification && !deletedNotification.read) {
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    }
+  };
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'success': return <CheckCircleIcon sx={{ color: '#4CAF50' }} />;
+      case 'warning': return <WarningIcon sx={{ color: '#FF9800' }} />;
+      case 'error': return <ErrorIcon sx={{ color: '#F44336' }} />;
+      case 'info': 
+      default: return <InfoIcon sx={{ color: '#2196F3' }} />;
+    }
+  };
+
+  const formatTimeAgo = (timestamp) => {
+    const now = new Date();
+    const diff = now - timestamp;
+    const minutes = Math.floor(diff / (1000 * 60));
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    return timestamp.toLocaleDateString();
+  };
+
+  // Function to add notification from other components
+  const addNotification = (type, title, message, action = null) => {
+    const newNotification = {
+      id: Date.now(),
+      type,
+      title,
+      message,
+      timestamp: new Date(),
+      read: false,
+      action
+    };
+
+    setNotifications(prev => [newNotification, ...prev.slice(0, 19)]);
+    setUnreadCount(prev => prev + 1);
+  };
+
+  // Expose notification function to window for global access
+  useEffect(() => {
+    window.addNotification = addNotification;
+    return () => {
+      delete window.addNotification;
+    };
   }, []);
 
   const menuItems = [
@@ -228,16 +448,31 @@ function App() {
               </Box>
 
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <AnimatedBadge count={notificationCount}>
-                  <motion.div
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
+                <motion.div
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <IconButton 
+                    color="inherit"
+                    onClick={handleNotificationClick}
+                    sx={{ position: 'relative' }}
                   >
-                    <IconButton color="inherit">
+                    <Badge 
+                      badgeContent={unreadCount} 
+                      color="error"
+                      sx={{
+                        '& .MuiBadge-badge': {
+                          backgroundColor: '#FF4444',
+                          color: '#FFFFFF',
+                          fontWeight: 'bold',
+                          fontSize: '0.75rem'
+                        }
+                      }}
+                    >
                       <NotificationsIcon />
-                    </IconButton>
-                  </motion.div>
-                </AnimatedBadge>
+                    </Badge>
+                  </IconButton>
+                </motion.div>
                 
                 <motion.div
                   whileHover={{ scale: 1.05 }}
@@ -250,6 +485,160 @@ function App() {
                   </IconButton>
                 </motion.div>
               </Box>
+
+              {/* Notification Menu */}
+              <Menu
+                anchorEl={notificationAnchor}
+                open={Boolean(notificationAnchor)}
+                onClose={handleNotificationClose}
+                PaperProps={{
+                  sx: {
+                    width: '400px',
+                    maxHeight: '500px',
+                    backgroundColor: '#1A1A1A',
+                    border: '1px solid #2A2A2A',
+                    borderRadius: '12px',
+                    mt: 1
+                  }
+                }}
+                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+              >
+                {/* Notification Header */}
+                <Box sx={{ 
+                  p: 2, 
+                  borderBottom: '1px solid #2A2A2A',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <Typography variant="h6" sx={{ color: '#FFFFFF', fontWeight: 600 }}>
+                    Notifications
+                  </Typography>
+                  {unreadCount > 0 && (
+                    <Button
+                      size="small"
+                      onClick={markAllAsRead}
+                      sx={{
+                        color: '#00D4AA',
+                        fontSize: '0.75rem',
+                        '&:hover': {
+                          backgroundColor: 'rgba(0, 212, 170, 0.08)'
+                        }
+                      }}
+                    >
+                      Mark all as read
+                    </Button>
+                  )}
+                </Box>
+
+                {/* Notification List */}
+                <Box sx={{ maxHeight: '400px', overflow: 'auto' }}>
+                  {notifications.length === 0 ? (
+                    <Box sx={{ p: 3, textAlign: 'center' }}>
+                      <Typography sx={{ color: '#888888' }}>
+                        No notifications
+                      </Typography>
+                    </Box>
+                  ) : (
+                    notifications.map((notification) => (
+                      <MenuItem
+                        key={notification.id}
+                        onClick={() => {
+                          if (!notification.read) {
+                            markNotificationAsRead(notification.id);
+                          }
+                          if (notification.action) {
+                            notification.action();
+                          }
+                          handleNotificationClose();
+                        }}
+                        sx={{
+                          backgroundColor: notification.read ? 'transparent' : 'rgba(0, 212, 170, 0.05)',
+                          borderBottom: '1px solid #2A2A2A',
+                          p: 2,
+                          display: 'block',
+                          '&:hover': {
+                            backgroundColor: 'rgba(0, 212, 170, 0.08)'
+                          }
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                          <Box sx={{ mt: 0.5 }}>
+                            {getNotificationIcon(notification.type)}
+                          </Box>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <Typography 
+                                variant="subtitle2" 
+                                sx={{ 
+                                  color: '#FFFFFF',
+                                  fontWeight: notification.read ? 400 : 600,
+                                  lineHeight: 1.3
+                                }}
+                              >
+                                {notification.title}
+                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 1 }}>
+                                {!notification.read && (
+                                  <Box
+                                    sx={{
+                                      width: 8,
+                                      height: 8,
+                                      borderRadius: '50%',
+                                      backgroundColor: '#00D4AA',
+                                      flexShrink: 0
+                                    }}
+                                  />
+                                )}
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteNotification(notification.id);
+                                  }}
+                                  sx={{
+                                    color: '#888888',
+                                    '&:hover': {
+                                      color: '#FF4444',
+                                      backgroundColor: 'rgba(255, 68, 68, 0.1)'
+                                    }
+                                  }}
+                                >
+                                  <DeleteIcon sx={{ fontSize: '1rem' }} />
+                                </IconButton>
+                              </Box>
+                            </Box>
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                color: '#CCCCCC',
+                                mt: 0.5,
+                                lineHeight: 1.4
+                              }}
+                            >
+                              {notification.message}
+                            </Typography>
+                            <Typography 
+                              variant="caption" 
+                              sx={{ 
+                                color: '#888888',
+                                mt: 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.5
+                              }}
+                            >
+                              <ScheduleIcon sx={{ fontSize: '0.75rem' }} />
+                              {formatTimeAgo(notification.timestamp)}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </MenuItem>
+                    ))
+                  )}
+                </Box>
+              </Menu>
             </Toolbar>
           </AppBar>
 

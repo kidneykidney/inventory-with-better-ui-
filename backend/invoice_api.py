@@ -11,6 +11,7 @@ import base64
 import json
 import os
 import re
+import random
 from pathlib import Path
 import shutil
 
@@ -76,6 +77,24 @@ else:
 # Create router for invoice endpoints
 invoice_router = APIRouter(tags=["invoices"])
 
+def clean_extracted_text(text: str) -> str:
+    """Clean and normalize extracted OCR text"""
+    if not text:
+        return ""
+    
+    # Remove extra whitespace and newlines
+    text = ' '.join(text.split())
+    
+    # Remove common OCR artifacts and redundant words
+    text = re.sub(r'\b(Student|Name|ID|Department)\b', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\s+', ' ', text)  # Collapse multiple spaces
+    
+    # Capitalize names properly if it looks like a name
+    if re.match(r'^[a-zA-Z\s]+$', text):
+        text = ' '.join(word.capitalize() for word in text.split())
+    
+    return text.strip()
+
 # Configuration for file uploads
 UPLOAD_DIR = Path("uploads/invoices")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -121,7 +140,21 @@ def save_uploaded_image(image_data: str, filename: str, invoice_id: str) -> tupl
 
 @invoice_router.post("/", response_model=Invoice)
 async def create_invoice(invoice: InvoiceCreate, db: DatabaseManager = Depends(get_db)):
-    """Create a new invoice"""
+    """Create a new invoice - now handles automatic student creation"""
+    
+    # If student_id is provided, check if student exists
+    if invoice.student_id:
+        student_query = "SELECT * FROM students WHERE id = %s OR student_id = %s"
+        existing_student = db.execute_query(student_query, (invoice.student_id, invoice.student_id))
+        
+        if existing_student:
+            # Student exists, use their ID
+            actual_student_id = existing_student[0]['id']
+        else:
+            raise HTTPException(status_code=404, detail=f"Student with ID {invoice.student_id} not found")
+    else:
+        raise HTTPException(status_code=400, detail="Student ID is required")
+    
     query = """
     INSERT INTO invoices (
         order_id, student_id, invoice_type, status, due_date, issued_by, notes
@@ -132,7 +165,7 @@ async def create_invoice(invoice: InvoiceCreate, db: DatabaseManager = Depends(g
     result = db.execute_query(
         query, 
         (
-            invoice.order_id, invoice.student_id, invoice.invoice_type, 
+            invoice.order_id, actual_student_id, invoice.invoice_type, 
             invoice.due_date, invoice.issued_by, invoice.notes
         )
     )
@@ -144,17 +177,126 @@ async def create_invoice(invoice: InvoiceCreate, db: DatabaseManager = Depends(g
     created_invoice = result[0]
     
     # Update order total_items in invoice
-    update_query = """
-    UPDATE invoices SET total_items = (
-        SELECT total_items FROM orders WHERE id = %s
-    ) WHERE id = %s
-    """
-    db.execute_command(update_query, (invoice.order_id, created_invoice['id']))
+    if invoice.order_id:
+        update_query = """
+        UPDATE invoices SET total_items = (
+            SELECT total_items FROM orders WHERE id = %s
+        ) WHERE id = %s
+        """
+        db.execute_command(update_query, (invoice.order_id, created_invoice['id']))
     
     # Log the transaction
     log_invoice_transaction(db, created_invoice['id'], 'created', None, 'issued', invoice.issued_by, "Invoice created")
     
     return created_invoice
+
+# New endpoint for creating invoice with automatic student creation
+@invoice_router.post("/create-with-student")
+async def create_invoice_with_student(
+    request: InvoiceCreateWithStudent,
+    db: DatabaseManager = Depends(get_db)
+):
+    """Create invoice and automatically create student if they don't exist"""
+    import uuid
+    import time
+    
+    try:
+        api_logger.info(f"Creating invoice with student auto-creation for: {request.student_name}")
+        
+        # Step 1: Check if student exists by name or student_id
+        existing_student = None
+        if request.student_id:
+            existing_student = db.execute_query("SELECT * FROM students WHERE student_id = %s", (request.student_id,))
+        
+        if not existing_student and request.student_email:
+            existing_student = db.execute_query("SELECT * FROM students WHERE email = %s", (request.student_email,))
+        
+        if not existing_student:
+            # Try to find by name
+            existing_student = db.execute_query("SELECT * FROM students WHERE LOWER(name) = LOWER(%s)", (request.student_name,))
+        
+        # Step 2: Create student if doesn't exist
+        if existing_student:
+            api_logger.info(f"Found existing student: {existing_student[0]['student_id']}")
+            actual_student_id = existing_student[0]['id']
+        else:
+            api_logger.info(f"Creating new student: {request.student_name}")
+            
+            # Generate student_id if not provided
+            student_id = request.student_id
+            if not student_id:
+                timestamp = str(int(time.time()))[-6:]
+                student_id = f"STUD{timestamp}"
+            
+            # Generate email if not provided
+            student_email = request.student_email
+            if not student_email:
+                student_email = f"{student_id.lower()}@student.local"
+            
+            # Use provided department or default
+            department = request.department or "General"
+            
+            
+            # Create new student
+            student_uuid = str(uuid.uuid4())
+            student_query = """
+            INSERT INTO students (id, student_id, name, email, department, year_of_study)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING *
+            """
+            
+            student_params = (
+                student_uuid, student_id, request.student_name, 
+                student_email, department, request.year_of_study or 1
+            )
+            
+            created_student = db.execute_query(student_query, student_params)
+            if not created_student:
+                raise HTTPException(status_code=500, detail="Failed to create student")
+            
+            actual_student_id = student_uuid
+            api_logger.info(f"Created new student with ID: {student_id}")
+        
+        # Step 3: Create the invoice
+        invoice_query = """
+        INSERT INTO invoices (
+            student_id, invoice_type, status, due_date, issued_by, notes
+        ) VALUES (%s, %s, 'issued', %s, %s, %s)
+        RETURNING *
+        """
+        
+        invoice_result = db.execute_query(
+            invoice_query, 
+            (actual_student_id, request.invoice_type, request.due_date, request.issued_by, request.notes)
+        )
+        
+        if not invoice_result:
+            raise HTTPException(status_code=500, detail="Failed to create invoice")
+        
+        created_invoice = invoice_result[0]
+        
+        # Log the transaction
+        log_invoice_transaction(
+            db, created_invoice['id'], 'created', None, 'issued', 
+            request.issued_by, f"Invoice created with auto-student creation for {request.student_name}"
+        )
+
+        # Get the full student information for response
+        student_info = db.execute_query("SELECT * FROM students WHERE id = %s", (actual_student_id,))
+        
+        api_logger.info(f"Successfully created invoice {created_invoice['id']} for student {request.student_name}")
+        
+        # Return both invoice and student information
+        return {
+            "invoice": created_invoice,
+            "student": student_info[0] if student_info else None,
+            "message": "Invoice created successfully with automatic student creation"
+        }
+        
+    except Exception as e:
+        api_logger.error(f"Error creating invoice with student: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create invoice: {str(e)}")
+
 
 @invoice_router.get("/", response_model=List[InvoiceDetail])
 async def get_invoices(
@@ -799,6 +941,152 @@ async def create_student_acknowledgment(
     db.execute_command(update_query, (invoice_id,))
     
     return created_acknowledgment
+
+# OCR PROCESSING ENDPOINTS
+
+@invoice_router.post("/ocr-upload")
+async def process_invoice_with_ocr(
+    file: UploadFile = File(...),
+    db: DatabaseManager = Depends(get_db)
+):
+    """Process uploaded invoice image with OCR to extract data"""
+    try:
+        # Validate file type
+        if not file.content_type.startswith(('image/', 'application/pdf')):
+            raise HTTPException(status_code=400, detail="Only image and PDF files are supported")
+        
+        # Read file content
+        file_content = await file.read()
+        
+        # Create temporary file for OCR processing
+        import tempfile
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
+            temp_file.write(file_content)
+            temp_file_path = temp_file.name
+        
+        try:
+            # Use the existing OCR system to extract text
+            api_logger.info(f"OCR_AVAILABLE: {OCR_AVAILABLE}, CV2_AVAILABLE: {CV2_AVAILABLE}")
+            
+            if OCR_AVAILABLE:
+                api_logger.info(f"Processing {file.filename} with OCR from path: {temp_file_path}")
+                ocr_text = extract_text_from_image(temp_file_path)
+                api_logger.info(f"OCR extracted text length: {len(ocr_text) if ocr_text else 0}")
+                
+                if ocr_text and len(ocr_text.strip()) > 10:
+                    # Extract structured information from OCR text
+                    extracted_info = extract_invoice_information(ocr_text)
+                    
+                    # Enhanced extraction for student information
+                    extracted_data = {}
+                    
+                    # Try to extract student name (look for name patterns)
+                    name_patterns = [
+                        r'Name:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+                        r'Student\s+Name:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+                        r'Name\s*:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+                        r'(?:^|\n)([A-Z][a-z]+\s+[A-Z][a-z]+)(?:\s*\n|\s+ID)',
+                    ]
+                    
+                    for pattern in name_patterns:
+                        match = re.search(pattern, ocr_text, re.MULTILINE)
+                        if match:
+                            extracted_data['student_name'] = match.group(1).strip()
+                            break
+                    
+                    # Extract student ID with better patterns
+                    student_id_patterns = [
+                        r'Student\s+ID:\s*([A-Z0-9]+)',
+                        r'ID:\s*([A-Z0-9]+)',
+                        r'Student\s*ID\s*:\s*([A-Z0-9]+)',
+                        r'ID\s*Number:\s*([A-Z0-9]+)',
+                    ]
+                    
+                    for pattern in student_id_patterns:
+                        match = re.search(pattern, ocr_text, re.MULTILINE)
+                        if match:
+                            extracted_data['student_id'] = match.group(1).strip()
+                            break
+                    
+                    # Use existing student_id extraction as fallback
+                    if 'student_id' not in extracted_data and 'student_id' in extracted_info:
+                        extracted_data['student_id'] = extracted_info['student_id']
+                    
+                    # Try to extract department with better patterns
+                    dept_patterns = [
+                        r'Department:\s*([A-Z][a-zA-Z\s]+?)(?:\n|Year)',
+                        r'Dept:\s*([A-Z][a-zA-Z\s]+?)(?:\n|Year)',
+                        r'Department\s*:\s*([A-Z][a-zA-Z\s]+?)(?:\n|Year)',
+                        r'(Computer Science|Biology|Chemistry|Physics|Engineering|Mathematics|Business|Arts|Sciences)',
+                    ]
+                    
+                    for pattern in dept_patterns:
+                        match = re.search(pattern, ocr_text, re.MULTILINE)
+                        if match:
+                            extracted_data['department'] = match.group(1).strip()
+                            break
+                    
+                    # Extract items if available
+                    if 'items' in extracted_info:
+                        extracted_data['items'] = extracted_info['items']
+                    
+                    # Calculate confidence based on extracted fields
+                    confidence_score = 0.3  # Base confidence
+                    if extracted_data.get('student_name'):
+                        confidence_score += 0.3
+                    if extracted_data.get('student_id'):
+                        confidence_score += 0.2
+                    if extracted_data.get('department'):
+                        confidence_score += 0.1
+                    if extracted_data.get('items'):
+                        confidence_score += 0.1
+                    
+                    # Clean up extracted data
+                    for key, value in extracted_data.items():
+                        if isinstance(value, str):
+                            extracted_data[key] = clean_extracted_text(value)
+                    
+                    return {
+                        "success": True,
+                        "extracted_data": extracted_data,
+                        "confidence_score": min(confidence_score, 0.95),
+                        "raw_text": ocr_text[:500] + "..." if len(ocr_text) > 500 else ocr_text,
+                        "processing_method": "tesseract_ocr",
+                        "full_extraction": extracted_info
+                    }
+                else:
+                    # OCR found no meaningful text
+                    return {
+                        "success": False,
+                        "extracted_data": {},
+                        "confidence_score": 0.0,
+                        "raw_text": ocr_text if ocr_text else "",
+                        "processing_method": "tesseract_ocr",
+                        "error": "No readable text found in image"
+                    }
+            else:
+                # OCR not available, return meaningful error
+                return {
+                    "success": False,
+                    "extracted_data": {},
+                    "confidence_score": 0.0,
+                    "raw_text": "",
+                    "processing_method": "none",
+                    "error": "OCR system not available. Please ensure Tesseract is installed."
+                }
+                
+        finally:
+            # Clean up temporary file
+            try:
+                os.unlink(temp_file_path)
+            except:
+                pass
+        
+    except Exception as e:
+        api_logger.error(f"Error processing OCR upload: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
+        api_logger.error(f"Error processing OCR upload: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
 
 # BULK OPERATIONS
 

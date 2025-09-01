@@ -215,256 +215,126 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
       setLoading(true);
       setError('');
 
-      // First, find or create student - PRIORITIZE OCR DATA
-      let student = null;
-      if (manualData.student_id) {
-        try {
-          const studentResponse = await fetch(`${API_BASE_URL}/api/students/by-student-id/${manualData.student_id}`);
-          if (studentResponse.ok) {
-            const existingStudent = await studentResponse.json();
-            
-            // Check if OCR data differs from database
-            const ocrName = manualData.student_name?.trim();
-            const dbName = existingStudent.name?.trim();
-            
-            if (ocrName && dbName && ocrName.toLowerCase() !== dbName.toLowerCase()) {
-              console.log(`⚠️  Name mismatch detected!`);
-              console.log(`   OCR extracted: "${ocrName}"`);
-              console.log(`   Database has:   "${dbName}"`);
-              
-              // ALWAYS prioritize OCR data (more recent/accurate)
-              const updateData = {
-                name: ocrName,
-                email: manualData.student_email || existingStudent.email,
-                department: manualData.department || existingStudent.department
-              };
-              
-              const updateResponse = await fetch(`${API_BASE_URL}/api/students/${existingStudent.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updateData)
-              });
-              
-              if (updateResponse.ok) {
-                student = await updateResponse.json();
-                console.log(`✅ Updated student record with OCR data: ${ocrName}`);
-              } else {
-                console.warn('⚠️  Failed to update student, using OCR data for new record');
-                // If update fails, we'll create a new student below
-                student = null;
-              }
-            } else {
-              // Even if names match, update with OCR data to ensure freshness
-              console.log(`🔄 Names similar, but updating with fresh OCR data: ${ocrName}`);
-              const updateData = {
-                name: ocrName,
-                email: manualData.student_email || existingStudent.email,
-                department: manualData.department || existingStudent.department
-              };
-              
-              const updateResponse = await fetch(`${API_BASE_URL}/api/students/${existingStudent.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updateData)
-              });
-              
-              if (updateResponse.ok) {
-                student = await updateResponse.json();
-                console.log(`✅ Updated student with fresh OCR data: ${ocrName}`);
-              } else {
-                console.warn('⚠️  Failed to update, using existing student');
-                student = existingStudent;
-              }
-            }
-          }
-        } catch (err) {
-          console.log('Student not found, will create new one');
-        }
+      console.log('🚀 Creating invoice with auto-student creation');
+      console.log('Manual Data:', manualData);
+
+      // Validate we have minimum required data
+      if (!manualData.student_name || !manualData.student_name.trim()) {
+        throw new Error('Student name is required to create invoice');
       }
 
-      // Create student if not found
-      if (!student && manualData.student_name && manualData.student_id) {
-        const studentData = {
-          student_id: manualData.student_id,
-          name: manualData.student_name,
-          email: manualData.student_email || `${manualData.student_id}@college.edu`,
-          department: manualData.department || 'Unknown',
-          year_of_study: 1,
-          is_active: true
-        };
-
-        const createStudentResponse = await fetch(`${API_BASE_URL}/students`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(studentData)
-        });
-
-        if (createStudentResponse.ok) {
-          student = await createStudentResponse.json();
-          console.log(`✅ Created new student: ${studentData.name} (${studentData.student_id})`);
-        } else {
-          const errorText = await createStudentResponse.text();
-          console.error('Failed to create student:', errorText);
-          throw new Error('Failed to create student record');
-        }
-      }
-
-      if (!student) {
-        throw new Error('Student information is required to create invoice');
-      }
-
-      console.log(`🎯 Using final student data: Name="${student.name}", ID="${student.student_id}", DB_ID=${student.id}`);
-
-      // Create order
-      // Convert extracted items to order items format
-      const orderItems = [];
-      
-      if (manualData.items && manualData.items.length > 0) {
-        // Try to match OCR items to actual products by SKU
-        const productsResponse = await fetch(`${API_BASE_URL}/api/products`);
-        const products = await productsResponse.json();
-        
-        for (const ocrItem of manualData.items) {
-          // Try to find product by SKU first
-          let matchedProduct = products.find(p => 
-            p.sku && ocrItem.sku && p.sku.toLowerCase() === ocrItem.sku.toLowerCase()
-          );
-          
-          // If not found by SKU, try to match by name
-          if (!matchedProduct) {
-            matchedProduct = products.find(p => 
-              p.name && ocrItem.name && 
-              p.name.toLowerCase().includes(ocrItem.name.toLowerCase()) ||
-              ocrItem.name.toLowerCase().includes(p.name.toLowerCase())
-            );
-          }
-          
-          if (matchedProduct) {
-            orderItems.push({
-              product_id: matchedProduct.id,
-              quantity_requested: parseInt(ocrItem.quantity) || 1,
-              expected_return_date: manualData.due_date,
-              notes: `OCR extracted: ${ocrItem.name}`
-            });
-          }
-        }
-      }
-      
-      // If no items matched, create default items from known products
-      if (orderItems.length === 0) {
-        console.log('No items matched, creating default order items');
-        const productsResponse = await fetch(`${API_BASE_URL}/api/products`);
-        const products = await productsResponse.json();
-        
-        // Find our lab equipment products by SKU
-        const labSkus = ['MIC-OLYMP-001', 'SLO-BIOOD1', 'PTRGLASS-001', 'NBLABOO1'];
-        for (const sku of labSkus) {
-          const product = products.find(p => p.sku === sku);
-          if (product) {
-            orderItems.push({
-              product_id: product.id,
-              quantity_requested: sku === 'PTRGLASS-001' ? 10 : 1,
-              expected_return_date: manualData.due_date,
-              notes: 'OCR detected equipment'
-            });
-          }
-        }
-      }
-
-      const orderData = {
-        student_id: student.id,
-        items: orderItems,
-        expected_return_date: manualData.due_date,
-        notes: `Created from OCR upload: ${manualData.notes}`
-      };
-
-      const orderResponse = await fetch(`${API_BASE_URL}/api/orders`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData)
-      });
-
-      if (!orderResponse.ok) {
-        throw new Error('Failed to create order');
-      }
-
-      const order = await orderResponse.json();
-
-      // Create invoice
+      // Use the new create-with-student endpoint that handles everything
       const invoiceData = {
-        order_id: order.id,
-        student_id: student.id,
-        invoice_type: manualData.invoice_type,
-        due_date: manualData.due_date,
+        student_name: manualData.student_name.trim(),
+        student_id: manualData.student_id?.trim() || null,
+        student_email: manualData.student_email?.trim() || null,
+        department: manualData.department?.trim() || null,
+        year_of_study: manualData.year_of_study || null,
+        invoice_type: manualData.invoice_type || 'lending',
+        due_date: manualData.due_date || null,
         issued_by: 'OCR System',
-        notes: manualData.notes
+        notes: `Invoice created from OCR upload. Original text: ${ocrResults?.raw_text ? ocrResults.raw_text.substring(0, 200) + '...' : 'N/A'}`
       };
 
-      const invoiceResponse = await fetch(`${API_BASE_URL}/api/invoices`, {
+      console.log('📤 Sending invoice creation request:', invoiceData);
+
+      const invoiceResponse = await fetch(`${API_BASE_URL}/api/invoices/create-with-student`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(invoiceData)
       });
 
       if (!invoiceResponse.ok) {
-        throw new Error('Failed to create invoice');
+        const errorText = await invoiceResponse.text();
+        console.error('Invoice creation failed:', errorText);
+        throw new Error(`Failed to create invoice: ${errorText}`);
       }
 
       const invoice = await invoiceResponse.json();
+      console.log('✅ Invoice created successfully:', invoice);
 
-      // Update invoice to mark it has physical copy and captured
-      const updateData = {
-        has_physical_copy: true,
-        physical_invoice_captured: true
-      };
+      // Show success notification with details about what was created
+      if (window.addNotification) {
+        const studentInfo = manualData.student_id ? `${manualData.student_name} (${manualData.student_id})` : manualData.student_name;
+        window.addNotification(
+          `Invoice ${invoice.invoice_number} created successfully for ${studentInfo}! Student record was automatically created/updated.`,
+          'success'
+        );
+      }
 
-      await fetch(`${API_BASE_URL}/api/invoices/invoice/${invoice.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData)
-      });
+      // If we have extracted items, try to add them to the invoice
+      if (manualData.items && manualData.items.length > 0) {
+        console.log('📦 Adding items to invoice');
+        
+        try {
+          // Get available products to match against
+          const productsResponse = await fetch(`${API_BASE_URL}/api/products`);
+          const products = await productsResponse.json();
+          
+          for (const ocrItem of manualData.items) {
+            // Try to match products by SKU or name
+            let matchedProduct = products.find(p => 
+              (p.sku && ocrItem.sku && p.sku.toLowerCase() === ocrItem.sku.toLowerCase()) ||
+              (p.name && ocrItem.name && 
+               (p.name.toLowerCase().includes(ocrItem.name.toLowerCase()) ||
+                ocrItem.name.toLowerCase().includes(p.name.toLowerCase())))
+            );
+            
+            if (matchedProduct) {
+              const invoiceItemData = {
+                product_id: matchedProduct.id,
+                product_name: matchedProduct.name,
+                product_sku: matchedProduct.sku,
+                quantity: parseInt(ocrItem.quantity) || 1,
+                unit_value: matchedProduct.unit_price || 0,
+                notes: `OCR extracted: ${ocrItem.name || 'N/A'}`
+              };
 
-      // Upload the original image to the invoice
+              await fetch(`${API_BASE_URL}/api/invoices/${invoice.id}/items`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(invoiceItemData)
+              });
+
+              console.log(`✅ Added item: ${matchedProduct.name}`);
+            } else {
+              console.log(`⚠️  Could not match item: ${ocrItem.name || ocrItem.sku}`);
+            }
+          }
+        } catch (itemError) {
+          console.warn('⚠️  Failed to add some items:', itemError);
+          // Don't fail the whole process if items fail to add
+        }
+      }
+
+      // Upload the original image to the invoice if we have it
       if (selectedFile) {
-        const imageFormData = new FormData();
-        imageFormData.append('file', selectedFile);
-        imageFormData.append('image_type', 'physical_invoice');
-        imageFormData.append('notes', 'Original uploaded invoice image');
+        console.log('📸 Uploading original image to invoice');
+        try {
+          const imageFormData = new FormData();
+          imageFormData.append('file', selectedFile);
+          imageFormData.append('image_type', 'physical_invoice');
+          imageFormData.append('upload_method', 'file_upload');
 
-        await fetch(`${API_BASE_URL}/api/invoices/${invoice.id}/upload-image`, {
-          method: 'POST',
-          body: imageFormData
-        });
+          await fetch(`${API_BASE_URL}/api/invoices/${invoice.id}/upload-image`, {
+            method: 'POST',
+            body: imageFormData
+          });
+          console.log('✅ Image uploaded successfully');
+        } catch (uploadError) {
+          console.warn('⚠️  Failed to upload image:', uploadError);
+          // Don't fail the whole process if image upload fails
+        }
       }
 
-      // Store OCR results if available
-      if (ocrResults) {
-        const ocrData = {
-          invoice_id: invoice.id,
-          ocr_text: ocrResults.ocr_text,
-          extracted_data: ocrResults.extracted_data,
-          confidence_score: ocrResults.confidence_score,
-          processing_method: 'tesseract_ocr'
-        };
-
-        await fetch(`${API_BASE_URL}/api/invoices/${invoice.id}/ocr-data`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(ocrData)
-        });
-      }
-
+      console.log('🎉 Invoice creation completed successfully!');
       onSuccess(invoice);
-      
-      // Force page refresh to show latest data
-      console.log("🔄 Refreshing page to show updated data...");
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-      
       handleClose();
-
+      
     } catch (err) {
+      console.error('❌ Invoice creation failed:', err);
       setError(err.message || 'Failed to create invoice');
     } finally {
       setLoading(false);

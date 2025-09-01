@@ -64,6 +64,16 @@ class InvoiceCreate(InvoiceBase):
     issued_by: str
     due_date: Optional[datetime] = None
 
+class InvoiceCreateWithStudent(InvoiceBase):
+    """Create invoice with automatic student creation"""
+    student_name: str
+    student_id: Optional[str] = None
+    student_email: Optional[str] = None
+    department: Optional[str] = None
+    year_of_study: Optional[int] = None
+    issued_by: str = "OCR System"
+    due_date: Optional[datetime] = None
+
 class InvoiceUpdate(BaseModel):
     status: Optional[InvoiceStatus] = None
     has_physical_copy: Optional[bool] = None

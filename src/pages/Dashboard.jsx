@@ -49,7 +49,9 @@ import {
 import { dashboardAPI } from '../api/dashboard';
 
 // StatCard component with enhanced styling
-const StatCard = ({ title, value, icon, color = 'primary', subtitle, loading = false, trend }) => (
+const StatCard = ({ title, value, icon, color = 'primary', subtitle, loading = false, trend }) => {
+  console.log(`📊 StatCard ${title}:`, { value, loading, type: typeof value });
+  return (
   <Card sx={{ 
     height: '100%', 
     transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
@@ -94,6 +96,7 @@ const StatCard = ({ title, value, icon, color = 'primary', subtitle, loading = f
     </CardContent>
   </Card>
 );
+};
 
 // Enhanced Recent Activities component
 const RecentActivities = ({ activities, loading = false }) => (
@@ -254,6 +257,8 @@ const Dashboard = () => {
       setLoading(true);
       setError(null);
 
+      console.log('🔄 Fetching dashboard data...');
+
       const [dashStats, recentActivities, lowStock, overdue] = await Promise.all([
         dashboardAPI.getStats(),
         dashboardAPI.getRecentActivities(),
@@ -261,13 +266,23 @@ const Dashboard = () => {
         dashboardAPI.getOverdueOrders()
       ]);
 
-      setStats(dashStats);
-      setActivities(recentActivities);
-      setLowStockItems(lowStock);
-      setOverdueOrders(overdue);
+      console.log('📊 Dashboard data received:', {
+        stats: dashStats,
+        activities: recentActivities?.length || 0,
+        lowStock: lowStock?.length || 0,
+        overdue: overdue?.length || 0
+      });
+
+      console.log('🔄 Setting state with stats:', dashStats);
+      setStats(dashStats || {});
+      setActivities(recentActivities || []);
+      setLowStockItems(lowStock || []);
+      setOverdueOrders(overdue || []);
       setLastUpdated(new Date());
+      
+      console.log('✅ State update completed');
     } catch (err) {
-      console.error('Dashboard fetch error:', err);
+      console.error('❌ Dashboard fetch error:', err);
       setError(err.message || 'Failed to fetch dashboard data');
     } finally {
       setLoading(false);

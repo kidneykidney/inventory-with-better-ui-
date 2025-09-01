@@ -26,7 +26,8 @@ import {
   Tooltip,
   Badge,
   Button,
-  Checkbox
+  Checkbox,
+  Menu
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -40,10 +41,15 @@ import {
   Warning as WarningIcon,
   Refresh as RefreshIcon,
   Error as ErrorIcon,
-  Visibility as ViewIcon
+  Visibility as ViewIcon,
+  MoreVert as MoreVertIcon,
+  Check as CheckIcon,
+  Schedule as ScheduleIcon,
+  Cancel as CancelIcon
 } from '@mui/icons-material';
 import { AnimatedButton, AnimatedCard } from './AnimatedComponents';
 import StudentForm from './StudentForm';
+import NotificationService from '../services/notificationService';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -65,6 +71,11 @@ const ListView = ({ type = 'products' }) => {
   const [selectedItems, setSelectedItems] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  
+  // Status update states
+  const [statusMenuAnchor, setStatusMenuAnchor] = useState(null);
+  const [selectedItemForStatus, setSelectedItemForStatus] = useState(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   // Configuration for different list types
   const config = {
@@ -357,6 +368,35 @@ const ListView = ({ type = 'products' }) => {
       const responseData = await response.json();
       console.log('Created item response:', responseData);
       
+      // Send notification based on the type and action
+      const itemName = responseData.name || responseData.student_id || responseData.order_number || 'Item';
+      if (editingItem) {
+        NotificationService.success(
+          `${type.slice(0, -1)} Updated`,
+          `${itemName} has been successfully updated`,
+          null
+        );
+      } else {
+        // Send specific notifications based on type
+        switch (type) {
+          case 'students':
+            NotificationService.studentCreated(itemName);
+            break;
+          case 'products':
+            NotificationService.productCreated(itemName);
+            break;
+          case 'orders':
+            NotificationService.orderCreated(itemName);
+            break;
+          default:
+            NotificationService.success(
+              `${type.slice(0, -1)} Created`,
+              `${itemName} has been successfully created`,
+              null
+            );
+        }
+      }
+      
       handleCloseDialog();
       setError(null);
       
@@ -374,6 +414,9 @@ const ListView = ({ type = 'products' }) => {
     if (!window.confirm('Are you sure you want to delete this item?')) return;
     
     try {
+      const itemToDelete = data.find(item => item.id === id);
+      const itemName = itemToDelete?.name || itemToDelete?.student_id || itemToDelete?.order_number || 'Item';
+      
       const response = await fetch(`${API_BASE_URL}${currentConfig.endpoint}/${id}`, {
         method: 'DELETE',
       });
@@ -382,12 +425,24 @@ const ListView = ({ type = 'products' }) => {
         throw new Error(`Failed to delete ${type}`);
       }
 
+      // Send success notification
+      NotificationService.success(
+        `${type.slice(0, -1)} Deleted`,
+        `${itemName} has been successfully deleted`,
+        null
+      );
+
       await fetchData();
       // Clear selections after successful delete
       setSelectedItems([]);
       setSelectAll(false);
     } catch (err) {
       setError(err.message);
+      NotificationService.error(
+        'Delete Failed',
+        `Failed to delete ${type.slice(0, -1)}: ${err.message}`,
+        null
+      );
     }
   };
 
@@ -449,11 +504,12 @@ const ListView = ({ type = 'products' }) => {
       setSelectAll(false);
       await fetchData();
       
-      // Show success message
-      console.log(`Successfully deleted ${selectedItems.length} ${type}`);
+      // Show success notification
+      NotificationService.bulkDeleteCompleted(type, selectedItems.length);
       
     } catch (err) {
       setError(`Bulk delete failed: ${err.message}`);
+      NotificationService.bulkDeleteFailed(type, selectedItems.length);
     } finally {
       setBulkDeleting(false);
     }
@@ -464,6 +520,53 @@ const ListView = ({ type = 'products' }) => {
     setSelectedItems([]);
     setSelectAll(false);
   }, [type, data.length]);
+
+  // Status update function
+  const handleStatusUpdate = async (itemId, newStatus) => {
+    if (type !== 'orders') return; // Only allow status updates for orders
+    
+    setUpdatingStatus(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/orders/${itemId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update status');
+      }
+
+      // Refresh data to show the updated status
+      await fetchData();
+      
+      // Close the menu
+      setStatusMenuAnchor(null);
+      setSelectedItemForStatus(null);
+      
+      console.log(`Status updated to ${newStatus} for order ${itemId}`);
+      
+    } catch (err) {
+      setError(`Failed to update status: ${err.message}`);
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  // Handle status menu open
+  const handleStatusMenuOpen = (event, item) => {
+    event.stopPropagation();
+    setStatusMenuAnchor(event.currentTarget);
+    setSelectedItemForStatus(item);
+  };
+
+  // Handle status menu close
+  const handleStatusMenuClose = () => {
+    setStatusMenuAnchor(null);
+    setSelectedItemForStatus(null);
+  };
 
   // Dialog handlers
   const handleOpenDialog = (item = null) => {
@@ -491,14 +594,35 @@ const ListView = ({ type = 'products' }) => {
     const getStatusColor = () => {
       if (!status) return 'default';
       const statusLower = status.toLowerCase();
+      
+      // Order statuses
+      if (statusLower === 'pending') return 'warning';
+      if (statusLower === 'approved') return 'info';
+      if (statusLower === 'completed') return 'success';
+      if (statusLower === 'overdue') return 'error';
+      
+      // General statuses
       if (statusLower.includes('active') || statusLower.includes('in stock')) return 'success';
       if (statusLower.includes('low') || statusLower.includes('pending')) return 'warning';
       if (statusLower.includes('out') || statusLower.includes('inactive')) return 'error';
       return 'default';
     };
 
+    const getStatusIcon = () => {
+      if (!status) return null;
+      const statusLower = status.toLowerCase();
+      
+      if (statusLower === 'pending') return <ScheduleIcon sx={{ fontSize: '16px', mr: 0.5 }} />;
+      if (statusLower === 'approved') return <CheckIcon sx={{ fontSize: '16px', mr: 0.5 }} />;
+      if (statusLower === 'completed') return <CheckCircleIcon sx={{ fontSize: '16px', mr: 0.5 }} />;
+      if (statusLower === 'overdue') return <CancelIcon sx={{ fontSize: '16px', mr: 0.5 }} />;
+      
+      return null;
+    };
+
     return (
       <Chip
+        icon={getStatusIcon()}
         label={status || 'Unknown'}
         color={getStatusColor()}
         size="small"
@@ -863,6 +987,24 @@ const ListView = ({ type = 'products' }) => {
                             <EditIcon />
                           </IconButton>
                         </Tooltip>
+                        
+                        {/* Status Update Button - only for orders */}
+                        {type === 'orders' && (
+                          <Tooltip title="Update Status">
+                            <IconButton
+                              onClick={(e) => handleStatusMenuOpen(e, item)}
+                              sx={{ color: '#FFB74D', mr: 1 }}
+                              disabled={updatingStatus}
+                            >
+                              {updatingStatus && selectedItemForStatus?.id === item.id ? (
+                                <CircularProgress size={20} sx={{ color: '#FFB74D' }} />
+                              ) : (
+                                <MoreVertIcon />
+                              )}
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        
                         <Tooltip title="Delete">
                           <IconButton
                             onClick={() => handleDelete(item.id)}
@@ -1052,6 +1194,64 @@ const ListView = ({ type = 'products' }) => {
               fetchData(); // Refresh the student list
             }}
           />
+        )}
+
+        {/* Status Update Menu - only for orders */}
+        {type === 'orders' && (
+          <Menu
+            anchorEl={statusMenuAnchor}
+            open={Boolean(statusMenuAnchor)}
+            onClose={handleStatusMenuClose}
+            PaperProps={{
+              sx: {
+                backgroundColor: '#1A1A1A',
+                border: '1px solid #2A2A2A',
+                borderRadius: '8px',
+                minWidth: '180px'
+              }
+            }}
+          >
+            <MenuItem 
+              onClick={() => handleStatusUpdate(selectedItemForStatus?.id, 'pending')}
+              sx={{ 
+                color: '#FFFFFF',
+                '&:hover': { backgroundColor: '#2A2A2A' }
+              }}
+            >
+              <ScheduleIcon sx={{ mr: 1, color: '#FFB74D' }} />
+              Pending
+            </MenuItem>
+            <MenuItem 
+              onClick={() => handleStatusUpdate(selectedItemForStatus?.id, 'approved')}
+              sx={{ 
+                color: '#FFFFFF',
+                '&:hover': { backgroundColor: '#2A2A2A' }
+              }}
+            >
+              <CheckIcon sx={{ mr: 1, color: '#2196F3' }} />
+              Approved
+            </MenuItem>
+            <MenuItem 
+              onClick={() => handleStatusUpdate(selectedItemForStatus?.id, 'completed')}
+              sx={{ 
+                color: '#FFFFFF',
+                '&:hover': { backgroundColor: '#2A2A2A' }
+              }}
+            >
+              <CheckCircleIcon sx={{ mr: 1, color: '#4CAF50' }} />
+              Completed
+            </MenuItem>
+            <MenuItem 
+              onClick={() => handleStatusUpdate(selectedItemForStatus?.id, 'overdue')}
+              sx={{ 
+                color: '#FFFFFF',
+                '&:hover': { backgroundColor: '#2A2A2A' }
+              }}
+            >
+              <CancelIcon sx={{ mr: 1, color: '#F44336' }} />
+              Overdue
+            </MenuItem>
+          </Menu>
         )}
       </Box>
     </AnimatedCard>

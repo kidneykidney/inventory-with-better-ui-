@@ -10,25 +10,43 @@ export const dashboardAPI = {
       }
       const stats = await response.json();
       
+      console.log('📊 Dashboard stats received:', stats);
+      
+      // Get categories count from products endpoint
+      let categoriesCount = 0;
+      try {
+        const productsResponse = await fetch(`${API_BASE_URL}/api/products`);
+        if (productsResponse.ok) {
+          const products = await productsResponse.json();
+          const uniqueCategories = [...new Set(products.map(p => p.category).filter(Boolean))];
+          categoriesCount = uniqueCategories.length;
+        }
+      } catch (err) {
+        console.warn('Could not fetch categories count:', err);
+      }
+      
       // Map the backend response to frontend expected format
-      return {
-        total_products: stats.totalProducts || 0,
-        active_products: stats.totalProducts || 0, // Backend doesn't distinguish, assume all are active
-        low_stock_count: stats.lowStockItems || 0,
-        out_of_stock_count: 0, // Will be calculated by low stock endpoint if needed
-        total_value: stats.totalInventoryValue || 0,
-        total_students: stats.totalStudents || 0,
-        active_students: stats.totalStudents || 0, // Backend doesn't distinguish, assume all are active
-        total_orders: stats.totalOrders || 0,
-        pending_orders: stats.pendingOrders || 0,
-        approved_orders: 0, // Calculate if needed
-        completed_orders: 0, // Calculate if needed
-        returned_orders: 0, // Calculate if needed
-        recent_orders: 0, // Will be from recent activities
-        categories: 0 // Will fetch separately if needed
+      const mappedStats = {
+        total_products: parseInt(stats.totalProducts) || 0,
+        active_products: parseInt(stats.totalProducts) || 0,
+        low_stock_count: parseInt(stats.lowStockItems) || 0,
+        out_of_stock_count: 0,
+        total_value: parseFloat(stats.totalInventoryValue) || 0,
+        total_students: parseInt(stats.totalStudents) || 0,
+        active_students: parseInt(stats.totalStudents) || 0,
+        total_orders: parseInt(stats.totalOrders) || 0,
+        pending_orders: parseInt(stats.pendingOrders) || 0,
+        approved_orders: parseInt(stats.totalOrders - stats.pendingOrders) || 0,
+        completed_orders: 0,
+        returned_orders: 0,
+        recent_orders: parseInt(stats.totalOrders) || 0,
+        categories: categoriesCount
       };
+      
+      console.log('📊 Mapped stats for frontend:', mappedStats);
+      return mappedStats;
     } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
+      console.error('❌ Error fetching dashboard stats:', error);
       throw error;
     }
   },

@@ -31,7 +31,9 @@ import {
   SpeedDialAction,
   SpeedDialIcon,
   Checkbox,
-  CircularProgress
+  CircularProgress,
+  List,
+  ListItem
 } from '@mui/material';
 import {
   Visibility as ViewIcon,
@@ -43,6 +45,8 @@ import {
   CloudUpload as UploadIcon,
   Dashboard as DashboardIcon,
   CheckCircle as CheckCircleIcon,
+  Check as CheckIcon,
+  Error as ErrorIcon,
   PendingActions as PendingIcon,
   Warning as WarningIcon,
   Add as AddIcon,
@@ -52,12 +56,15 @@ import {
   AttachMoney as MoneyIcon,
   Schedule as ScheduleIcon,
   PhotoCamera as PhotoCameraIcon,
-  SmartToy as SmartToyIcon
+  SmartToy as SmartToyIcon,
+  CloudUpload as CloudUploadIcon
 } from '@mui/icons-material';
 import CameraUploadDialog from './CameraUploadDialog';
 import CreateInvoiceDialog from './CreateInvoiceDialog';
 import OCRInvoiceUploadDialog from './OCRInvoiceUploadDialog';
+import BulkInvoiceUploadDialog from './BulkInvoiceUploadDialog';
 import ErrorBoundary from './ErrorBoundary';
+import NotificationService from '../services/notificationService';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -83,6 +90,7 @@ const InvoiceManagement = () => {
   const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
   const [createInvoiceDialogOpen, setCreateInvoiceDialogOpen] = useState(false);
   const [ocrInvoiceDialogOpen, setOcrInvoiceDialogOpen] = useState(false);
+  const [bulkUploadDialogOpen, setBulkUploadDialogOpen] = useState(false);
   const [speedDialOpen, setSpeedDialOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState(null);
@@ -1342,6 +1350,32 @@ const InvoiceManagement = () => {
             icon={
               <motion.div
                 animate={{ 
+                  y: [0, -5, 0],
+                  scale: [1, 1.1, 1]
+                }}
+                transition={{ 
+                  duration: 2,
+                  repeat: Infinity,
+                  repeatDelay: 1
+                }}
+                whileHover={{ 
+                  scale: 1.3,
+                  transition: { duration: 0.3 }
+                }}
+              >
+                <CloudUploadIcon sx={{ fontSize: '1.5rem' }} />
+              </motion.div>
+            }
+            tooltipTitle="Bulk Upload Invoice Images"
+            onClick={() => {
+              setBulkUploadDialogOpen(true);
+              setSpeedDialOpen(false);
+            }}
+          />
+          <SpeedDialAction
+            icon={
+              <motion.div
+                animate={{ 
                   scale: [1, 1.2, 1]
                 }}
                 transition={{ 
@@ -1387,6 +1421,18 @@ const InvoiceManagement = () => {
           {success}
         </Alert>
       </Snackbar>
+
+      {/* Bulk Upload Dialog */}
+      <BulkInvoiceUploadDialog
+        open={bulkUploadDialogOpen}
+        onClose={() => setBulkUploadDialogOpen(false)}
+        onSuccess={(result) => {
+          setSuccess(`Bulk upload completed! ${result.successful} invoices created successfully, ${result.failed} failed.`);
+          setBulkUploadDialogOpen(false);
+          fetchInvoices();
+          fetchSummary();
+        }}
+      />
       </Box>
     </ErrorBoundary>
   );

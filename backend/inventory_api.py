@@ -1147,6 +1147,53 @@ async def approve_order(order_id: str, approved_by: str, db: DatabaseManager = D
     
     return {"message": "Order approved successfully"}
 
+# Status update model
+class OrderStatusUpdate(BaseModel):
+    status: str
+
+@app.put("/api/orders/{order_id}/status")
+async def update_order_status(order_id: str, status_update: OrderStatusUpdate, db: DatabaseManager = Depends(get_db)):
+    """Update order status"""
+    valid_statuses = ['pending', 'approved', 'completed', 'overdue']
+    
+    if status_update.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}")
+    
+    # Update order status
+    order_query = """
+    UPDATE orders SET 
+        status = %s,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = %s
+    """
+    
+    if not db.execute_command(order_query, (status_update.status, order_id)):
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # If status is approved, also approve all order items
+    if status_update.status == 'approved':
+        items_query = """
+        UPDATE order_items SET 
+            quantity_approved = quantity_requested,
+            status = 'approved'
+        WHERE order_id = %s
+        """
+        db.execute_command(items_query, (order_id,))
+    
+    # If status is completed, mark all items as returned
+    elif status_update.status == 'completed':
+        items_query = """
+        UPDATE order_items SET 
+            quantity_returned = quantity_approved,
+            status = 'returned',
+            return_date = CURRENT_TIMESTAMP
+        WHERE order_id = %s AND status = 'approved'
+        """
+        db.execute_command(items_query, (order_id,))
+    
+    api_logger.info(f"Order {order_id} status updated to {status_update.status}")
+    return {"message": f"Order status updated to {status_update.status} successfully"}
+
 @app.put("/api/orders/{order_id}/items/{item_id}/return")
 async def return_item(
     order_id: str, 
