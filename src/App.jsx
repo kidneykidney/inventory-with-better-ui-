@@ -54,6 +54,7 @@ import Students from './components/Students';
 import Orders from './components/Orders';
 import InvoiceManagement from './components/InvoiceManagement';
 import InvoiceDashboard from './components/InvoiceDashboard';
+import SettingsManagement from './components/SettingsManagement';
 
 // Import theme and components
 import { darkMatteTheme, animationVariants } from './theme/darkTheme';
@@ -340,6 +341,8 @@ function App() {
           return <InvoiceManagement />;
         case 'invoice-dashboard':
           return <InvoiceDashboard />;
+        case 'settings':
+          return <SettingsManagement />;
         default:
           return (
             <Box sx={{ p: 4 }}>
