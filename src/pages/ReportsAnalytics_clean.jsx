@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 import {
   TrendingUp, Assessment, Inventory, Timeline, Download, Print,
-  Refresh, Analytics, TableChart,
+  Refresh, RealTimeChart, Analytics, Export, TableChart,
   PictureAsPdf, InsertChart, ShowChart, DonutLarge, AutoGraph,
   CloudDownload, Schedule, Notifications, Speed, DataUsage
 } from '@mui/icons-material';
@@ -161,56 +161,6 @@ function ReportsAnalytics() {
     }
   };
 
-  const handleModuleExport = async (module, format = 'csv') => {
-    setLoading(true);
-    try {
-      const startDate = getStartDate(dateRange);
-      const endDate = new Date().toISOString().split('T')[0];
-      
-      const exportRequest = {
-        module: module,
-        format: format,
-        filters: {
-          start_date: startDate,
-          end_date: endDate
-        },
-        include_relations: true
-      };
-
-      const response = await fetch(`${API_BASE_URL}/analytics/export/${module}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(exportRequest),
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = `${module}_export_${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        
-        // Show success message
-        setError(null);
-        // You could add a success toast here if you have one
-      } else {
-        throw new Error(`${module} export failed`);
-      }
-    } catch (error) {
-      setError(`${module} export failed. Please try again.`);
-      console.error(`${module} export error:`, error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const getStartDate = (range) => {
     const now = new Date();
     switch (range) {
@@ -327,149 +277,6 @@ function ReportsAnalytics() {
               <Button variant="contained" startIcon={<Print />} fullWidth>
                 Print Report
               </Button>
-            </Grid>
-          </Grid>
-        </Card>
-
-        {/* Individual Module Exports */}
-        <Card sx={{ mb: 3, p: 3 }}>
-          <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-            <CloudDownload sx={{ mr: 1, color: 'primary.main' }} />
-            📋 Individual Module Exports
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Export detailed data for each module separately with all database fields
-          </Typography>
-          
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={4}>
-              <Card sx={{ p: 2, border: '1px solid #e0e0e0', '&:hover': { boxShadow: 3 } }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Inventory sx={{ mr: 1, color: 'primary.main' }} />
-                  <Typography variant="h6">Products</Typography>
-                </Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Complete product data with categories, stock levels, pricing, and specifications
-                </Typography>
-                <Grid container spacing={1}>
-                  <Grid item xs={12}>
-                    <Button 
-                      variant="contained" 
-                      size="small" 
-                      fullWidth
-                      startIcon={<TableChart />}
-                      onClick={() => handleModuleExport('products', 'csv')}
-                      disabled={loading}
-                    >
-                      Export CSV
-                    </Button>
-                  </Grid>
-                </Grid>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={4}>
-              <Card sx={{ p: 2, border: '1px solid #e0e0e0', '&:hover': { boxShadow: 3 } }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Assessment sx={{ mr: 1, color: 'success.main' }} />
-                  <Typography variant="h6">Students</Typography>
-                </Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Student profiles with contact info, departments, order history, and statistics
-                </Typography>
-                <Grid container spacing={1}>
-                  <Grid item xs={12}>
-                    <Button 
-                      variant="contained" 
-                      size="small" 
-                      fullWidth
-                      startIcon={<TableChart />}
-                      onClick={() => handleModuleExport('students', 'csv')}
-                      disabled={loading}
-                    >
-                      Export CSV
-                    </Button>
-                  </Grid>
-                </Grid>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={4}>
-              <Card sx={{ p: 2, border: '1px solid #e0e0e0', '&:hover': { boxShadow: 3 } }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <TrendingUp sx={{ mr: 1, color: 'warning.main' }} />
-                  <Typography variant="h6">Orders</Typography>
-                </Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Complete order records with borrowing dates, returns, status, and values
-                </Typography>
-                <Grid container spacing={1}>
-                  <Grid item xs={12}>
-                    <Button 
-                      variant="contained" 
-                      size="small" 
-                      fullWidth
-                      startIcon={<TableChart />}
-                      onClick={() => handleModuleExport('orders', 'csv')}
-                      disabled={loading}
-                    >
-                      Export CSV
-                    </Button>
-                  </Grid>
-                </Grid>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={4}>
-              <Card sx={{ p: 2, border: '1px solid #e0e0e0', '&:hover': { boxShadow: 3 } }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Timeline sx={{ mr: 1, color: 'error.main' }} />
-                  <Typography variant="h6">Invoices</Typography>
-                </Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Invoice data with payment details, amounts, due dates, and student info
-                </Typography>
-                <Grid container spacing={1}>
-                  <Grid item xs={12}>
-                    <Button 
-                      variant="contained" 
-                      size="small" 
-                      fullWidth
-                      startIcon={<TableChart />}
-                      onClick={() => handleModuleExport('invoices', 'csv')}
-                      disabled={loading}
-                    >
-                      Export CSV
-                    </Button>
-                  </Grid>
-                </Grid>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={4}>
-              <Card sx={{ p: 2, border: '1px solid #e0e0e0', '&:hover': { boxShadow: 3 } }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Analytics sx={{ mr: 1, color: 'info.main' }} />
-                  <Typography variant="h6">Categories</Typography>
-                </Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Category data with product counts, inventory values, and statistics
-                </Typography>
-                <Grid container spacing={1}>
-                  <Grid item xs={12}>
-                    <Button 
-                      variant="contained" 
-                      size="small" 
-                      fullWidth
-                      startIcon={<TableChart />}
-                      onClick={() => handleModuleExport('categories', 'csv')}
-                      disabled={loading}
-                    >
-                      Export CSV
-                    </Button>
-                  </Grid>
-                </Grid>
-              </Card>
             </Grid>
           </Grid>
         </Card>

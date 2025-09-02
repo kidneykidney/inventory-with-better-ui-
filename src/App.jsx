@@ -49,6 +49,7 @@ import {
 // Import our modules
 import OrderManagement from './pages/OrderManagement';
 import Dashboard from './pages/Dashboard';
+import ReportsAnalytics from './pages/ReportsAnalytics';
 import ListView from './components/ListView';
 import Students from './components/Students';
 import Orders from './components/Orders';
@@ -341,6 +342,8 @@ function App() {
           return <InvoiceManagement />;
         case 'invoice-dashboard':
           return <InvoiceDashboard />;
+        case 'reports':
+          return <ReportsAnalytics />;
         case 'settings':
           return <SettingsManagement />;
         default:
