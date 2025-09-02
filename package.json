@@ -36,12 +36,20 @@
     "preview": "vite preview",
     "start": "vite",
     "test": "vitest",
-    "backend": "cd backend && .\\venv\\Scripts\\python.exe start_server.py",
-    "backend:main": "cd backend && .\\venv\\Scripts\\python.exe main.py",
-    "backend:test": "cd backend && .\\venv\\Scripts\\python.exe test_server.py",
+    "setup": "node setup-check.js",
+    "setup:auto": "call SETUP.bat",
+    "setup:docker": "call DOCKER_SETUP.bat",
+    "backend": "cd backend && ../.venv/Scripts/python.exe main.py",
+    "backend:main": "cd backend && ../.venv/Scripts/python.exe main.py",
+    "backend:test": "cd backend && ../.venv/Scripts/python.exe test_server.py",
     "full-dev": "concurrently \"npm run dev\" \"npm run backend\"",
     "server": "npm run backend",
-    "api": "cd C:\\Users\\User\\inventory1\\backend; C:\\Users\\User\\inventory1\\.venv\\Scripts\\python.exe -m uvicorn inventory_api:app --reload --host 0.0.0.0 --port 8000"
+    "api": "cd backend && ../.venv/Scripts/python.exe -m uvicorn inventory_api:app --reload --host 0.0.0.0 --port 8000",
+    "start:system": "call scripts/START.bat",
+    "stop:system": "call scripts/STOP.bat",
+    "setup:database": "call scripts/SETUP_DATABASE.bat",
+    "update:deps": "call scripts/UPDATE_DEPS.bat",
+    "test:ocr": "cd backend && ../.venv/Scripts/python.exe ocr_setup.py"
   },
   "eslintConfig": {
     "extends": [
