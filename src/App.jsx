@@ -50,6 +50,7 @@ import {
 import OrderManagement from './pages/OrderManagement';
 import Dashboard from './pages/Dashboard';
 import ReportsAnalytics from './pages/ReportsAnalytics';
+import PremiumAnalyticsDashboard from './pages/PremiumAnalyticsDashboard';
 import ListView from './components/ListView';
 import Students from './components/Students';
 import Orders from './components/Orders';
@@ -343,7 +344,7 @@ function App() {
         case 'invoice-dashboard':
           return <InvoiceDashboard />;
         case 'reports':
-          return <ReportsAnalytics />;
+          return <PremiumAnalyticsDashboard />;
         case 'settings':
           return <SettingsManagement />;
         default:

@@ -5,6 +5,7 @@ from inventory_api import app
 from invoice_api import invoice_router
 from settings_api import settings_router
 from analytics_basic import router as analytics_router
+from analytics_premium import router as premium_analytics_router
 
 # Include the invoice router with proper prefix
 app.include_router(invoice_router, prefix="/api/invoices", tags=["invoices"])
@@ -14,6 +15,9 @@ app.include_router(settings_router, prefix="/api/settings", tags=["settings"])
 
 # Include the analytics router with proper prefix
 app.include_router(analytics_router, prefix="/api/analytics", tags=["analytics"])
+
+# Include the premium analytics router with proper prefix
+app.include_router(premium_analytics_router, prefix="/api/analytics", tags=["premium-analytics"])
 
 if __name__ == "__main__":
     import uvicorn
