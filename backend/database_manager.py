@@ -4,6 +4,9 @@ import os
 from typing import Dict, List, Optional, Any
 import logging
 from contextlib import contextmanager
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -275,6 +278,21 @@ def get_db():
         if not db_manager.connect():
             raise Exception("Failed to connect to database")
     return db_manager
+
+# SQLAlchemy setup for authentication and ORM
+DATABASE_URL = "postgresql://postgres:gugan@2022@localhost:5432/inventory_management"
+
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+def get_db_session():
+    """Dependency to get database session for SQLAlchemy"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 if __name__ == "__main__":
     print("Setting up inventory management database...")

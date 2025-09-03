@@ -11,10 +11,10 @@ const LoadingAnimation = ({ isLoading, progress = 0, message = 'Loading...' }) =
       opacity: 1, 
       rotate: 0,
       transition: { 
-        duration: 1.2, 
+        duration: 0.4, 
         ease: [0.4, 0, 0.2, 1],
         type: "spring",
-        stiffness: 100
+        stiffness: 200
       }
     },
   };
@@ -25,8 +25,8 @@ const LoadingAnimation = ({ isLoading, progress = 0, message = 'Loading...' }) =
       opacity: 1, 
       y: 0,
       transition: { 
-        duration: 0.8, 
-        delay: 0.5,
+        duration: 0.3, 
+        delay: 0.2,
         ease: [0.4, 0, 0.2, 1]
       }
     },
@@ -38,8 +38,8 @@ const LoadingAnimation = ({ isLoading, progress = 0, message = 'Loading...' }) =
       scaleX: 1, 
       opacity: 1,
       transition: { 
-        duration: 0.6, 
-        delay: 0.8,
+        duration: 0.3, 
+        delay: 0.3,
         ease: [0.4, 0, 0.2, 1]
       }
     },
@@ -53,7 +53,7 @@ const LoadingAnimation = ({ isLoading, progress = 0, message = 'Loading...' }) =
         '0px 0px 30px rgba(0, 212, 170, 0.3)',
       ],
       transition: {
-        duration: 2,
+        duration: 1,
         repeat: Infinity,
         ease: 'easeInOut',
       },
@@ -66,7 +66,7 @@ const LoadingAnimation = ({ isLoading, progress = 0, message = 'Loading...' }) =
       opacity: [0.3, 1, 0.3],
       scale: [1, 1.2, 1],
       transition: {
-        duration: 2,
+        duration: 1,
         repeat: Infinity,
         ease: 'easeInOut',
       },
@@ -111,7 +111,7 @@ const LoadingAnimation = ({ isLoading, progress = 0, message = 'Loading...' }) =
             top: `${30 + Math.sin(i) * 20}%`,
             opacity: 0.6,
           }}
-          transition={{ delay: i * 0.2 }}
+          transition={{ delay: i * 0.1 }}
         />
       ))}
 
@@ -154,7 +154,7 @@ const LoadingAnimation = ({ isLoading, progress = 0, message = 'Loading...' }) =
           fill="none"
           animate={{
             rotate: [0, 360],
-            transition: { duration: 3, repeat: Infinity, ease: "linear" }
+            transition: { duration: 1.5, repeat: Infinity, ease: "linear" }
           }}
         >
           <motion.path
@@ -162,7 +162,7 @@ const LoadingAnimation = ({ isLoading, progress = 0, message = 'Loading...' }) =
             fill="#0A0A0A"
             initial={{ pathLength: 0 }}
             animate={{ pathLength: 1 }}
-            transition={{ duration: 2, ease: "easeInOut" }}
+            transition={{ duration: 0.8, ease: "easeInOut" }}
           />
           <motion.path
             d="m2 17 10 5 10-5"
@@ -173,7 +173,7 @@ const LoadingAnimation = ({ isLoading, progress = 0, message = 'Loading...' }) =
             fill="none"
             initial={{ pathLength: 0 }}
             animate={{ pathLength: 1 }}
-            transition={{ duration: 2, delay: 0.5, ease: "easeInOut" }}
+            transition={{ duration: 0.8, delay: 0.2, ease: "easeInOut" }}
           />
           <motion.path
             d="m2 12 10 5 10-5"
@@ -184,7 +184,7 @@ const LoadingAnimation = ({ isLoading, progress = 0, message = 'Loading...' }) =
             fill="none"
             initial={{ pathLength: 0 }}
             animate={{ pathLength: 1 }}
-            transition={{ duration: 2, delay: 1, ease: "easeInOut" }}
+            transition={{ duration: 0.8, delay: 0.4, ease: "easeInOut" }}
           />
         </motion.svg>
       </motion.div>
@@ -249,7 +249,7 @@ const LoadingAnimation = ({ isLoading, progress = 0, message = 'Loading...' }) =
               }}
               initial={{ width: '0%' }}
               animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.5, ease: 'easeOut' }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
             />
             
             {/* Animated shine effect */}
@@ -265,7 +265,7 @@ const LoadingAnimation = ({ isLoading, progress = 0, message = 'Loading...' }) =
               animate={{
                 left: ['−100%', '100%'],
                 transition: {
-                  duration: 1.5,
+                  duration: 0.8,
                   repeat: Infinity,
                   ease: 'easeInOut',
                 },
@@ -307,9 +307,9 @@ const LoadingAnimation = ({ isLoading, progress = 0, message = 'Loading...' }) =
               opacity: [0.3, 1, 0.3],
             }}
             transition={{
-              duration: 1,
+              duration: 0.6,
               repeat: Infinity,
-              delay: i * 0.2,
+              delay: i * 0.1,
               ease: 'easeInOut',
             }}
           />

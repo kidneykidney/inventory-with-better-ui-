@@ -49,7 +49,15 @@
     "stop:system": "call scripts/STOP.bat",
     "setup:database": "call scripts/SETUP_DATABASE.bat",
     "update:deps": "call scripts/UPDATE_DEPS.bat",
-    "test:ocr": "cd backend && ../.venv/Scripts/python.exe ocr_setup.py"
+    "test:ocr": "cd backend && ../.venv/Scripts/python.exe ocr_setup.py",
+    "docker:start": "docker-compose up --build -d",
+    "docker:stop": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:status": "docker-compose ps",
+    "docker:clean": "docker-compose down -v --remove-orphans",
+    "docker:rebuild": "docker-compose down && docker-compose build --no-cache && docker-compose up -d",
+    "one-click": "call start-one-click.bat",
+    "quick": "call start-one-click.bat"
   },
   "eslintConfig": {
     "extends": [

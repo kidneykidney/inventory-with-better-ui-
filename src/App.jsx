@@ -44,6 +44,9 @@ import {
   Info as InfoIcon,
   Delete as DeleteIcon,
   Schedule as ScheduleIcon,
+  Logout as LogoutIcon,
+  PersonAdd as PersonAddIcon,
+  SupervisorAccount as SupervisorAccountIcon
 } from '@mui/icons-material';
 
 // Import our modules
@@ -57,6 +60,8 @@ import Orders from './components/Orders';
 import InvoiceManagement from './components/InvoiceManagement';
 import InvoiceDashboard from './components/InvoiceDashboard';
 import SettingsManagement from './components/SettingsManagement';
+import LoginPage from './components/LoginPage';
+import UserManagement from './components/UserManagement';
 
 // Import theme and components
 import { darkMatteTheme, animationVariants } from './theme/darkTheme';
@@ -64,10 +69,35 @@ import LoadingAnimation from './components/LoadingAnimation';
 import { AnimatedBadge, GlowEffect } from './components/AnimatedComponents';
 
 const drawerWidth = 280;
+const API_BASE_URL = 'http://localhost:8000';
 
 function App() {
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [selectedModule, setSelectedModule] = useState('products'); // Start with products
+  
+  // Get initial module from URL hash or localStorage, default to 'dashboard'
+  const getInitialModule = () => {
+    // Check URL hash first (e.g., #products, #reports)
+    const hash = window.location.hash.replace('#', '');
+    if (hash && ['dashboard', 'products', 'students', 'orders', 'invoicing', 'reports', 'tools', 'settings', 'users'].includes(hash)) {
+      return hash;
+    }
+    
+    // Check localStorage for last visited page
+    const savedModule = localStorage.getItem('selectedModule');
+    if (savedModule && ['dashboard', 'products', 'students', 'orders', 'invoicing', 'reports', 'tools', 'settings', 'users'].includes(savedModule)) {
+      return savedModule;
+    }
+    
+    // Default to dashboard
+    return 'dashboard';
+  };
+  
+  const [selectedModule, setSelectedModule] = useState(getInitialModule());
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
   
@@ -75,6 +105,73 @@ function App() {
   const [notifications, setNotifications] = useState([]);
   const [notificationAnchor, setNotificationAnchor] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [userMenuAnchor, setUserMenuAnchor] = useState(null);
+
+  // Check authentication status on app load
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    const token = localStorage.getItem('access_token');
+    const userData = localStorage.getItem('user_data');
+    
+    if (token && userData) {
+      try {
+        // Verify token with backend
+        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const user = await response.json();
+          setCurrentUser(user);
+          setIsAuthenticated(true);
+        } else {
+          // Token is invalid, clear storage
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('user_data');
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('user_data');
+      }
+    }
+    
+    setAuthLoading(false);
+  };
+
+  const handleLoginSuccess = (user) => {
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        await fetch(`${API_BASE_URL}/api/auth/logout`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+    
+    // Clear local storage and state
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('user_data');
+    localStorage.removeItem('selectedModule');
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    setUserMenuAnchor(null);
+  };
 
   // Generate real notifications based on system activity
   const generateNotifications = () => {
@@ -152,11 +249,11 @@ function App() {
       ];
 
       for (const step of steps) {
-        await new Promise(resolve => setTimeout(resolve, 800));
+        await new Promise(resolve => setTimeout(resolve, 200));
         setLoadingProgress(step.progress);
       }
       
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 100));
       setIsLoading(false);
       
       // Generate notifications after loading
@@ -165,6 +262,28 @@ function App() {
 
     loadingSequence();
   }, []);
+
+  // Listen for hash changes (browser navigation)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash && ['dashboard', 'products', 'students', 'orders', 'invoicing', 'reports', 'tools', 'settings'].includes(hash)) {
+        setSelectedModule(hash);
+        localStorage.setItem('selectedModule', hash);
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    
+    // Set initial hash if not present
+    if (!window.location.hash) {
+      window.location.hash = selectedModule;
+    }
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, [selectedModule]);
 
   // Simulate real-time notifications
   useEffect(() => {
@@ -303,15 +422,22 @@ function App() {
   }, []);
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, badge: 0 },
-    { id: 'products', label: 'Products Management', icon: <InventoryIcon />, badge: 2 },
-    { id: 'students', label: 'Student Management', icon: <PeopleIcon />, badge: 1 },
-    { id: 'orders', label: 'Order Management', icon: <ShoppingCartIcon />, badge: 3 },
-    { id: 'invoicing', label: 'Invoicing & Billing', icon: <ReceiptIcon />, badge: 0 },
-    { id: 'reports', label: 'Reports & Analytics', icon: <AssessmentIcon />, badge: 0 },
-    { id: 'tools', label: 'Tools & Utilities', icon: <BuildIcon />, badge: 0 },
-    { id: 'settings', label: 'System Settings', icon: <SettingsIcon />, badge: 1 },
+    { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, badge: 0, roles: ['main_admin', 'sub_admin', 'viewer'] },
+    { id: 'products', label: 'Products Management', icon: <InventoryIcon />, badge: 2, roles: ['main_admin', 'sub_admin'] },
+    { id: 'students', label: 'Student Management', icon: <PeopleIcon />, badge: 1, roles: ['main_admin', 'sub_admin'] },
+    { id: 'orders', label: 'Order Management', icon: <ShoppingCartIcon />, badge: 3, roles: ['main_admin', 'sub_admin'] },
+    { id: 'invoicing', label: 'Invoicing & Billing', icon: <ReceiptIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
+    { id: 'reports', label: 'Reports & Analytics', icon: <AssessmentIcon />, badge: 0, roles: ['main_admin', 'sub_admin', 'viewer'] },
+    { id: 'tools', label: 'Tools & Utilities', icon: <BuildIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
+    { id: 'users', label: 'User Management', icon: <SupervisorAccountIcon />, badge: 0, roles: ['main_admin'] },
+    { id: 'settings', label: 'System Settings', icon: <SettingsIcon />, badge: 1, roles: ['main_admin'] },
   ];
+
+  // Filter menu items based on user role
+  const getAccessibleMenuItems = () => {
+    if (!currentUser) return [];
+    return menuItems.filter(item => item.roles.includes(currentUser.role));
+  };
 
   const handleToggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -319,6 +445,10 @@ function App() {
 
   const handleModuleChange = (moduleId) => {
     setSelectedModule(moduleId);
+    // Save to localStorage for persistence
+    localStorage.setItem('selectedModule', moduleId);
+    // Update URL hash for browser navigation
+    window.location.hash = moduleId;
   };
 
   const renderContent = () => {
@@ -345,18 +475,20 @@ function App() {
           return <InvoiceDashboard />;
         case 'reports':
           return <PremiumAnalyticsDashboard />;
+        case 'users':
+          return <UserManagement />;
         case 'settings':
           return <SettingsManagement />;
         default:
           return (
-            <Box sx={{ p: 4 }}>
+            <Box>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
               >
                 <Typography variant="h4" gutterBottom>
-                  {menuItems.find(item => item.id === selectedModule)?.label || 'Module'}
+                  {getAccessibleMenuItems().find(item => item.id === selectedModule)?.label || 'Module'}
                 </Typography>
                 <Typography variant="body1" sx={{ color: 'text.secondary' }}>
                   This module is coming soon! Currently working on the Product Management and Order Management system.
@@ -382,6 +514,29 @@ function App() {
       </AnimatePresence>
     );
   };
+
+  // Show login page if not authenticated
+  if (authLoading) {
+    return (
+      <ThemeProvider theme={darkMatteTheme}>
+        <CssBaseline />
+        <LoadingAnimation 
+          isLoading={true} 
+          progress={50}
+          message="Checking authentication..."
+        />
+      </ThemeProvider>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <ThemeProvider theme={darkMatteTheme}>
+        <CssBaseline />
+        <LoginPage onLoginSuccess={handleLoginSuccess} />
+      </ThemeProvider>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -485,9 +640,12 @@ function App() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <IconButton color="inherit">
+                  <IconButton 
+                    color="inherit"
+                    onClick={(e) => setUserMenuAnchor(e.currentTarget)}
+                  >
                     <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
-                      <AccountIcon />
+                      {currentUser?.full_name?.charAt(0) || 'U'}
                     </Avatar>
                   </IconButton>
                 </motion.div>
@@ -646,6 +804,75 @@ function App() {
                   )}
                 </Box>
               </Menu>
+
+              {/* User Menu */}
+              <Menu
+                anchorEl={userMenuAnchor}
+                open={Boolean(userMenuAnchor)}
+                onClose={() => setUserMenuAnchor(null)}
+                PaperProps={{
+                  sx: {
+                    width: '250px',
+                    backgroundColor: '#1A1A1A',
+                    border: '1px solid #2A2A2A',
+                    borderRadius: '12px',
+                    mt: 1
+                  }
+                }}
+                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+              >
+                {/* User Info */}
+                <Box sx={{ p: 2, borderBottom: '1px solid #2A2A2A' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Avatar sx={{ bgcolor: 'primary.main' }}>
+                      {currentUser?.full_name?.charAt(0)}
+                    </Avatar>
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ color: '#FFFFFF', fontWeight: 600 }}>
+                        {currentUser?.full_name}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: '#888888' }}>
+                        {currentUser?.email}
+                      </Typography>
+                      <Box sx={{ mt: 0.5 }}>
+                        <Chip 
+                          label={currentUser?.role?.replace('_', ' ').toUpperCase()} 
+                          size="small"
+                          color={currentUser?.role === 'main_admin' ? 'error' : 'primary'}
+                          sx={{ fontSize: '0.7rem' }}
+                        />
+                      </Box>
+                    </Box>
+                  </Box>
+                </Box>
+
+                {/* Menu Items */}
+                <MenuItem onClick={() => setUserMenuAnchor(null)}>
+                  <AccountIcon sx={{ mr: 2, color: '#888888' }} />
+                  <Typography>Profile Settings</Typography>
+                </MenuItem>
+                
+                <MenuItem onClick={() => setUserMenuAnchor(null)}>
+                  <SettingsIcon sx={{ mr: 2, color: '#888888' }} />
+                  <Typography>Preferences</Typography>
+                </MenuItem>
+                
+                <Divider sx={{ my: 1, borderColor: '#2A2A2A' }} />
+                
+                <MenuItem 
+                  onClick={handleLogout}
+                  sx={{ 
+                    color: '#FF4444',
+                    '&:hover': { 
+                      backgroundColor: 'rgba(255, 68, 68, 0.1)' 
+                    }
+                  }}
+                >
+                  <LogoutIcon sx={{ mr: 2 }} />
+                  <Typography>Sign Out</Typography>
+                </MenuItem>
+              </Menu>
             </Toolbar>
           </AppBar>
 
@@ -688,13 +915,13 @@ function App() {
                     background: `linear-gradient(135deg, ${darkMatteTheme.palette.primary.main} 0%, ${darkMatteTheme.palette.secondary.main} 100%)`,
                   }}
                 >
-                  <AccountIcon sx={{ fontSize: 40 }} />
+                  {currentUser?.full_name?.charAt(0) || 'U'}
                 </Avatar>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  Admin User
+                  {currentUser?.full_name || 'User'}
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  System Administrator
+                  {currentUser?.role?.replace('_', ' ').toUpperCase() || 'USER'}
                 </Typography>
                 <Box sx={{ mt: 1 }}>
                   <Chip 
@@ -709,7 +936,7 @@ function App() {
 
             <Box sx={{ overflow: 'auto', flex: 1 }}>
               <List sx={{ px: 1, py: 2 }}>
-                {menuItems.map((item, index) => (
+                {getAccessibleMenuItems().map((item, index) => (
                   <motion.div
                     key={item.id}
                     initial={{ opacity: 0, x: -20 }}

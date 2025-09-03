@@ -1024,7 +1024,7 @@ function PremiumAnalyticsDashboard() {
       )}
 
       {/* CSS Animations */}
-      <style jsx global>{`
+      <style jsx="true" global="true">{`
         @keyframes pulse {
           0% { opacity: 1; }
           50% { opacity: 0.5; }
