@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, Card, CardContent, TextField, Button, Typography, Alert,
   Checkbox, FormControlLabel, InputAdornment, IconButton, 
@@ -7,26 +7,260 @@ import {
 } from '@mui/material';
 import {
   Visibility, VisibilityOff, Login as LoginIcon, 
-  Security as SecurityIcon, School as SchoolIcon,
+  Security as SecurityIcon, Inventory as InventoryIcon,
   AdminPanelSettings as AdminIcon, Lock as LockIcon,
-  Email as EmailIcon, Person as PersonIcon
+  Email as EmailIcon, Person as PersonIcon, Inventory2 as Inventory2Icon,
+  LocalShipping as ShippingIcon, Storage as StorageIcon,
+  Assessment as AnalyticsIcon, QrCode as QrCodeIcon
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const API_BASE_URL = 'http://localhost:8000';
 
-// Professional login color scheme
+// Dark theme colors matching your inventory system
 const LOGIN_COLORS = {
-  primary: '#1976D2',      // Professional blue
-  secondary: '#0D47A1',    // Dark blue
-  accent: '#42A5F5',       // Light blue
-  success: '#4CAF50',      // Green
-  warning: '#FF9800',      // Orange
-  error: '#F44336',        // Red
-  background: '#F5F7FA',   // Light background
-  surface: '#FFFFFF',      // White surface
-  text: '#263238',         // Dark text
-  textSecondary: '#546E7A' // Secondary text
+  primary: '#00D4AA',        // Your teal accent color (keeping as is - it's already green)
+  secondary: '#00B894',      // Darker green instead of purple
+  accent: '#00F5FF',         // Bright cyan
+  success: '#4CAF50',        // Green
+  warning: '#FF9800',        // Orange
+  error: '#FF6B6B',          // Soft red
+  background: '#0A0A0A',     // Dark background
+  surface: '#1A1A1A',        // Dark surface
+  surfaceElevated: '#2A2A2A', // Elevated surface
+  text: '#FFFFFF',           // White text
+  textSecondary: '#B0B0B0',  // Secondary text
+  border: '#333333',         // Border color
+  glow: 'rgba(0, 212, 170, 0.3)' // Glow effect
+};
+
+// Canvas Particle System Component
+const CanvasParticles = () => {
+  const canvasRef = useRef(null);
+  const animationRef = useRef(null);
+  const particlesRef = useRef([]);
+  const mouseRef = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Set canvas size
+    const resizeCanvas = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Initialize particles
+    const initParticles = () => {
+      const particles = [];
+      for (let i = 0; i < 150; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          z: Math.random() * 1000,
+          vx: (Math.random() - 0.5) * 0.2,
+          vy: (Math.random() - 0.5) * 0.2,
+          vz: Math.random() * 0.8 + 0.3,
+          size: Math.random() * 3 + 1,
+          opacity: Math.random() * 0.8 + 0.2,
+          color: Math.random() > 0.7 ? '#00D4AA' : Math.random() > 0.5 ? '#00B894' : '#26D0CE',
+          type: Math.floor(Math.random() * 3) // 0: box, 1: circle, 2: triangle (inventory items)
+        });
+      }
+      particlesRef.current = particles;
+    };
+
+    initParticles();
+
+    // Animation loop
+    const animate = () => {
+      if (!ctx || !canvas) return;
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Update and draw particles
+      particlesRef.current.forEach((particle, index) => {
+        // Update position
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        particle.z -= particle.vz;
+
+        // Mouse interaction
+        const dx = mouseRef.current.x - particle.x;
+        const dy = mouseRef.current.y - particle.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < 100) {
+          particle.x += dx * 0.005;
+          particle.y += dy * 0.005;
+        }
+
+        // Reset particle if it goes off screen
+        if (particle.z <= 0 || particle.x < -50 || particle.x > canvas.width + 50 || 
+            particle.y < -50 || particle.y > canvas.height + 50) {
+          particle.x = Math.random() * canvas.width;
+          particle.y = Math.random() * canvas.height;
+          particle.z = 1000;
+        }
+
+        // Calculate size based on z-depth
+        const scale = (1000 - particle.z) / 1000;
+        const size = particle.size * scale;
+        const opacity = particle.opacity * scale;
+
+        if (scale > 0.1) {
+          ctx.save();
+          ctx.globalAlpha = opacity;
+          ctx.fillStyle = particle.color;
+          ctx.strokeStyle = particle.color;
+          ctx.lineWidth = 1;
+
+          // Draw different shapes for inventory items
+          if (particle.type === 0) {
+            // Box (package/inventory item)
+            ctx.fillRect(particle.x - size/2, particle.y - size/2, size, size);
+            ctx.strokeRect(particle.x - size/2, particle.y - size/2, size, size);
+          } else if (particle.type === 1) {
+            // Circle (item/product)
+            ctx.beginPath();
+            ctx.arc(particle.x, particle.y, size/2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+          } else {
+            // Triangle (shipping/logistics)
+            ctx.beginPath();
+            ctx.moveTo(particle.x, particle.y - size/2);
+            ctx.lineTo(particle.x - size/2, particle.y + size/2);
+            ctx.lineTo(particle.x + size/2, particle.y + size/2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        // Connect nearby particles
+        particlesRef.current.slice(index + 1).forEach(otherParticle => {
+          const dx = particle.x - otherParticle.x;
+          const dy = particle.y - otherParticle.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          if (distance < 100) {
+            const opacity = (100 - distance) / 100 * 0.3;
+            ctx.save();
+            ctx.globalAlpha = opacity;
+            ctx.strokeStyle = '#00D4AA';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(particle.x, particle.y);
+            ctx.lineTo(otherParticle.x, otherParticle.y);
+            ctx.stroke();
+            ctx.restore();
+          }
+        });
+      });
+
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    // Mouse tracking
+    const handleMouseMove = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouseRef.current.x = e.clientX - rect.left;
+      mouseRef.current.y = e.clientY - rect.top;
+    };
+
+    canvas.addEventListener('mousemove', handleMouseMove);
+
+    return () => {
+      window.removeEventListener('resize', resizeCanvas);
+      canvas.removeEventListener('mousemove', handleMouseMove);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+        zIndex: 1
+      }}
+    />
+  );
+};
+
+// Floating Inventory Icons Component
+const FloatingInventoryIcons = () => {
+  const icons = [
+    { Icon: InventoryIcon, delay: 0 },
+    { Icon: Inventory2Icon, delay: 1 },
+    { Icon: ShippingIcon, delay: 2 },
+    { Icon: StorageIcon, delay: 3 },
+    { Icon: AnalyticsIcon, delay: 4 },
+    { Icon: QrCodeIcon, delay: 5 }
+  ];
+
+  return (
+    <Box sx={{ position: 'absolute', width: '100%', height: '100%', overflow: 'hidden', zIndex: 2 }}>
+      {icons.map(({ Icon, delay }, index) => (
+        <motion.div
+          key={index}
+          initial={{ 
+            x: Math.random() * window.innerWidth,
+            y: Math.random() * window.innerHeight,
+            opacity: 0,
+            scale: 0
+          }}
+          animate={{
+            x: [
+              Math.random() * window.innerWidth,
+              Math.random() * window.innerWidth,
+              Math.random() * window.innerWidth
+            ],
+            y: [
+              Math.random() * window.innerHeight,
+              Math.random() * window.innerHeight,
+              Math.random() * window.innerHeight
+            ],
+            opacity: [0, 0.3, 0],
+            scale: [0, 1, 0],
+            rotate: [0, 360, 720]
+          }}
+          transition={{
+            duration: 30 + Math.random() * 15,
+            repeat: Infinity,
+            delay: delay * 3,
+            ease: "linear"
+          }}
+          style={{
+            position: 'absolute',
+            color: Math.random() > 0.5 ? LOGIN_COLORS.primary : LOGIN_COLORS.secondary,
+            fontSize: '24px',
+            pointerEvents: 'none'
+          }}
+        >
+          <Icon sx={{ fontSize: 'inherit' }} />
+        </motion.div>
+      ))}
+    </Box>
+  );
 };
 
 function LoginPage({ onLoginSuccess }) {
@@ -42,23 +276,120 @@ function LoginPage({ onLoginSuccess }) {
   const [success, setSuccess] = useState('');
   const [isSystemInitialized, setIsSystemInitialized] = useState(true);
   const [initializingSystem, setInitializingSystem] = useState(false);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+
+  // Global style injection to override autofill
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      input:-webkit-autofill,
+      input:-webkit-autofill:hover,
+      input:-webkit-autofill:focus,
+      input:-webkit-autofill:active {
+        -webkit-box-shadow: 0 0 0 1000px #1A1A1A inset !important;
+        -webkit-text-fill-color: #FFFFFF !important;
+        background-color: #1A1A1A !important;
+        background-image: none !important;
+        background: #1A1A1A !important;
+        color: #FFFFFF !important;
+        border-radius: 12px !important;
+        transition: background-color 5000s ease-in-out 0s !important;
+      }
+      input:-webkit-autofill::first-line {
+        color: #FFFFFF !important;
+        font-weight: 400 !important;
+      }
+      .MuiOutlinedInput-root {
+        background-color: transparent !important;
+        background: transparent !important;
+      }
+      .MuiOutlinedInput-input {
+        background-color: transparent !important;
+        background: transparent !important;
+        color: #FFFFFF !important;
+      }
+      .MuiTextField-root input {
+        color: #FFFFFF !important;
+      }
+      /* Additional override for stubborn autofill */
+      input[data-autocompleted] {
+        background-color: #1A1A1A !important;
+        color: #FFFFFF !important;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
+  // Parallax effect
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      setMousePosition({
+        x: (e.clientX / window.innerWidth) * 100,
+        y: (e.clientY / window.innerHeight) * 100
+      });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
 
   // Animation variants
   const containerVariants = {
-    hidden: { opacity: 0, y: 20 },
+    hidden: { opacity: 0, scale: 0.8 },
+    visible: { 
+      opacity: 1, 
+      scale: 1,
+      transition: { 
+        duration: 0.8, 
+        ease: [0.4, 0, 0.2, 1],
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 50 },
     visible: { 
       opacity: 1, 
       y: 0,
-      transition: { duration: 0.6, ease: "easeOut" }
+      transition: { duration: 0.6, ease: [0.4, 0, 0.2, 1] }
     }
   };
 
   const cardVariants = {
-    hidden: { opacity: 0, scale: 0.9 },
+    hidden: { opacity: 0, scale: 0.9, rotateY: 20 },
     visible: { 
       opacity: 1, 
       scale: 1,
-      transition: { duration: 0.5, ease: "easeOut", delay: 0.2 }
+      rotateY: 0,
+      transition: { 
+        duration: 0.8, 
+        ease: [0.4, 0, 0.2, 1],
+        delay: 0.3
+      }
+    }
+  };
+
+  const logoVariants = {
+    initial: { scale: 0, rotate: -180 },
+    animate: {
+      scale: 1,
+      rotate: 0,
+      transition: {
+        type: "spring",
+        stiffness: 200,
+        damping: 15,
+        delay: 0.5
+      }
+    },
+    hover: {
+      scale: 1.1,
+      rotate: 5,
+      transition: { duration: 0.3 }
     }
   };
 
@@ -182,29 +513,92 @@ Please change the password after first login.`);
   return (
     <Box sx={{
       minHeight: '100vh',
-      background: `linear-gradient(135deg, ${LOGIN_COLORS.primary} 0%, ${LOGIN_COLORS.secondary} 100%)`,
+      background: `linear-gradient(135deg, ${LOGIN_COLORS.background} 0%, #1A1A2E 50%, ${LOGIN_COLORS.surface} 100%)`,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       position: 'relative',
       overflow: 'hidden'
     }}>
-      {/* Animated Background Elements */}
-      <Box sx={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: `
-          radial-gradient(circle at 20% 80%, rgba(66, 165, 245, 0.3) 0%, transparent 50%),
-          radial-gradient(circle at 80% 20%, rgba(25, 118, 210, 0.3) 0%, transparent 50%),
-          radial-gradient(circle at 40% 40%, rgba(13, 71, 161, 0.2) 0%, transparent 50%)
-        `,
-        animation: 'float 20s infinite ease-in-out'
-      }} />
+      {/* Canvas Particle System */}
+      <CanvasParticles />
+      
+      {/* Floating Inventory Icons */}
+      <FloatingInventoryIcons />
 
-      <Container maxWidth="sm" sx={{ position: 'relative', zIndex: 1 }}>
+      {/* Animated Background Grid */}
+      <Box 
+        sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundImage: `
+            linear-gradient(rgba(0, 212, 170, 0.1) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 212, 170, 0.1) 1px, transparent 1px)
+          `,
+          backgroundSize: '50px 50px',
+          transform: `translate(${mousePosition.x * 0.1}px, ${mousePosition.y * 0.1}px)`,
+          transition: 'transform 0.5s ease',
+          opacity: 0.3,
+          zIndex: 1
+        }}
+      />
+
+      {/* Glowing orbs */}
+      <motion.div
+        style={{
+          position: 'absolute',
+          top: '20%',
+          left: '10%',
+          width: '300px',
+          height: '300px',
+          background: `radial-gradient(circle, ${LOGIN_COLORS.primary}40 0%, transparent 70%)`,
+          borderRadius: '50%',
+          filter: 'blur(40px)',
+          zIndex: 1
+        }}
+        animate={{
+          scale: [1, 1.2, 1],
+          opacity: [0.3, 0.6, 0.3],
+          x: [0, 50, 0],
+          y: [0, -30, 0]
+        }}
+        transition={{
+          duration: 12,
+          repeat: Infinity,
+          ease: "easeInOut"
+        }}
+      />
+
+      <motion.div
+        style={{
+          position: 'absolute',
+          bottom: '20%',
+          right: '10%',
+          width: '250px',
+          height: '250px',
+          background: `radial-gradient(circle, ${LOGIN_COLORS.secondary}40 0%, transparent 70%)`,
+          borderRadius: '50%',
+          filter: 'blur(40px)',
+          zIndex: 1
+        }}
+        animate={{
+          scale: [1, 1.3, 1],
+          opacity: [0.2, 0.5, 0.2],
+          x: [0, -40, 0],
+          y: [0, 20, 0]
+        }}
+        transition={{
+          duration: 15,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: 3
+        }}
+      />
+
+      <Container maxWidth="sm" sx={{ position: 'relative', zIndex: 10 }}>
         <motion.div
           variants={containerVariants}
           initial="hidden"
@@ -213,78 +607,133 @@ Please change the password after first login.`);
           <motion.div variants={cardVariants}>
             <Card sx={{
               borderRadius: 4,
-              boxShadow: '0 20px 60px rgba(0,0,0,0.1)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255,255,255,0.2)'
+              background: `linear-gradient(145deg, ${LOGIN_COLORS.surface}95 0%, ${LOGIN_COLORS.surfaceElevated}95 100%)`,
+              backdropFilter: 'blur(20px)',
+              border: `1px solid ${LOGIN_COLORS.border}`,
+              boxShadow: `
+                0 25px 50px rgba(0, 0, 0, 0.3),
+                0 0 0 1px rgba(255, 255, 255, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1)
+              `,
+              position: 'relative',
+              overflow: 'hidden'
             }}>
-              <CardContent sx={{ p: 6 }}>
-                {/* Header */}
-                <Box sx={{ textAlign: 'center', mb: 4 }}>
-                  <motion.div
-                    animate={{ 
-                      rotate: [0, 5, -5, 0],
-                      scale: [1, 1.05, 1]
-                    }}
-                    transition={{ 
-                      duration: 3,
-                      repeat: Infinity,
-                      ease: "easeInOut"
-                    }}
-                  >
-                    <Avatar sx={{
-                      width: 80,
-                      height: 80,
-                      mx: 'auto',
-                      mb: 2,
-                      background: `linear-gradient(135deg, ${LOGIN_COLORS.primary} 0%, ${LOGIN_COLORS.accent} 100%)`,
-                      boxShadow: '0 8px 32px rgba(25, 118, 210, 0.3)'
-                    }}>
-                      <SchoolIcon sx={{ fontSize: 40 }} />
-                    </Avatar>
-                  </motion.div>
-                  
-                  <Typography variant="h4" sx={{ 
-                    fontWeight: 700, 
-                    color: LOGIN_COLORS.text,
-                    mb: 1
-                  }}>
-                    College Inventory System
-                  </Typography>
-                  
-                  <Typography variant="body1" sx={{ 
-                    color: LOGIN_COLORS.textSecondary,
-                    mb: 2
-                  }}>
-                    Secure Administrative Access
-                  </Typography>
+              {/* Card Glow Effect */}
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: '2px',
+                  background: `linear-gradient(90deg, ${LOGIN_COLORS.primary}, ${LOGIN_COLORS.secondary}, ${LOGIN_COLORS.accent})`,
+                  backgroundSize: '200% 100%',
+                  animation: 'shimmer 3s ease-in-out infinite'
+                }}
+              />
 
-                  <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 3 }}>
-                    <Chip 
-                      icon={<SecurityIcon />} 
-                      label="Secure Login" 
-                      size="small"
-                      sx={{ 
-                        bgcolor: `${LOGIN_COLORS.success}20`,
-                        color: LOGIN_COLORS.success,
-                        '& .MuiChip-icon': { color: LOGIN_COLORS.success }
-                      }}
-                    />
-                    <Chip 
-                      icon={<AdminIcon />} 
-                      label="Admin Portal" 
-                      size="small"
-                      sx={{ 
-                        bgcolor: `${LOGIN_COLORS.primary}20`,
-                        color: LOGIN_COLORS.primary,
-                        '& .MuiChip-icon': { color: LOGIN_COLORS.primary }
-                      }}
-                    />
+              <CardContent sx={{ p: 6, position: 'relative' }}>
+                {/* Header */}
+                <motion.div variants={itemVariants}>
+                  <Box sx={{ textAlign: 'center', mb: 4 }}>
+                    <motion.div
+                      variants={logoVariants}
+                      initial="initial"
+                      animate="animate"
+                      whileHover="hover"
+                    >
+                      <Avatar sx={{
+                        width: 80,
+                        height: 80,
+                        mx: 'auto',
+                        mb: 2,
+                        background: `linear-gradient(135deg, ${LOGIN_COLORS.primary} 0%, ${LOGIN_COLORS.secondary} 100%)`,
+                        boxShadow: `0 8px 32px ${LOGIN_COLORS.glow}`,
+                        border: `2px solid ${LOGIN_COLORS.border}`,
+                        position: 'relative',
+                        overflow: 'visible'
+                      }}>
+                        <InventoryIcon sx={{ fontSize: 40, color: '#FFFFFF' }} />
+                        
+                        {/* Rotating ring around avatar */}
+                        <motion.div
+                          style={{
+                            position: 'absolute',
+                            top: -4,
+                            left: -4,
+                            right: -4,
+                            bottom: -4,
+                            border: `2px solid ${LOGIN_COLORS.primary}`,
+                            borderRadius: '50%',
+                            borderStyle: 'dashed'
+                          }}
+                          animate={{ rotate: 360 }}
+                          transition={{
+                            duration: 15,
+                            repeat: Infinity,
+                            ease: "linear"
+                          }}
+                        />
+                      </Avatar>
+                    </motion.div>
+                    
+                    <motion.div variants={itemVariants}>
+                      <Typography variant="h4" sx={{ 
+                        fontWeight: 700, 
+                        background: `linear-gradient(135deg, ${LOGIN_COLORS.primary} 0%, ${LOGIN_COLORS.secondary} 100%)`,
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                        mb: 1,
+                        textShadow: `0 0 20px ${LOGIN_COLORS.glow}`
+                      }}>
+                        College Inventory System
+                      </Typography>
+                    </motion.div>
+                    
+                    <motion.div variants={itemVariants}>
+                      <Typography variant="body1" sx={{ 
+                        color: LOGIN_COLORS.textSecondary,
+                        mb: 2,
+                        fontSize: '1.1rem'
+                      }}>
+                        Advanced Inventory Management Portal
+                      </Typography>
+                    </motion.div>
+
+                    <motion.div variants={itemVariants}>
+                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 3 }}>
+                        <Chip 
+                          icon={<SecurityIcon />} 
+                          label="Secure Access" 
+                          size="small"
+                          sx={{ 
+                            background: `linear-gradient(135deg, ${LOGIN_COLORS.primary}20 0%, ${LOGIN_COLORS.primary}10 100%)`,
+                            color: LOGIN_COLORS.primary,
+                            border: `1px solid ${LOGIN_COLORS.primary}30`,
+                            '& .MuiChip-icon': { color: LOGIN_COLORS.primary }
+                          }}
+                        />
+                        <Chip 
+                          icon={<AdminIcon />} 
+                          label="Admin Portal" 
+                          size="small"
+                          sx={{ 
+                            background: `linear-gradient(135deg, ${LOGIN_COLORS.secondary}20 0%, ${LOGIN_COLORS.secondary}10 100%)`,
+                            color: LOGIN_COLORS.secondary,
+                            border: `1px solid ${LOGIN_COLORS.secondary}30`,
+                            '& .MuiChip-icon': { color: LOGIN_COLORS.secondary }
+                          }}
+                        />
+                      </Box>
+                    </motion.div>
                   </Box>
-                </Box>
+                </motion.div>
 
                 {/* System Initialization Section */}
                 {!isSystemInitialized && (
                   <motion.div
+                    variants={itemVariants}
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     transition={{ duration: 0.5 }}
@@ -292,8 +741,10 @@ Please change the password after first login.`);
                     <Paper sx={{ 
                       p: 3, 
                       mb: 3, 
-                      bgcolor: `${LOGIN_COLORS.warning}10`,
-                      border: `1px solid ${LOGIN_COLORS.warning}30`
+                      background: `linear-gradient(135deg, ${LOGIN_COLORS.warning}20 0%, ${LOGIN_COLORS.warning}10 100%)`,
+                      border: `1px solid ${LOGIN_COLORS.warning}40`,
+                      borderRadius: 3,
+                      backdropFilter: 'blur(10px)'
                     }}>
                       <Typography variant="h6" sx={{ mb: 2, color: LOGIN_COLORS.warning }}>
                         🚀 System Setup Required
@@ -302,19 +753,26 @@ Please change the password after first login.`);
                         This appears to be the first time accessing the system. 
                         Please initialize it to create the main administrator account.
                       </Typography>
-                      <Button
-                        variant="contained"
-                        fullWidth
-                        onClick={initializeSystem}
-                        disabled={initializingSystem}
-                        startIcon={<AdminIcon />}
-                        sx={{
-                          bgcolor: LOGIN_COLORS.warning,
-                          '&:hover': { bgcolor: '#E65100' }
-                        }}
-                      >
-                        {initializingSystem ? 'Initializing System...' : 'Initialize System'}
-                      </Button>
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        <Button
+                          variant="contained"
+                          fullWidth
+                          onClick={initializeSystem}
+                          disabled={initializingSystem}
+                          startIcon={<AdminIcon />}
+                          sx={{
+                            background: `linear-gradient(135deg, ${LOGIN_COLORS.warning} 0%, #E65100 100%)`,
+                            borderRadius: 2,
+                            fontWeight: 600,
+                            '&:hover': { 
+                              background: `linear-gradient(135deg, #E65100 0%, ${LOGIN_COLORS.warning} 100%)`,
+                              boxShadow: `0 8px 25px ${LOGIN_COLORS.warning}40`
+                            }
+                          }}
+                        >
+                          {initializingSystem ? 'Initializing System...' : 'Initialize System'}
+                        </Button>
+                      </motion.div>
                     </Paper>
                   </motion.div>
                 )}
@@ -323,11 +781,22 @@ Please change the password after first login.`);
                 <AnimatePresence>
                   {loading && (
                     <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
                     >
-                      <LinearProgress sx={{ mb: 2, borderRadius: 1 }} />
+                      <Box sx={{ mb: 2 }}>
+                        <LinearProgress 
+                          sx={{ 
+                            borderRadius: 1,
+                            height: 6,
+                            backgroundColor: LOGIN_COLORS.border,
+                            '& .MuiLinearProgress-bar': {
+                              background: `linear-gradient(90deg, ${LOGIN_COLORS.primary} 0%, ${LOGIN_COLORS.secondary} 100%)`
+                            }
+                          }} 
+                        />
+                      </Box>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -336,11 +805,22 @@ Please change the password after first login.`);
                 <AnimatePresence>
                   {error && (
                     <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
+                      initial={{ opacity: 0, y: -10, scale: 0.9 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -10, scale: 0.9 }}
+                      transition={{ type: "spring", stiffness: 200, damping: 20 }}
                     >
-                      <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+                      <Alert 
+                        severity="error" 
+                        sx={{ 
+                          mb: 3, 
+                          borderRadius: 2,
+                          background: `linear-gradient(135deg, ${LOGIN_COLORS.error}15 0%, ${LOGIN_COLORS.error}05 100%)`,
+                          border: `1px solid ${LOGIN_COLORS.error}30`,
+                          color: LOGIN_COLORS.error,
+                          '& .MuiAlert-icon': { color: LOGIN_COLORS.error }
+                        }}
+                      >
                         <pre style={{ fontFamily: 'inherit', margin: 0, whiteSpace: 'pre-wrap' }}>
                           {error}
                         </pre>
@@ -353,11 +833,22 @@ Please change the password after first login.`);
                 <AnimatePresence>
                   {success && (
                     <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
+                      initial={{ opacity: 0, y: -10, scale: 0.9 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -10, scale: 0.9 }}
+                      transition={{ type: "spring", stiffness: 200, damping: 20 }}
                     >
-                      <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }}>
+                      <Alert 
+                        severity="success" 
+                        sx={{ 
+                          mb: 3, 
+                          borderRadius: 2,
+                          background: `linear-gradient(135deg, ${LOGIN_COLORS.success}15 0%, ${LOGIN_COLORS.success}05 100%)`,
+                          border: `1px solid ${LOGIN_COLORS.success}30`,
+                          color: LOGIN_COLORS.success,
+                          '& .MuiAlert-icon': { color: LOGIN_COLORS.success }
+                        }}
+                      >
                         <pre style={{ fontFamily: 'inherit', margin: 0, whiteSpace: 'pre-wrap' }}>
                           {success}
                         </pre>
@@ -367,172 +858,468 @@ Please change the password after first login.`);
                 </AnimatePresence>
 
                 {/* Login Form */}
-                <Box component="form" onSubmit={handleSubmit}>
-                  <TextField
-                    fullWidth
-                    name="username"
-                    label="Username or Email"
-                    value={formData.username}
-                    onChange={handleInputChange}
-                    margin="normal"
-                    required
-                    disabled={loading}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <PersonIcon sx={{ color: LOGIN_COLORS.textSecondary }} />
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                        '&:hover .MuiOutlinedInput-notchedOutline': {
-                          borderColor: LOGIN_COLORS.accent,
-                        },
-                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                          borderColor: LOGIN_COLORS.primary,
-                        }
-                      }
-                    }}
-                  />
-
-                  <TextField
-                    fullWidth
-                    name="password"
-                    label="Password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    margin="normal"
-                    required
-                    disabled={loading}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <LockIcon sx={{ color: LOGIN_COLORS.textSecondary }} />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            onClick={togglePasswordVisibility}
-                            edge="end"
-                            disabled={loading}
-                          >
-                            {showPassword ? <VisibilityOff /> : <Visibility />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                        '&:hover .MuiOutlinedInput-notchedOutline': {
-                          borderColor: LOGIN_COLORS.accent,
-                        },
-                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                          borderColor: LOGIN_COLORS.primary,
-                        }
-                      }
-                    }}
-                  />
-
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        name="rememberMe"
-                        checked={formData.rememberMe}
+                <motion.div variants={itemVariants}>
+                  <Box component="form" onSubmit={handleSubmit}>
+                    <motion.div variants={itemVariants}>
+                      <TextField
+                        fullWidth
+                        name="username"
+                        label="Username or Email"
+                        value={formData.username}
                         onChange={handleInputChange}
+                        margin="normal"
+                        required
                         disabled={loading}
+                        autoComplete="off"
+                        inputProps={{
+                          autoComplete: 'new-password',
+                          style: {
+                            WebkitBoxShadow: '0 0 0 1000px #1A1A1A inset !important',
+                            WebkitTextFillColor: '#FFFFFF !important',
+                            backgroundColor: '#1A1A1A !important',
+                            backgroundImage: 'none !important',
+                            background: '#1A1A1A !important',
+                            color: '#FFFFFF !important',
+                            caretColor: '#00D4AA',
+                            transition: 'background-color 5000s ease-in-out 0s !important',
+                          }
+                        }}
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <PersonIcon sx={{ color: LOGIN_COLORS.primary }} />
+                            </InputAdornment>
+                          ),
+                        }}
                         sx={{
-                          color: LOGIN_COLORS.textSecondary,
-                          '&.Mui-checked': {
-                            color: LOGIN_COLORS.primary,
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: 3,
+                            backgroundColor: 'transparent !important',
+                            backdropFilter: 'none !important',
+                            background: 'transparent !important',
+                            '&::before': {
+                              background: 'transparent !important',
+                            },
+                            '&::after': {
+                              background: 'transparent !important',
+                            },
+                            '& .MuiOutlinedInput-notchedOutline': {
+                              backgroundColor: 'transparent !important',
+                            },
+                            '& fieldset': {
+                              borderColor: 'transparent',
+                              borderWidth: '1px',
+                              backgroundColor: 'transparent !important',
+                            },
+                            '&:hover': {
+                              backgroundColor: 'transparent !important',
+                              '& fieldset': {
+                                borderColor: `${LOGIN_COLORS.primary}40`,
+                                backgroundColor: 'transparent !important',
+                              }
+                            },
+                            '&.Mui-focused': {
+                              backgroundColor: 'transparent !important',
+                              '& fieldset': {
+                                borderColor: `${LOGIN_COLORS.primary}80`,
+                                borderWidth: '1px',
+                                boxShadow: `0 0 0 1px ${LOGIN_COLORS.primary}30`,
+                                backgroundColor: 'transparent !important',
+                              }
+                            }
+                          },
+                          '& .MuiOutlinedInput-input': {
+                            color: LOGIN_COLORS.text,
+                            fontSize: '1rem',
+                            backgroundColor: 'transparent !important',
+                            '&:-webkit-autofill': {
+                              WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                              WebkitTextFillColor: `${LOGIN_COLORS.text} !important`,
+                              backgroundColor: 'transparent !important',
+                            },
+                            '&:-webkit-autofill:hover': {
+                              WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                              WebkitTextFillColor: `${LOGIN_COLORS.text} !important`,
+                              backgroundColor: 'transparent !important',
+                            },
+                            '&:-webkit-autofill:focus': {
+                              WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                              WebkitTextFillColor: `${LOGIN_COLORS.text} !important`,
+                              backgroundColor: 'transparent !important',
+                            },
+                            '&:-webkit-autofill:active': {
+                              WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                              WebkitTextFillColor: `${LOGIN_COLORS.text} !important`,
+                              backgroundColor: 'transparent !important',
+                            }
+                          },
+                          '& .MuiInputLabel-root': {
+                            color: LOGIN_COLORS.textSecondary,
+                            '&.Mui-focused': {
+                              color: LOGIN_COLORS.primary
+                            }
                           }
                         }}
                       />
-                    }
-                    label={
-                      <Typography variant="body2" sx={{ color: LOGIN_COLORS.textSecondary }}>
-                        Keep me signed in
-                      </Typography>
-                    }
-                    sx={{ mt: 2, mb: 2 }}
-                  />
+                    </motion.div>
 
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <Button
-                      type="submit"
-                      fullWidth
-                      variant="contained"
-                      size="large"
-                      disabled={loading || !formData.username || !formData.password}
-                      startIcon={<LoginIcon />}
-                      sx={{
-                        mt: 2,
-                        mb: 3,
-                        py: 1.5,
-                        borderRadius: 2,
-                        fontSize: '1.1rem',
-                        fontWeight: 600,
-                        background: `linear-gradient(135deg, ${LOGIN_COLORS.primary} 0%, ${LOGIN_COLORS.secondary} 100%)`,
-                        boxShadow: '0 8px 32px rgba(25, 118, 210, 0.3)',
-                        '&:hover': {
-                          background: `linear-gradient(135deg, ${LOGIN_COLORS.secondary} 0%, ${LOGIN_COLORS.primary} 100%)`,
-                          boxShadow: '0 12px 40px rgba(25, 118, 210, 0.4)',
-                        },
-                        '&:disabled': {
-                          background: LOGIN_COLORS.textSecondary,
-                          color: 'white'
+                    <motion.div variants={itemVariants}>
+                      <TextField
+                        fullWidth
+                        name="password"
+                        label="Password"
+                        type={showPassword ? 'text' : 'password'}
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        margin="normal"
+                        required
+                        disabled={loading}
+                        autoComplete="off"
+                        inputProps={{
+                          autoComplete: 'new-password',
+                          style: {
+                            WebkitBoxShadow: '0 0 0 1000px #1A1A1A inset !important',
+                            WebkitTextFillColor: '#FFFFFF !important',
+                            backgroundColor: '#1A1A1A !important',
+                            backgroundImage: 'none !important',
+                            background: '#1A1A1A !important',
+                            color: '#FFFFFF !important',
+                            caretColor: '#00B894',
+                            transition: 'background-color 5000s ease-in-out 0s !important',
+                          }
+                        }}
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <LockIcon sx={{ color: LOGIN_COLORS.secondary }} />
+                            </InputAdornment>
+                          ),
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                                <IconButton
+                                  onClick={togglePasswordVisibility}
+                                  edge="end"
+                                  disabled={loading}
+                                  sx={{ color: LOGIN_COLORS.textSecondary }}
+                                >
+                                  {showPassword ? <VisibilityOff /> : <Visibility />}
+                                </IconButton>
+                              </motion.div>
+                            </InputAdornment>
+                          ),
+                        }}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: 3,
+                            backgroundColor: 'transparent !important',
+                            backdropFilter: 'none !important',
+                            background: 'transparent !important',
+                            '&::before': {
+                              background: 'transparent !important',
+                            },
+                            '&::after': {
+                              background: 'transparent !important',
+                            },
+                            '& .MuiOutlinedInput-notchedOutline': {
+                              backgroundColor: 'transparent !important',
+                            },
+                            '& fieldset': {
+                              borderColor: 'transparent',
+                              borderWidth: '1px',
+                              backgroundColor: 'transparent !important',
+                            },
+                            '&:hover': {
+                              backgroundColor: 'transparent !important',
+                              '& fieldset': {
+                                borderColor: `${LOGIN_COLORS.secondary}40`,
+                                backgroundColor: 'transparent !important',
+                              }
+                            },
+                            '&.Mui-focused': {
+                              backgroundColor: 'transparent !important',
+                              '& fieldset': {
+                                borderColor: `${LOGIN_COLORS.secondary}80`,
+                                borderWidth: '1px',
+                                boxShadow: `0 0 0 1px ${LOGIN_COLORS.secondary}30`,
+                                backgroundColor: 'transparent !important',
+                              }
+                            }
+                          },
+                          '& .MuiInputLabel-root': {
+                            color: LOGIN_COLORS.textSecondary,
+                            '&.Mui-focused': {
+                              color: LOGIN_COLORS.secondary
+                            }
+                          },
+                          '& .MuiOutlinedInput-input': {
+                            color: LOGIN_COLORS.text,
+                            fontSize: '1rem',
+                            backgroundColor: 'transparent !important',
+                            '&:-webkit-autofill': {
+                              WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                              WebkitTextFillColor: `${LOGIN_COLORS.text} !important`,
+                              backgroundColor: 'transparent !important',
+                            },
+                            '&:-webkit-autofill:hover': {
+                              WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                              WebkitTextFillColor: `${LOGIN_COLORS.text} !important`,
+                              backgroundColor: 'transparent !important',
+                            },
+                            '&:-webkit-autofill:focus': {
+                              WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                              WebkitTextFillColor: `${LOGIN_COLORS.text} !important`,
+                              backgroundColor: 'transparent !important',
+                            },
+                            '&:-webkit-autofill:active': {
+                              WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                              WebkitTextFillColor: `${LOGIN_COLORS.text} !important`,
+                              backgroundColor: 'transparent !important',
+                            }
+                          },
+                          '& .MuiInputLabel-root': {
+                            color: LOGIN_COLORS.textSecondary,
+                            '&.Mui-focused': {
+                              color: LOGIN_COLORS.secondary
+                            }
+                          }
+                        }}
+                      />
+                    </motion.div>
+
+                    <motion.div variants={itemVariants}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            name="rememberMe"
+                            checked={formData.rememberMe}
+                            onChange={handleInputChange}
+                            disabled={loading}
+                            sx={{
+                              color: LOGIN_COLORS.textSecondary,
+                              '&.Mui-checked': {
+                                color: LOGIN_COLORS.primary,
+                              }
+                            }}
+                          />
                         }
-                      }}
-                    >
-                      {loading ? 'Signing In...' : 'Sign In'}
-                    </Button>
-                  </motion.div>
-                </Box>
+                        label={
+                          <Typography variant="body2" sx={{ color: LOGIN_COLORS.textSecondary }}>
+                            Keep me signed in
+                          </Typography>
+                        }
+                        sx={{ mt: 2, mb: 2 }}
+                      />
+                    </motion.div>
 
-                <Divider sx={{ my: 3 }} />
+                    <motion.div 
+                      variants={itemVariants}
+                      whileHover={{ scale: 1.02 }} 
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <Button
+                        type="submit"
+                        fullWidth
+                        variant="contained"
+                        size="large"
+                        disabled={loading || !formData.username || !formData.password}
+                        startIcon={<LoginIcon />}
+                        sx={{
+                          mt: 2,
+                          mb: 3,
+                          py: 1.8,
+                          borderRadius: 3,
+                          fontSize: '1.1rem',
+                          fontWeight: 600,
+                          background: `linear-gradient(135deg, ${LOGIN_COLORS.primary} 0%, ${LOGIN_COLORS.secondary} 100%)`,
+                          boxShadow: `0 8px 32px ${LOGIN_COLORS.glow}`,
+                          border: `1px solid ${LOGIN_COLORS.primary}30`,
+                          position: 'relative',
+                          overflow: 'hidden',
+                          '&:hover': {
+                            background: `linear-gradient(135deg, ${LOGIN_COLORS.secondary} 0%, ${LOGIN_COLORS.primary} 100%)`,
+                            boxShadow: `0 12px 40px ${LOGIN_COLORS.glow}`,
+                            transform: 'translateY(-2px)'
+                          },
+                          '&:disabled': {
+                            background: LOGIN_COLORS.border,
+                            color: LOGIN_COLORS.textSecondary
+                          },
+                          '&::before': {
+                            content: '""',
+                            position: 'absolute',
+                            top: 0,
+                            left: '-100%',
+                            width: '100%',
+                            height: '100%',
+                            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                            transition: 'left 0.5s'
+                          },
+                          '&:hover::before': {
+                            left: '100%'
+                          }
+                        }}
+                      >
+                        {loading ? 'Signing In...' : 'Sign In'}
+                      </Button>
+                    </motion.div>
+                  </Box>
+                </motion.div>
+
+                <Divider sx={{ 
+                  my: 3,
+                  borderColor: LOGIN_COLORS.border,
+                  '&::before, &::after': {
+                    borderColor: LOGIN_COLORS.border
+                  }
+                }} />
 
                 {/* Security Information */}
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="caption" sx={{ 
-                    color: LOGIN_COLORS.textSecondary,
-                    display: 'block',
-                    mb: 1
-                  }}>
-                    🔒 Secure authentication with session management
-                  </Typography>
-                  <Typography variant="caption" sx={{ 
-                    color: LOGIN_COLORS.textSecondary,
-                    display: 'block'
-                  }}>
-                    Protected by enterprise-grade security protocols
-                  </Typography>
-                </Box>
+                <motion.div variants={itemVariants}>
+                  <Box sx={{ textAlign: 'center', mb: 3 }}>
+                    <motion.div
+                      animate={{
+                        scale: [1, 1.1, 1],
+                        opacity: [0.7, 1, 0.7]
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ 
+                        color: LOGIN_COLORS.primary,
+                        display: 'block',
+                        mb: 1,
+                        fontSize: '0.9rem'
+                      }}>
+                        🔒 Enterprise-Grade Security
+                      </Typography>
+                    </motion.div>
+                    <Typography variant="caption" sx={{ 
+                      color: LOGIN_COLORS.textSecondary,
+                      display: 'block',
+                      mb: 2
+                    }}>
+                      Protected by advanced encryption protocols
+                    </Typography>
+
+                    {/* Security badges */}
+                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
+                      <motion.div
+                        whileHover={{ scale: 1.1, rotate: 5 }}
+                        transition={{ type: "spring", stiffness: 300 }}
+                      >
+                        <Chip 
+                          size="small"
+                          label="SSL Encrypted"
+                          sx={{
+                            background: `linear-gradient(135deg, ${LOGIN_COLORS.success}20 0%, ${LOGIN_COLORS.success}10 100%)`,
+                            color: LOGIN_COLORS.success,
+                            border: `1px solid ${LOGIN_COLORS.success}30`,
+                            fontSize: '0.7rem'
+                          }}
+                        />
+                      </motion.div>
+                      
+                      <motion.div
+                        whileHover={{ scale: 1.1, rotate: -5 }}
+                        transition={{ type: "spring", stiffness: 300 }}
+                      >
+                        <Chip 
+                          size="small"
+                          label="2FA Ready"
+                          sx={{
+                            background: `linear-gradient(135deg, ${LOGIN_COLORS.accent}20 0%, ${LOGIN_COLORS.accent}10 100%)`,
+                            color: LOGIN_COLORS.accent,
+                            border: `1px solid ${LOGIN_COLORS.accent}30`,
+                            fontSize: '0.7rem'
+                          }}
+                        />
+                      </motion.div>
+                    </Box>
+                  </Box>
+                </motion.div>
 
                 {/* Footer */}
-                <Box sx={{ mt: 4, textAlign: 'center' }}>
-                  <Typography variant="caption" sx={{ color: LOGIN_COLORS.textSecondary }}>
-                    College Incubation Inventory System v2.0.0
-                  </Typography>
-                </Box>
+                <motion.div variants={itemVariants}>
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Typography variant="caption" sx={{ 
+                      color: LOGIN_COLORS.textSecondary,
+                      display: 'block',
+                      mb: 1
+                    }}>
+                      College Incubation Inventory System
+                    </Typography>
+                    <motion.div
+                      animate={{
+                        opacity: [0.5, 1, 0.5]
+                      }}
+                      transition={{
+                        duration: 3,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ 
+                        color: LOGIN_COLORS.primary,
+                        fontWeight: 600
+                      }}>
+                        v2.0.0 - Professional Edition
+                      </Typography>
+                    </motion.div>
+                  </Box>
+                </motion.div>
               </CardContent>
             </Card>
           </motion.div>
         </motion.div>
       </Container>
 
-      {/* CSS Animations */}
-      <style jsx="true" global="true">{`
+      {/* Enhanced CSS Animations */}
+      <style jsx global>{`
         @keyframes float {
           0%, 100% { transform: translateY(0px) rotate(0deg); }
           33% { transform: translateY(-20px) rotate(1deg); }
           66% { transform: translateY(-10px) rotate(-1deg); }
+        }
+
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 0.8; }
+        }
+
+        @keyframes glow {
+          0%, 100% { 
+            box-shadow: 0 0 20px ${LOGIN_COLORS.primary}40;
+          }
+          50% { 
+            box-shadow: 0 0 40px ${LOGIN_COLORS.primary}60, 0 0 60px ${LOGIN_COLORS.primary}40;
+          }
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+          width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+          background: ${LOGIN_COLORS.surface};
+        }
+
+        ::-webkit-scrollbar-thumb {
+          background: linear-gradient(135deg, ${LOGIN_COLORS.primary}, ${LOGIN_COLORS.secondary});
+          border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(135deg, ${LOGIN_COLORS.secondary}, ${LOGIN_COLORS.primary});
         }
       `}</style>
     </Box>

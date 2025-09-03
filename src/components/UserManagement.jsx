@@ -14,7 +14,8 @@ import {
   Block as BlockIcon, CheckCircle as ActiveIcon,
   Warning as WarningIcon, History as HistoryIcon,
   VpnKey as KeyIcon, Email as EmailIcon,
-  SupervisorAccount as SupervisorIcon, Shield as ShieldIcon
+  SupervisorAccount as SupervisorIcon, Shield as ShieldIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -75,18 +76,28 @@ function UserManagement() {
 
   const fetchUsers = async () => {
     setLoading(true);
+    console.log('🔄 Fetching users...');
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/users`, {
+      // Add cache busting parameter
+      const response = await fetch(`${API_BASE_URL}/auth/users?t=${Date.now()}`, {
         headers: getAuthHeaders()
       });
       
+      console.log('📊 Users response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('👥 Fetched users:', data.length, 'users');
+        console.log('👥 User data:', data);
         setUsers(data);
+        setError(''); // Clear any previous errors
       } else {
-        setError('Failed to fetch users');
+        const errorText = await response.text();
+        console.error('❌ Failed to fetch users:', response.status, errorText);
+        setError(`Failed to fetch users: ${response.status}`);
       }
     } catch (error) {
+      console.error('❌ Connection error:', error);
       setError('Connection error');
     } finally {
       setLoading(false);
@@ -102,11 +113,21 @@ function UserManagement() {
       
       if (response.ok) {
         const data = await response.json();
-        setAuditLogs(data);
+        // Ensure data is an array
+        if (Array.isArray(data)) {
+          setAuditLogs(data);
+        } else if (data && Array.isArray(data.logs)) {
+          // If data is wrapped in an object with logs property
+          setAuditLogs(data.logs);
+        } else {
+          console.warn('Audit logs data is not an array:', data);
+          setAuditLogs([]);
+        }
       } else {
         setError('Failed to fetch audit logs');
       }
     } catch (error) {
+      console.error('Audit logs fetch error:', error);
       setError('Connection error');
     } finally {
       setLoading(false);
@@ -115,6 +136,7 @@ function UserManagement() {
 
   const createUser = async () => {
     setLoading(true);
+    console.log('🔄 Creating user:', formData);
     try {
       const response = await fetch(`${API_BASE_URL}/auth/users`, {
         method: 'POST',
@@ -122,16 +144,26 @@ function UserManagement() {
         body: JSON.stringify(formData)
       });
       
+      console.log('📊 Create user response status:', response.status);
+      
       if (response.ok) {
+        const userData = await response.json();
+        console.log('✅ User created successfully:', userData);
         setSuccess('User created successfully');
         setOpenCreateDialog(false);
         resetForm();
-        fetchUsers();
+        
+        // Force refresh the users list
+        setTimeout(() => {
+          fetchUsers();
+        }, 100);
       } else {
         const data = await response.json();
+        console.error('❌ Failed to create user:', data);
         setError(data.detail || 'Failed to create user');
       }
     } catch (error) {
+      console.error('❌ Create user error:', error);
       setError('Connection error');
     } finally {
       setLoading(false);
@@ -322,14 +354,24 @@ function UserManagement() {
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
                   System Users ({users.length})
                 </Typography>
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={handleOpenCreateDialog}
-                  sx={{ borderRadius: 2 }}
-                >
-                  Add New User
-                </Button>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<RefreshIcon />}
+                    onClick={fetchUsers}
+                    sx={{ borderRadius: 2 }}
+                  >
+                    Refresh
+                  </Button>
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={handleOpenCreateDialog}
+                    sx={{ borderRadius: 2 }}
+                  >
+                    Add New User
+                  </Button>
+                </Box>
               </Box>
 
               <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
@@ -433,7 +475,7 @@ function UserManagement() {
 
               <List>
                 <AnimatePresence>
-                  {auditLogs.map((log, index) => (
+                  {(Array.isArray(auditLogs) ? auditLogs : []).map((log, index) => (
                     <motion.div
                       key={log.id}
                       initial={{ opacity: 0, x: -20 }}
@@ -442,30 +484,33 @@ function UserManagement() {
                     >
                       <ListItem sx={{ 
                         border: 1, 
-                        borderColor: 'grey.200', 
+                        borderColor: 'grey.700', 
                         borderRadius: 2, 
                         mb: 1,
-                        bgcolor: log.success ? 'success.light' : 'error.light',
-                        '&:hover': { bgcolor: log.success ? 'success.main' : 'error.main' }
+                        bgcolor: log.success ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)',
+                        '&:hover': { 
+                          bgcolor: log.success ? 'rgba(76, 175, 80, 0.2)' : 'rgba(244, 67, 54, 0.2)',
+                          borderColor: log.success ? 'success.main' : 'error.main'
+                        }
                       }}>
                         <ListItemIcon>
                           {log.success ? 
-                            <CheckCircle sx={{ color: 'success.dark' }} /> : 
-                            <WarningIcon sx={{ color: 'error.dark' }} />
+                            <CheckCircle sx={{ color: 'success.main' }} /> : 
+                            <WarningIcon sx={{ color: 'error.main' }} />
                           }
                         </ListItemIcon>
                         <ListItemText
                           primary={
-                            <Typography variant="subtitle2">
+                            <Typography variant="subtitle2" sx={{ color: 'text.primary' }}>
                               {log.action} {log.resource && `• ${log.resource}`}
                             </Typography>
                           }
                           secondary={
-                            <Box>
-                              <Typography variant="caption" sx={{ display: 'block' }}>
+                            <Box component="div">
+                              <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
                                 {log.details}
                               </Typography>
-                              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              <Typography variant="caption" sx={{ color: 'text.disabled' }}>
                                 {formatDate(log.timestamp)} • IP: {log.ip_address}
                               </Typography>
                             </Box>
