@@ -83,13 +83,13 @@ function App() {
   const getInitialModule = () => {
     // Check URL hash first (e.g., #products, #reports)
     const hash = window.location.hash.replace('#', '');
-    if (hash && ['dashboard', 'products', 'students', 'orders', 'invoicing', 'reports', 'tools', 'settings', 'users'].includes(hash)) {
+    if (hash && ['dashboard', 'products', 'students', 'orders', 'invoicing', 'reports', 'settings', 'users'].includes(hash)) {
       return hash;
     }
     
     // Check localStorage for last visited page
     const savedModule = localStorage.getItem('selectedModule');
-    if (savedModule && ['dashboard', 'products', 'students', 'orders', 'invoicing', 'reports', 'tools', 'settings', 'users'].includes(savedModule)) {
+    if (savedModule && ['dashboard', 'products', 'students', 'orders', 'invoicing', 'reports', 'settings', 'users'].includes(savedModule)) {
       return savedModule;
     }
     
@@ -267,7 +267,7 @@ function App() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
-      if (hash && ['dashboard', 'products', 'students', 'orders', 'invoicing', 'reports', 'tools', 'settings'].includes(hash)) {
+      if (hash && ['dashboard', 'products', 'students', 'orders', 'invoicing', 'reports', 'settings'].includes(hash)) {
         setSelectedModule(hash);
         localStorage.setItem('selectedModule', hash);
       }
@@ -428,7 +428,6 @@ function App() {
     { id: 'orders', label: 'Order Management', icon: <ShoppingCartIcon />, badge: 3, roles: ['main_admin', 'sub_admin'] },
     { id: 'invoicing', label: 'Invoicing & Billing', icon: <ReceiptIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
     { id: 'reports', label: 'Reports & Analytics', icon: <AssessmentIcon />, badge: 0, roles: ['main_admin', 'sub_admin', 'viewer'] },
-    { id: 'tools', label: 'Tools & Utilities', icon: <BuildIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
     { id: 'users', label: 'User Management', icon: <SupervisorAccountIcon />, badge: 0, roles: ['main_admin'] },
     { id: 'settings', label: 'System Settings', icon: <SettingsIcon />, badge: 1, roles: ['main_admin'] },
   ];
