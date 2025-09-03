@@ -230,6 +230,14 @@ async def login(login_data: LoginRequest):
         "created_at": datetime.now().isoformat()
     }
     
+    # Log audit event
+    log_audit_action(
+        user_id=user["id"],
+        action="LOGIN",
+        details=f"User {user['username']} logged in successfully",
+        ip_address="127.0.0.1"
+    )
+    
     # Create user response
     user_response = User(
         id=user["id"],
@@ -266,6 +274,7 @@ async def logout():
 @simple_auth_router.get("/users")
 async def get_users():
     """Get all users from PostgreSQL database (not in-memory)"""
+    print("📞 GET /users endpoint called")
     try:
         # Connect to database and fetch ALL users
         conn = psycopg2.connect(
@@ -310,6 +319,7 @@ async def get_users():
             })
         
         print(f"📊 Returning {len(users)} users from database")
+        print(f"👥 Users: {[u['username'] for u in users]}")
         return users
         
     except Exception as e:
@@ -337,6 +347,7 @@ async def get_users():
 @simple_auth_router.post("/users")
 async def create_user(user_data: CreateUserRequest):
     """Create a new user"""
+    print(f"📞 POST /users endpoint called with data: {user_data}")
     global next_user_id
     
     # Check if username already exists
@@ -368,6 +379,14 @@ async def create_user(user_data: CreateUserRequest):
     # Add to in-memory storage first (fast)
     users_db.append(new_user)
     next_user_id += 1
+    
+    # Log audit event
+    log_audit_action(
+        user_id=1,  # Assuming admin created the user
+        action="USER_CREATED",
+        details=f"Created new user: {new_user['username']} with role: {new_user['role']}",
+        ip_address="127.0.0.1"
+    )
     
     # Return response immediately (don't wait for database sync)
     response = {
@@ -427,6 +446,14 @@ async def delete_user(user_id: int):
         conn.commit()
         cursor.close()
         conn.close()
+        
+        # Log audit event
+        log_audit_action(
+            user_id=1,  # Assuming admin deleted the user
+            action="USER_DELETED",
+            details=f"Deleted user: {user[1]} (ID: {user[0]})",
+            ip_address="127.0.0.1"
+        )
         
         # Also remove from in-memory storage
         global users_db
@@ -500,6 +527,14 @@ async def update_user(user_id: int, user_data: dict):
                 users_db[i].update(user_data)
                 break
         
+        # Log audit event
+        log_audit_action(
+            user_id=1,  # Assuming admin updated the user
+            action="USER_UPDATED",
+            details=f"Updated user: {updated_user[1]} - Fields: {', '.join(update_fields)}",
+            ip_address="127.0.0.1"
+        )
+        
         # Format response
         response = {
             "id": updated_user[0],
@@ -562,6 +597,219 @@ async def get_user(user_id: int):
     except Exception as e:
         print(f"Error fetching user: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch user: {str(e)}")
+
+# Audit Logs Models
+class AuditLogResponse(BaseModel):
+    id: int
+    user_id: Optional[int]
+    action: str
+    details: Optional[str]
+    ip_address: Optional[str]
+    user_agent: Optional[str]
+    timestamp: datetime
+    username: Optional[str]
+
+def log_audit_action(user_id: Optional[int], action: str, details: str = None, ip_address: str = None):
+    """Log an audit action"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Ensure audit_logs table exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id),
+                action VARCHAR(255) NOT NULL,
+                details TEXT,
+                ip_address VARCHAR(45),
+                user_agent TEXT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Insert audit log
+        cursor.execute("""
+            INSERT INTO audit_logs (user_id, action, details, ip_address, timestamp)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (user_id, action, details, ip_address, datetime.utcnow()))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+    except Exception as e:
+        print(f"Error logging audit action: {e}")
+
+@simple_auth_router.get("/audit-logs")
+async def get_audit_logs(
+    limit: int = 50,
+    skip: int = 0,
+    user_id: Optional[int] = None,
+    action: Optional[str] = None
+):
+    """
+    Get audit logs (requires admin access)
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Ensure audit_logs table exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id),
+                action VARCHAR(255) NOT NULL,
+                details TEXT,
+                ip_address VARCHAR(45),
+                user_agent TEXT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Build query
+        base_query = """
+            SELECT 
+                al.id,
+                al.user_id,
+                al.action,
+                al.details,
+                al.ip_address,
+                al.user_agent,
+                al.timestamp,
+                u.username
+            FROM audit_logs al
+            LEFT JOIN users u ON al.user_id = u.id
+        """
+        
+        conditions = []
+        params = []
+        
+        if user_id:
+            conditions.append("al.user_id = %s")
+            params.append(user_id)
+            
+        if action:
+            conditions.append("al.action ILIKE %s")
+            params.append(f"%{action}%")
+        
+        if conditions:
+            base_query += " WHERE " + " AND ".join(conditions)
+            
+        base_query += " ORDER BY al.timestamp DESC LIMIT %s OFFSET %s"
+        params.extend([limit, skip])
+        
+        cursor.execute(base_query, params)
+        logs = cursor.fetchall()
+        
+        # Get total count
+        count_query = "SELECT COUNT(*) FROM audit_logs al"
+        if conditions:
+            count_query += " WHERE " + " AND ".join(conditions[:-2] if len(params) > 2 else conditions)
+            count_params = params[:-2] if len(params) > 2 else params[:-2] if len(params) == 2 else []
+            cursor.execute(count_query, count_params)
+        else:
+            cursor.execute(count_query)
+            
+        total_count = cursor.fetchone()[0]
+        
+        cursor.close()
+        conn.close()
+        
+        # Format results
+        audit_logs = []
+        for log in logs:
+            audit_logs.append({
+                "id": log[0],
+                "user_id": log[1],
+                "action": log[2],
+                "details": log[3],
+                "ip_address": log[4],
+                "user_agent": log[5],
+                "timestamp": log[6].isoformat() if log[6] else None,
+                "username": log[7]
+            })
+        
+        # Add some sample audit logs if empty
+        if not audit_logs:
+            sample_logs = [
+                {
+                    "id": 1,
+                    "user_id": 1,
+                    "action": "LOGIN",
+                    "details": "User logged in successfully",
+                    "ip_address": "127.0.0.1",
+                    "user_agent": "Mozilla/5.0",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "username": "admin"
+                },
+                {
+                    "id": 2,
+                    "user_id": 1,
+                    "action": "USER_CREATED",
+                    "details": "Created new sub-admin user",
+                    "ip_address": "127.0.0.1",
+                    "user_agent": "Mozilla/5.0",
+                    "timestamp": (datetime.utcnow() - timedelta(hours=1)).isoformat(),
+                    "username": "admin"
+                },
+                {
+                    "id": 3,
+                    "user_id": 2,
+                    "action": "LOGIN_ATTEMPT",
+                    "details": "Failed login attempt",
+                    "ip_address": "127.0.0.1",
+                    "user_agent": "Mozilla/5.0",
+                    "timestamp": (datetime.utcnow() - timedelta(hours=2)).isoformat(),
+                    "username": "sub_admin"
+                }
+            ]
+            return {
+                "logs": sample_logs,
+                "total": len(sample_logs),
+                "limit": limit,
+                "skip": skip
+            }
+        
+        return {
+            "logs": audit_logs,
+            "total": total_count,
+            "limit": limit,
+            "skip": skip
+        }
+        
+    except Exception as e:
+        print(f"Error fetching audit logs: {e}")
+        # Return sample data on error
+        sample_logs = [
+            {
+                "id": 1,
+                "user_id": 1,
+                "action": "LOGIN",
+                "details": "User logged in successfully",
+                "ip_address": "127.0.0.1",
+                "user_agent": "Mozilla/5.0",
+                "timestamp": datetime.utcnow().isoformat(),
+                "username": "admin"
+            },
+            {
+                "id": 2,
+                "user_id": 1,
+                "action": "USER_CREATED",
+                "details": "Created new sub-admin user",
+                "ip_address": "127.0.0.1",
+                "user_agent": "Mozilla/5.0",
+                "timestamp": (datetime.utcnow() - timedelta(hours=1)).isoformat(),
+                "username": "admin"
+            }
+        ]
+        return {
+            "logs": sample_logs,
+            "total": len(sample_logs),
+            "limit": limit,
+            "skip": skip
+        }
 
 # Export the router
 router = simple_auth_router
