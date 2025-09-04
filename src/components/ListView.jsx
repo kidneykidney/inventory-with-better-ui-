@@ -45,7 +45,9 @@ import {
   MoreVert as MoreVertIcon,
   Check as CheckIcon,
   Schedule as ScheduleIcon,
-  Cancel as CancelIcon
+  Cancel as CancelIcon,
+  Search as SearchIcon,
+  Clear as ClearIcon
 } from '@mui/icons-material';
 import { AnimatedButton, AnimatedCard } from './AnimatedComponents';
 import StudentForm from './StudentForm';
@@ -56,6 +58,8 @@ const API_BASE_URL = 'http://localhost:8000';
 // List View Component
 const ListView = ({ type = 'products' }) => {
   const [data, setData] = useState([]);
+  const [filteredData, setFilteredData] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
@@ -198,6 +202,7 @@ const ListView = ({ type = 'products' }) => {
       
       const dataArray = Array.isArray(result) ? result : [];
       setData(dataArray);
+      setFilteredData(dataArray); // Initialize filtered data
       console.log(`Updated ${type} state with ${dataArray.length} items`);
       
     } catch (err) {
@@ -451,7 +456,7 @@ const ListView = ({ type = 'products' }) => {
     const checked = event.target.checked;
     setSelectAll(checked);
     if (checked) {
-      setSelectedItems(data.map(item => item.id));
+      setSelectedItems(filteredData.map(item => item.id));
     } else {
       setSelectedItems([]);
     }
@@ -464,7 +469,7 @@ const ListView = ({ type = 'products' }) => {
         : [...prev, itemId];
       
       // Update select all checkbox based on selection
-      setSelectAll(newSelection.length === data.length && data.length > 0);
+      setSelectAll(newSelection.length === filteredData.length && filteredData.length > 0);
       
       return newSelection;
     });
@@ -520,6 +525,36 @@ const ListView = ({ type = 'products' }) => {
     setSelectedItems([]);
     setSelectAll(false);
   }, [type, data.length]);
+
+  // Search filtering effect
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredData(data);
+    } else {
+      const query = searchQuery.toLowerCase();
+      const filtered = data.filter(item => {
+        // Search across all relevant text fields
+        const searchableFields = currentConfig.columns
+          .filter(col => col.type === 'text' || col.type === 'email')
+          .map(col => col.key);
+        
+        return searchableFields.some(field => {
+          const value = item[field];
+          return value && value.toString().toLowerCase().includes(query);
+        });
+      });
+      setFilteredData(filtered);
+    }
+  }, [searchQuery, data, currentConfig.columns]);
+
+  // Search handlers
+  const handleSearchChange = (event) => {
+    setSearchQuery(event.target.value);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+  };
 
   // Status update function
   const handleStatusUpdate = async (itemId, newStatus) => {
@@ -843,6 +878,86 @@ const ListView = ({ type = 'products' }) => {
           </Box>
         </Box>
 
+        {/* Search Bar */}
+        <Box sx={{ 
+          mb: 3,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          backgroundColor: '#1A1A1A',
+          borderRadius: '12px',
+          border: '1px solid #2A2A2A',
+          p: 2
+        }}>
+          <TextField
+            fullWidth
+            placeholder={`Search ${currentConfig.title.toLowerCase()}...`}
+            value={searchQuery}
+            onChange={handleSearchChange}
+            variant="outlined"
+            size="small"
+            InputProps={{
+              startAdornment: (
+                <SearchIcon sx={{ 
+                  color: '#888888', 
+                  mr: 1,
+                  fontSize: '1.2rem'
+                }} />
+              ),
+              endAdornment: searchQuery && (
+                <IconButton
+                  size="small"
+                  onClick={handleClearSearch}
+                  sx={{ 
+                    color: '#888888',
+                    '&:hover': {
+                      color: '#00D4AA',
+                      backgroundColor: 'rgba(0, 212, 170, 0.08)'
+                    }
+                  }}
+                >
+                  <ClearIcon fontSize="small" />
+                </IconButton>
+              ),
+              sx: {
+                backgroundColor: '#0A0A0A',
+                borderRadius: '8px',
+                '& .MuiOutlinedInput-notchedOutline': {
+                  border: '1px solid #2A2A2A',
+                },
+                '&:hover .MuiOutlinedInput-notchedOutline': {
+                  border: '1px solid #00D4AA',
+                },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                  border: '1px solid #00D4AA',
+                  boxShadow: '0 0 0 2px rgba(0, 212, 170, 0.2)',
+                },
+                '& input': {
+                  color: '#FFFFFF',
+                  '&::placeholder': {
+                    color: '#888888',
+                    opacity: 1,
+                  },
+                },
+              }
+            }}
+          />
+          {searchQuery && (
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 1, 
+              color: '#888888',
+              fontSize: '0.875rem',
+              whiteSpace: 'nowrap'
+            }}>
+              <Typography variant="body2" sx={{ color: '#888888' }}>
+                {filteredData.length} of {data.length} results
+              </Typography>
+            </Box>
+          )}
+        </Box>
+
         {/* Error Alert */}
         {error && (
           <Alert severity="error" sx={{ mb: 3, backgroundColor: '#2A1A1A', color: '#FF5252' }}>
@@ -879,9 +994,9 @@ const ListView = ({ type = 'products' }) => {
                   <Tooltip title={selectAll ? 'Deselect All' : 'Select All'}>
                     <Checkbox
                       checked={selectAll}
-                      indeterminate={selectedItems.length > 0 && selectedItems.length < data.length}
+                      indeterminate={selectedItems.length > 0 && selectedItems.length < filteredData.length}
                       onChange={handleSelectAll}
-                      disabled={data.length === 0}
+                      disabled={filteredData.length === 0}
                       sx={{
                         color: '#00D4AA',
                         '&.Mui-checked': {
@@ -924,7 +1039,7 @@ const ListView = ({ type = 'products' }) => {
               {console.log('Data length:', data.length)}
               
               <AnimatePresence>
-                {data && data.length > 0 ? data.map((item, index) => {
+                {filteredData && filteredData.length > 0 ? filteredData.map((item, index) => {
                   console.log(`Rendering row ${index}:`, item);
                   const isSelected = selectedItems.includes(item.id);
                   return (
@@ -1018,7 +1133,7 @@ const ListView = ({ type = 'products' }) => {
                   );
                 }) : null}
               </AnimatePresence>
-              {(!data || data.length === 0) && (
+              {(!filteredData || filteredData.length === 0) && (
                 <TableRow>
                   <TableCell 
                     colSpan={currentConfig.columns.length + 2} // +2 for checkbox and actions columns
@@ -1029,7 +1144,10 @@ const ListView = ({ type = 'products' }) => {
                       borderBottom: 'none'
                     }}
                   >
-                    No {type} found. Click "Add {type.slice(0, -1)}" to get started.
+                    {searchQuery 
+                      ? `No ${type} found matching "${searchQuery}". Try adjusting your search.`
+                      : `No ${type} found. Click "Add ${type.slice(0, -1)}" to get started.`
+                    }
                   </TableCell>
                 </TableRow>
               )}

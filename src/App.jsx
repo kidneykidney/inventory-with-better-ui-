@@ -33,7 +33,6 @@ import {
   ShoppingCart as ShoppingCartIcon,
   Receipt as ReceiptIcon,
   Assessment as AssessmentIcon,
-  Build as BuildIcon,
   Settings as SettingsIcon,
   Close as CloseIcon,
   Notifications as NotificationsIcon,
@@ -52,7 +51,7 @@ import {
 // Import our modules
 import OrderManagement from './pages/OrderManagement';
 import Dashboard from './pages/Dashboard';
-import ReportsAnalytics from './pages/ReportsAnalytics';
+import InstrumentCluster from './components/InstrumentCluster';
 import PremiumAnalyticsDashboard from './pages/PremiumAnalyticsDashboard';
 import ListView from './components/ListView';
 import Students from './components/Students';
@@ -175,62 +174,8 @@ function App() {
 
   // Generate real notifications based on system activity
   const generateNotifications = () => {
-    const systemNotifications = [
-      {
-        id: 1,
-        type: 'warning',
-        title: 'Low Stock Alert',
-        message: '3 products are running low on stock',
-        timestamp: new Date(Date.now() - 1000 * 60 * 5), // 5 minutes ago
-        read: false,
-        action: () => setSelectedModule('products')
-      },
-      {
-        id: 2,
-        type: 'info',
-        title: 'New Student Registration',
-        message: '2 new students have been registered today',
-        timestamp: new Date(Date.now() - 1000 * 60 * 15), // 15 minutes ago
-        read: false,
-        action: () => setSelectedModule('students')
-      },
-      {
-        id: 3,
-        type: 'success',
-        title: 'Invoice Processed',
-        message: 'Invoice #INV-2025-001 has been successfully processed',
-        timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-        read: false,
-        action: () => setSelectedModule('invoicing')
-      },
-      {
-        id: 4,
-        type: 'error',
-        title: 'Order Delayed',
-        message: 'Order #ORD-001 delivery has been delayed',
-        timestamp: new Date(Date.now() - 1000 * 60 * 45), // 45 minutes ago
-        read: false,
-        action: () => setSelectedModule('orders')
-      },
-      {
-        id: 5,
-        type: 'info',
-        title: 'System Backup Complete',
-        message: 'Daily system backup completed successfully',
-        timestamp: new Date(Date.now() - 1000 * 60 * 60), // 1 hour ago
-        read: true,
-        action: () => setSelectedModule('settings')
-      },
-      {
-        id: 6,
-        type: 'warning',
-        title: 'Maintenance Reminder',
-        message: 'Scheduled maintenance in 2 hours',
-        timestamp: new Date(Date.now() - 1000 * 60 * 90), // 1.5 hours ago
-        read: false,
-        action: () => setSelectedModule('settings')
-      }
-    ];
+    // Only keep real system notifications, no mock data
+    const systemNotifications = [];
     
     setNotifications(systemNotifications);
     const unread = systemNotifications.filter(n => !n.read).length;
@@ -285,56 +230,16 @@ function App() {
     };
   }, [selectedModule]);
 
-  // Simulate real-time notifications
+  // Real-time notifications - only for actual system events
   useEffect(() => {
     if (isLoading) return;
 
-    const interval = setInterval(() => {
-      // Randomly generate new notifications
-      const shouldGenerate = Math.random() < 0.3; // 30% chance every 30 seconds
-      
-      if (shouldGenerate) {
-        const newNotificationTemplates = [
-          {
-            type: 'info',
-            title: 'New Order Received',
-            message: `Order #ORD-${Math.floor(Math.random() * 1000)} has been placed`,
-            action: () => setSelectedModule('orders')
-          },
-          {
-            type: 'warning',
-            title: 'Stock Alert',
-            message: `Product stock is running low`,
-            action: () => setSelectedModule('products')
-          },
-          {
-            type: 'success',
-            title: 'Payment Received',
-            message: `Payment for invoice #INV-${Math.floor(Math.random() * 1000)} received`,
-            action: () => setSelectedModule('invoicing')
-          },
-          {
-            type: 'info',
-            title: 'Student Activity',
-            message: `Student profile has been updated`,
-            action: () => setSelectedModule('students')
-          }
-        ];
-
-        const template = newNotificationTemplates[Math.floor(Math.random() * newNotificationTemplates.length)];
-        const newNotification = {
-          ...template,
-          id: Date.now(),
-          timestamp: new Date(),
-          read: false
-        };
-
-        setNotifications(prev => [newNotification, ...prev.slice(0, 19)]); // Keep only last 20
-        setUnreadCount(prev => prev + 1);
-      }
-    }, 30000); // Check every 30 seconds
-
-    return () => clearInterval(interval);
+    // Removed mock notification generation
+    // Only real system events should generate notifications now
+    
+    return () => {
+      // Cleanup if needed
+    };
   }, [isLoading]);
 
   // Notification handlers
@@ -423,13 +328,13 @@ function App() {
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, badge: 0, roles: ['main_admin', 'sub_admin', 'viewer'] },
-    { id: 'products', label: 'Products Management', icon: <InventoryIcon />, badge: 2, roles: ['main_admin', 'sub_admin'] },
-    { id: 'students', label: 'Student Management', icon: <PeopleIcon />, badge: 1, roles: ['main_admin', 'sub_admin'] },
-    { id: 'orders', label: 'Order Management', icon: <ShoppingCartIcon />, badge: 3, roles: ['main_admin', 'sub_admin'] },
+    { id: 'products', label: 'Products Management', icon: <InventoryIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
+    { id: 'students', label: 'Student Management', icon: <PeopleIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
+    { id: 'orders', label: 'Order Management', icon: <ShoppingCartIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
     { id: 'invoicing', label: 'Invoicing & Billing', icon: <ReceiptIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
     { id: 'reports', label: 'Reports & Analytics', icon: <AssessmentIcon />, badge: 0, roles: ['main_admin', 'sub_admin', 'viewer'] },
     { id: 'users', label: 'User Management', icon: <SupervisorAccountIcon />, badge: 0, roles: ['main_admin'] },
-    { id: 'settings', label: 'System Settings', icon: <SettingsIcon />, badge: 1, roles: ['main_admin'] },
+    { id: 'settings', label: 'System Settings', icon: <SettingsIcon />, badge: 0, roles: ['main_admin'] },
   ];
 
   // Filter menu items based on user role
@@ -473,7 +378,7 @@ function App() {
         case 'invoice-dashboard':
           return <InvoiceDashboard />;
         case 'reports':
-          return <PremiumAnalyticsDashboard />;
+          return <InstrumentCluster />;
         case 'users':
           return <UserManagement />;
         case 'settings':

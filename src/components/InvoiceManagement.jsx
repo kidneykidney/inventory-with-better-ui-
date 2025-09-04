@@ -57,7 +57,9 @@ import {
   Schedule as ScheduleIcon,
   PhotoCamera as PhotoCameraIcon,
   SmartToy as SmartToyIcon,
-  CloudUpload as CloudUploadIcon
+  CloudUpload as CloudUploadIcon,
+  Search as SearchIcon,
+  Clear as ClearIcon
 } from '@mui/icons-material';
 import CameraUploadDialog from './CameraUploadDialog';
 import CreateInvoiceDialog from './CreateInvoiceDialog';
@@ -70,6 +72,8 @@ const API_BASE_URL = 'http://localhost:8000';
 
 const InvoiceManagement = () => {
   const [invoices, setInvoices] = useState([]);
+  const [filteredInvoices, setFilteredInvoices] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -111,6 +115,34 @@ const InvoiceManagement = () => {
     fetchSummary();
   }, [filters]);
 
+  // Search filtering effect
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredInvoices(invoices);
+    } else {
+      const query = searchQuery.toLowerCase();
+      const filtered = invoices.filter(invoice => {
+        return (
+          (invoice.invoice_number && invoice.invoice_number.toLowerCase().includes(query)) ||
+          (invoice.student_name && invoice.student_name.toLowerCase().includes(query)) ||
+          (invoice.status && invoice.status.toLowerCase().includes(query)) ||
+          (invoice.invoice_type && invoice.invoice_type.toLowerCase().includes(query)) ||
+          (invoice.notes && invoice.notes.toLowerCase().includes(query))
+        );
+      });
+      setFilteredInvoices(filtered);
+    }
+  }, [searchQuery, invoices]);
+
+  // Search handlers
+  const handleSearchChange = (event) => {
+    setSearchQuery(event.target.value);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+  };
+
   const fetchInvoices = async () => {
     try {
       setLoading(true);
@@ -124,6 +156,7 @@ const InvoiceManagement = () => {
       
       if (response.ok) {
         setInvoices(data);
+        setFilteredInvoices(data);
       } else {
         setError('Failed to fetch invoices');
       }
@@ -246,7 +279,7 @@ const InvoiceManagement = () => {
     const checked = event.target.checked;
     setSelectAll(checked);
     if (checked) {
-      setSelectedInvoices(invoices.map(invoice => invoice.id));
+      setSelectedInvoices(filteredInvoices.map(invoice => invoice.id));
     } else {
       setSelectedInvoices([]);
     }
@@ -259,7 +292,7 @@ const InvoiceManagement = () => {
         : [...prev, invoiceId];
       
       // Update select all checkbox based on selection
-      setSelectAll(newSelection.length === invoices.length && invoices.length > 0);
+      setSelectAll(newSelection.length === filteredInvoices.length && filteredInvoices.length > 0);
       
       return newSelection;
     });
@@ -756,6 +789,86 @@ const InvoiceManagement = () => {
           }}
         >
           <CardContent>
+            {/* Search Bar */}
+            <Box sx={{ 
+              mb: 3,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              backgroundColor: '#0A0A0A',
+              borderRadius: '12px',
+              border: '1px solid #2A2A2A',
+              p: 2
+            }}>
+              <TextField
+                fullWidth
+                placeholder="Search invoices by number, student, status, or type..."
+                value={searchQuery}
+                onChange={handleSearchChange}
+                variant="outlined"
+                size="small"
+                InputProps={{
+                  startAdornment: (
+                    <SearchIcon sx={{ 
+                      color: '#888888', 
+                      mr: 1,
+                      fontSize: '1.2rem'
+                    }} />
+                  ),
+                  endAdornment: searchQuery && (
+                    <IconButton
+                      size="small"
+                      onClick={handleClearSearch}
+                      sx={{ 
+                        color: '#888888',
+                        '&:hover': {
+                          color: '#00D4AA',
+                          backgroundColor: 'rgba(0, 212, 170, 0.08)'
+                        }
+                      }}
+                    >
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  ),
+                  sx: {
+                    backgroundColor: '#1A1A1A',
+                    borderRadius: '8px',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      border: '1px solid #2A2A2A',
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      border: '1px solid #00D4AA',
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      border: '1px solid #00D4AA',
+                      boxShadow: '0 0 0 2px rgba(0, 212, 170, 0.2)',
+                    },
+                    '& input': {
+                      color: '#FFFFFF',
+                      '&::placeholder': {
+                        color: '#888888',
+                        opacity: 1,
+                      },
+                    },
+                  }
+                }}
+              />
+              {searchQuery && (
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1, 
+                  color: '#888888',
+                  fontSize: '0.875rem',
+                  whiteSpace: 'nowrap'
+                }}>
+                  <Typography variant="body2" sx={{ color: '#888888' }}>
+                    {filteredInvoices.length} of {invoices.length} results
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+
             <Box display="flex" alignItems="center" gap={2} mb={2}>
               <motion.div
                 animate={{ rotate: [0, 10, -10, 0] }}
@@ -896,9 +1009,9 @@ const InvoiceManagement = () => {
                       <Tooltip title={selectAll ? 'Deselect All' : 'Select All'}>
                         <Checkbox
                           checked={selectAll}
-                          indeterminate={selectedInvoices.length > 0 && selectedInvoices.length < invoices.length}
+                          indeterminate={selectedInvoices.length > 0 && selectedInvoices.length < filteredInvoices.length}
                           onChange={handleSelectAll}
-                          disabled={invoices.length === 0}
+                          disabled={filteredInvoices.length === 0}
                           sx={{
                             color: '#00D4AA',
                             '&.Mui-checked': {
@@ -977,13 +1090,18 @@ const InvoiceManagement = () => {
                   <TableRow>
                     <TableCell colSpan={9} align="center">Loading...</TableCell>
                   </TableRow>
-                ) : invoices.length === 0 ? (
+                ) : filteredInvoices.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} align="center">No invoices found</TableCell>
+                    <TableCell colSpan={9} align="center">
+                      {searchQuery 
+                        ? `No invoices found matching "${searchQuery}". Try adjusting your search.`
+                        : 'No invoices found'
+                      }
+                    </TableCell>
                   </TableRow>
                 ) : (
                   <AnimatePresence>
-                    {invoices.map((invoice, index) => {
+                    {filteredInvoices.map((invoice, index) => {
                       const isSelected = selectedInvoices.includes(invoice.id);
                       return (
                         <motion.tr

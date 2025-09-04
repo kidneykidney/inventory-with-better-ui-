@@ -133,7 +133,7 @@ function ReportsAnalytics() {
       const response = await fetch(`${API_BASE_URL}/analytics/export`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(exportRequest),
       });
@@ -163,49 +163,351 @@ function ReportsAnalytics() {
 
   const handleModuleExport = async (module, format = 'csv') => {
     setLoading(true);
+    setError(null); // Clear any previous errors
+    
     try {
-      const startDate = getStartDate(dateRange);
-      const endDate = new Date().toISOString().split('T')[0];
+      let endpoint = '';
+      let fileName = '';
       
-      const exportRequest = {
-        module: module,
-        format: format,
-        filters: {
-          start_date: startDate,
-          end_date: endDate
-        },
-        include_relations: true
-      };
+      // Map module to actual API endpoint
+      switch (module) {
+        case 'products':
+          endpoint = `${API_BASE_URL}/products`;
+          fileName = 'products_detailed';
+          break;
+        case 'students':
+          endpoint = `${API_BASE_URL}/students`;
+          fileName = 'students_detailed';
+          break;
+        case 'orders':
+          endpoint = `${API_BASE_URL}/orders`;
+          fileName = 'orders_detailed';
+          break;
+        case 'invoices':
+          endpoint = `${API_BASE_URL}/invoices`;
+          fileName = 'invoices_detailed';
+          break;
+        case 'categories':
+          endpoint = `${API_BASE_URL}/categories`;
+          fileName = 'categories_detailed';
+          break;
+        case 'users':
+          endpoint = `${API_BASE_URL}/users`;
+          fileName = 'users_detailed';
+          break;
+        default:
+          throw new Error(`Unknown module: ${module}`);
+      }
 
-      const response = await fetch(`${API_BASE_URL}/analytics/export/${module}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(exportRequest),
-      });
+      console.log(`Attempting to fetch data from: ${endpoint}`);
+      const response = await fetch(endpoint);
+      
+      console.log(`Response status: ${response.status} ${response.statusText}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log(`Received ${data.length} records for ${module}`);
+      
+      if (data && data.length > 0) {
+          let processedData = [];
+          
+          // Process data based on module type
+          if (module === 'products') {
+            processedData = data.map(item => ({
+              ID: item.id,
+              Name: item.name,
+              Description: item.description || '',
+              Category: item.category_name || 'Uncategorized',
+              SKU: item.sku,
+              'Total Quantity': item.quantity_total,
+              'Available Quantity': item.quantity_available,
+              'Quantity Issued': item.quantity_total - item.quantity_available,
+              'Returnable': item.is_returnable ? 'Yes' : 'No',
+              'Unit Price': `$${item.unit_price}`,
+              'Total Value': `$${(item.quantity_available * item.unit_price).toFixed(2)}`,
+              Location: item.location || '',
+              'Min Stock Level': item.minimum_stock_level,
+              'Stock Status': item.quantity_available <= item.minimum_stock_level ? 'Low Stock' : 'In Stock',
+              Status: item.status,
+              'Image URL': item.image_url || '',
+              Specifications: item.specifications ? JSON.stringify(item.specifications) : '',
+              Tags: item.tags ? item.tags.join('; ') : '',
+              'Created At': new Date(item.created_at).toLocaleString(),
+              'Updated At': new Date(item.updated_at).toLocaleString()
+            }));
+          } else if (module === 'students') {
+            processedData = data.map(item => ({
+              'Database ID': item.id,
+              'Student ID': item.student_id,
+              'Full Name': item.name,
+              Email: item.email,
+              Phone: item.phone || '',
+              Department: item.department,
+              'Year of Study': item.year_of_study || '',
+              Course: item.course || '',
+              'Account Status': item.is_active ? 'Active' : 'Inactive',
+              'Registered Date': new Date(item.created_at).toLocaleString(),
+              'Last Updated': new Date(item.updated_at).toLocaleString()
+            }));
+          } else if (module === 'orders') {
+            // Flatten orders with their items for detailed export
+            data.forEach(order => {
+              const baseOrderInfo = {
+                'Order ID': order.id,
+                'Order Number': order.order_number,
+                'Student ID': order.student_id,
+                'Student Name': order.student_name,
+                'Student Email': order.student_email,
+                Department: order.department,
+                'Order Type': order.order_type,
+                'Order Status': order.status,
+                'Total Items': order.total_items,
+                'Total Value': `$${order.total_value}`,
+                'Order Notes': order.notes || '',
+                'Requested Date': new Date(order.requested_date).toLocaleString(),
+                'Approved Date': order.approved_date ? new Date(order.approved_date).toLocaleString() : '',
+                'Completed Date': order.completed_date ? new Date(order.completed_date).toLocaleString() : '',
+                'Expected Return': order.expected_return_date ? new Date(order.expected_return_date).toLocaleDateString() : '',
+                'Actual Return': order.actual_return_date ? new Date(order.actual_return_date).toLocaleDateString() : '',
+                'Approved By': order.approved_by || ''
+              };
+              
+              if (order.items && order.items.length > 0) {
+                order.items.forEach((item, index) => {
+                  processedData.push({
+                    ...baseOrderInfo,
+                    'Item Number': index + 1,
+                    'Product ID': item.product_id,
+                    'Product Name': item.product_name,
+                    'Quantity Requested': item.quantity_requested,
+                    'Quantity Approved': item.quantity_approved,
+                    'Quantity Returned': item.quantity_returned,
+                    'Unit Price': `$${item.unit_price}`,
+                    'Total Price': `$${item.total_price}`,
+                    'Item Returnable': item.is_returnable ? 'Yes' : 'No',
+                    'Item Expected Return': item.expected_return_date ? new Date(item.expected_return_date).toLocaleDateString() : '',
+                    'Item Actual Return': item.actual_return_date ? new Date(item.actual_return_date).toLocaleDateString() : '',
+                    'Return Condition': item.return_condition || '',
+                    'Item Notes': item.notes || '',
+                    'Item Status': item.status
+                  });
+                });
+              } else {
+                processedData.push({
+                  ...baseOrderInfo,
+                  'Item Number': 'No Items',
+                  'Product ID': '',
+                  'Product Name': '',
+                  'Quantity Requested': '',
+                  'Quantity Approved': '',
+                  'Quantity Returned': '',
+                  'Unit Price': '',
+                  'Total Price': '',
+                  'Item Returnable': '',
+                  'Item Expected Return': '',
+                  'Item Actual Return': '',
+                  'Return Condition': '',
+                  'Item Notes': '',
+                  'Item Status': ''
+                });
+              }
+            });
+          } else if (module === 'invoices') {
+            processedData = data.map(item => ({
+              'Invoice ID': item.id,
+              'Invoice Number': item.invoice_number,
+              'Student ID': item.student_id,
+              'Student Name': item.student_name || '',
+              'Student Email': item.student_email || '',
+              Department: item.department || '',
+              'Invoice Date': new Date(item.invoice_date).toLocaleDateString(),
+              'Due Date': item.due_date ? new Date(item.due_date).toLocaleDateString() : '',
+              'Subtotal': `$${item.subtotal}`,
+              'Tax Amount': `$${item.tax_amount}`,
+              'Total Amount': `$${item.total_amount}`,
+              Status: item.status,
+              'Payment Status': item.payment_status || '',
+              'Payment Date': item.payment_date ? new Date(item.payment_date).toLocaleDateString() : '',
+              'Payment Method': item.payment_method || '',
+              Notes: item.notes || '',
+              'Created Date': new Date(item.created_at).toLocaleString(),
+              'Updated Date': new Date(item.updated_at).toLocaleString()
+            }));
+          } else if (module === 'categories') {
+            processedData = data.map(item => ({
+              'Category ID': item.id,
+              'Category Name': item.name,
+              Description: item.description || '',
+              'Created Date': new Date(item.created_at).toLocaleString(),
+              'Updated Date': new Date(item.updated_at).toLocaleString()
+            }));
+          } else if (module === 'users') {
+            processedData = data.map(item => ({
+              'User ID': item.id,
+              Username: item.username,
+              'Full Name': item.full_name || '',
+              Email: item.email || '',
+              Role: item.role,
+              'Account Status': item.is_active ? 'Active' : 'Inactive',
+              'Email Verified': item.email_verified ? 'Yes' : 'No',
+              'Last Login': item.last_login ? new Date(item.last_login).toLocaleString() : 'Never',
+              'Created Date': new Date(item.created_at).toLocaleString(),
+              'Updated Date': new Date(item.updated_at).toLocaleString()
+            }));
+          }
 
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = `${module}_export_${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        
-        // Show success message
+          // Generate CSV
+          if (processedData.length > 0) {
+            const headers = Object.keys(processedData[0]);
+            const csvContent = [
+              headers.join(','),
+              ...processedData.map(row => headers.map(header => {
+                const value = row[header];
+                // Handle null/undefined values and escape commas
+                if (value === null || value === undefined) return '';
+                if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+                  return `"${value.replace(/"/g, '""')}"`;
+                }
+                if (Array.isArray(value)) {
+                  return `"${value.join('; ')}"`;
+                }
+                if (typeof value === 'object' && value !== null) {
+                  return `"${JSON.stringify(value).replace(/"/g, '""')}"`;
+                }
+                return value;
+              }).join(','))
+            ].join('\n');
+
+            // Download the file
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.style.display = 'none';
+            link.href = url;
+            
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+            link.download = `${fileName}_${timestamp}.csv`;
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            
+            // Show success message
+            setError(null);
+            const message = module === 'orders' 
+              ? `Exported ${data.length} orders (${processedData.length} total rows including items) to CSV`
+              : `Exported ${processedData.length} ${module} records to CSV`;
+            
+            // You could replace this with a proper toast notification
+            setTimeout(() => {
+              alert(message);
+            }, 100);
+          } else {
+            throw new Error(`No ${module} data to export`);
+          }
+        } else {
+          throw new Error(`No ${module} data found`);
+        }
+    } catch (error) {
+      console.error(`${module} export error:`, error);
+      const errorMessage = error.message.includes('fetch') 
+        ? `Failed to connect to ${module} API. Please check if the backend is running.`
+        : `${module} export failed: ${error.message}`;
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExportAllData = async () => {
+    setLoading(true);
+    try {
+      const modules = ['products', 'students', 'orders', 'users', 'categories', 'invoices'];
+      let successCount = 0;
+      let errorMessages = [];
+
+      // Show initial message
+      setError('Starting comprehensive data export... This may take a moment.');
+
+      for (const module of modules) {
+        try {
+          await handleModuleExport(module, 'csv');
+          successCount++;
+          // Brief pause between exports to prevent overwhelming the server
+          await new Promise(resolve => setTimeout(resolve, 800));
+        } catch (error) {
+          console.error(`Failed to export ${module}:`, error);
+          errorMessages.push(`${module}: ${error.message}`);
+        }
+      }
+
+      // Final status message
+      if (successCount === modules.length) {
         setError(null);
-        // You could add a success toast here if you have one
+        setTimeout(() => {
+          alert(`🎉 Complete! Successfully exported all ${successCount} modules to CSV files. Check your downloads folder.`);
+        }, 100);
+      } else if (successCount > 0) {
+        const message = `Partially successful: ${successCount}/${modules.length} modules exported. Errors: ${errorMessages.join('; ')}`;
+        setError(message);
+        setTimeout(() => {
+          alert(`⚠️ ${message}`);
+        }, 100);
       } else {
-        throw new Error(`${module} export failed`);
+        const message = `Export failed for all modules. Errors: ${errorMessages.join('; ')}`;
+        setError(message);
       }
     } catch (error) {
-      setError(`${module} export failed. Please try again.`);
-      console.error(`${module} export error:`, error);
+      console.error('Comprehensive export error:', error);
+      setError('Comprehensive export failed. Please try individual module exports.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const testSimpleExport = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log('Testing simple export...');
+      const response = await fetch(`${API_BASE_URL}/products`);
+      console.log('Response:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Data received:', data.length, 'products');
+      
+      if (data && data.length > 0) {
+        // Simple CSV generation
+        const csvContent = 'Name,SKU,Quantity\n' + 
+          data.map(item => `${item.name},${item.sku},${item.quantity_available}`).join('\n');
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'test_export.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        alert(`✅ Test export successful! ${data.length} products exported.`);
+      } else {
+        alert('❌ No data received from API');
+      }
+    } catch (error) {
+      console.error('Test export error:', error);
+      setError(`Test export failed: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -318,13 +620,30 @@ function ReportsAnalytics() {
                 variant="outlined" 
                 startIcon={<Download />} 
                 fullWidth
+                onClick={() => testSimpleExport()}
+                disabled={loading}
+              >
+                Test Export
+              </Button>
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <Button 
+                variant="outlined" 
+                startIcon={<Download sx={{ fontSize: 24 }} />} 
+                fullWidth
                 onClick={() => setExportDialogOpen(true)}
+                sx={{ fontSize: '1.1rem', py: 1.5 }}
               >
                 Export Data
               </Button>
             </Grid>
             <Grid item xs={12} md={2}>
-              <Button variant="contained" startIcon={<Print />} fullWidth>
+              <Button 
+                variant="contained" 
+                startIcon={<Print sx={{ fontSize: 24 }} />} 
+                fullWidth
+                sx={{ fontSize: '1.1rem', py: 1.5 }}
+              >
                 Print Report
               </Button>
             </Grid>
@@ -355,13 +674,19 @@ function ReportsAnalytics() {
                   <Grid item xs={12}>
                     <Button 
                       variant="contained" 
-                      size="small" 
+                      size="large" 
                       fullWidth
-                      startIcon={<TableChart />}
+                      startIcon={<TableChart sx={{ fontSize: 24 }} />}
                       onClick={() => handleModuleExport('products', 'csv')}
                       disabled={loading}
+                      sx={{ 
+                        py: 1.5,
+                        fontSize: '1rem',
+                        fontWeight: 600,
+                        '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 }
+                      }}
                     >
-                      Export CSV
+                      📊 Export CSV
                     </Button>
                   </Grid>
                 </Grid>
@@ -381,13 +706,19 @@ function ReportsAnalytics() {
                   <Grid item xs={12}>
                     <Button 
                       variant="contained" 
-                      size="small" 
+                      size="large" 
                       fullWidth
-                      startIcon={<TableChart />}
+                      startIcon={<TableChart sx={{ fontSize: 24 }} />}
                       onClick={() => handleModuleExport('students', 'csv')}
                       disabled={loading}
+                      sx={{ 
+                        py: 1.5,
+                        fontSize: '1rem',
+                        fontWeight: 600,
+                        '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 }
+                      }}
                     >
-                      Export CSV
+                      👥 Export CSV
                     </Button>
                   </Grid>
                 </Grid>
@@ -407,13 +738,19 @@ function ReportsAnalytics() {
                   <Grid item xs={12}>
                     <Button 
                       variant="contained" 
-                      size="small" 
+                      size="large" 
                       fullWidth
-                      startIcon={<TableChart />}
+                      startIcon={<TableChart sx={{ fontSize: 24 }} />}
                       onClick={() => handleModuleExport('orders', 'csv')}
                       disabled={loading}
+                      sx={{ 
+                        py: 1.5,
+                        fontSize: '1rem',
+                        fontWeight: 600,
+                        '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 }
+                      }}
                     >
-                      Export CSV
+                      📦 Export CSV
                     </Button>
                   </Grid>
                 </Grid>
@@ -433,13 +770,51 @@ function ReportsAnalytics() {
                   <Grid item xs={12}>
                     <Button 
                       variant="contained" 
-                      size="small" 
+                      size="large" 
                       fullWidth
-                      startIcon={<TableChart />}
+                      startIcon={<TableChart sx={{ fontSize: 24 }} />}
                       onClick={() => handleModuleExport('invoices', 'csv')}
                       disabled={loading}
+                      sx={{ 
+                        py: 1.5,
+                        fontSize: '1rem',
+                        fontWeight: 600,
+                        '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 }
+                      }}
                     >
-                      Export CSV
+                      🧾 Export CSV
+                    </Button>
+                  </Grid>
+                </Grid>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={4}>
+              <Card sx={{ p: 2, border: '1px solid #e0e0e0', '&:hover': { boxShadow: 3 } }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <Analytics sx={{ mr: 1, color: 'info.main' }} />
+                  <Typography variant="h6">Users</Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  User accounts with roles, permissions, login history, and access details
+                </Typography>
+                <Grid container spacing={1}>
+                  <Grid item xs={12}>
+                    <Button 
+                      variant="contained" 
+                      size="large" 
+                      fullWidth
+                      startIcon={<TableChart sx={{ fontSize: 24 }} />}
+                      onClick={() => handleModuleExport('users', 'csv')}
+                      disabled={loading}
+                      sx={{ 
+                        py: 1.5,
+                        fontSize: '1rem',
+                        fontWeight: 600,
+                        '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 }
+                      }}
+                    >
+                      👤 Export CSV
                     </Button>
                   </Grid>
                 </Grid>
@@ -459,19 +834,55 @@ function ReportsAnalytics() {
                   <Grid item xs={12}>
                     <Button 
                       variant="contained" 
-                      size="small" 
+                      size="large" 
                       fullWidth
-                      startIcon={<TableChart />}
+                      startIcon={<TableChart sx={{ fontSize: 24 }} />}
                       onClick={() => handleModuleExport('categories', 'csv')}
                       disabled={loading}
+                      sx={{ 
+                        py: 1.5,
+                        fontSize: '1rem',
+                        fontWeight: 600,
+                        '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 }
+                      }}
                     >
-                      Export CSV
+                      🏷️ Export CSV
                     </Button>
                   </Grid>
                 </Grid>
               </Card>
             </Grid>
           </Grid>
+
+          {/* Export All Data Section */}
+          <Box sx={{ mt: 4, p: 3, bgcolor: 'primary.main', borderRadius: 2, textAlign: 'center' }}>
+            <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>
+              📦 Comprehensive Data Export
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mb: 3 }}>
+              Export all modules at once with complete database fields. This will generate separate CSV files for each module.
+            </Typography>
+            <Button 
+              variant="contained" 
+              size="large"
+              startIcon={loading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : <Download sx={{ fontSize: 28 }} />}
+              onClick={handleExportAllData}
+              disabled={loading}
+              sx={{ 
+                bgcolor: 'white', 
+                color: 'primary.main',
+                '&:hover': { bgcolor: 'grey.100', transform: 'translateY(-3px)', boxShadow: 6 },
+                fontWeight: 700,
+                fontSize: '1.1rem',
+                px: 5,
+                py: 2,
+                borderRadius: 3,
+                transition: 'all 0.3s ease'
+              }}
+            >
+              {loading ? 'Exporting All Modules...' : '🚀 Export All Data'}
+            </Button>
+          </Box>
         </Card>
 
         {/* Loading State */}

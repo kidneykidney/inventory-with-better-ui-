@@ -44,7 +44,7 @@ function PremiumAnalyticsDashboard() {
   // State management
   const [viewMode, setViewMode] = useState('overview'); // overview, detailed, executive
   const [dateRange, setDateRange] = useState('last30days');
-  const [isRealTimeEnabled, setIsRealTimeEnabled] = useState(true);
+  const [isRealTimeEnabled, setIsRealTimeEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
@@ -541,12 +541,9 @@ function PremiumAnalyticsDashboard() {
           <Grid container alignItems="center" spacing={3}>
             <Grid item>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                >
+                <Box>
                   <Speed sx={{ color: MATTE_COLORS.success, mr: 2, fontSize: 28 }} />
-                </motion.div>
+                </Box>
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 600, color: MATTE_COLORS.success }}>
                     System Status
@@ -568,7 +565,7 @@ function PremiumAnalyticsDashboard() {
                   <strong>Last Update:</strong> {lastUpdated.toLocaleTimeString()}
                 </Typography>
                 <Typography variant="caption" sx={{ color: MATTE_COLORS.accent }}>
-                  Next refresh: {isRealTimeEnabled ? 'In 10 seconds' : 'Manual'}
+                  Next refresh: {isRealTimeEnabled ? 'Manual' : 'Manual'}
                 </Typography>
               </Box>
             </Grid>

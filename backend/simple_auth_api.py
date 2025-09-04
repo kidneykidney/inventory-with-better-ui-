@@ -27,27 +27,6 @@ def get_db_connection():
     except Exception as e:
         print(f"Database connection failed: {e}")
         return None
-import hashlib
-import psycopg2
-# Removed bcrypt import for faster user creation
-
-# Simple auth router
-simple_auth_router = APIRouter(prefix="/api/auth", tags=["authentication"])
-
-# Database connection function
-def get_db_connection():
-    """Create database connection for user sync"""
-    try:
-        return psycopg2.connect(
-            host="localhost",
-            database="inventory_management", 
-            user="postgres",
-            password="gugan@2022",  # Correct password
-            port="5432"
-        )
-    except Exception as e:
-        print(f"Database connection failed: {e}")
-        return None
 
 def sync_user_to_database(user):
     """Sync user to PostgreSQL database - fixed for actual schema"""
@@ -393,6 +372,128 @@ async def create_user(user_data: CreateUserRequest):
     threading.Thread(target=background_sync, daemon=True).start()
     
     return response
+
+@simple_auth_router.put("/users/{user_id}")
+async def update_user(user_id: int, user_data: dict):
+    """Update user by ID"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    
+    try:
+        cursor = conn.cursor()
+        
+        # Check if user exists
+        cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+        user = cursor.fetchone()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Update user fields
+        update_fields = []
+        values = []
+        
+        if 'full_name' in user_data:
+            update_fields.append("full_name = %s")
+            values.append(user_data['full_name'])
+        
+        if 'email' in user_data:
+            update_fields.append("email = %s")
+            values.append(user_data['email'])
+        
+        if 'role' in user_data:
+            update_fields.append("role = %s")
+            values.append(user_data['role'])
+        
+        if update_fields:
+            values.append(user_id)
+            query = f"UPDATE users SET {', '.join(update_fields)} WHERE id = %s"
+            cursor.execute(query, values)
+            conn.commit()
+        
+        # Get updated user
+        cursor.execute("""
+            SELECT id, username, email, full_name, role, status, created_at, last_login
+            FROM users WHERE id = %s
+        """, (user_id,))
+        
+        updated_user = cursor.fetchone()
+        if updated_user:
+            return {
+                "id": updated_user[0],
+                "username": updated_user[1],
+                "email": updated_user[2],
+                "full_name": updated_user[3],
+                "role": updated_user[4],
+                "status": updated_user[5],
+                "created_at": updated_user[6].isoformat() if updated_user[6] else None,
+                "last_login": updated_user[7].isoformat() if updated_user[7] else None
+            }
+        
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
+    finally:
+        conn.close()
+
+@simple_auth_router.delete("/users/{user_id}")
+async def delete_user(user_id: int):
+    """Delete user by ID"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    
+    try:
+        cursor = conn.cursor()
+        
+        # Check if user exists
+        cursor.execute("SELECT username FROM users WHERE id = %s", (user_id,))
+        user = cursor.fetchone()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Delete user
+        cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+        conn.commit()
+        
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return {"message": f"User {user[0]} deleted successfully"}
+        
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
+    finally:
+        conn.close()
+
+@simple_auth_router.get("/audit-logs")
+async def get_audit_logs(limit: int = 50):
+    """Get audit logs (mock implementation)"""
+    # For now, return mock audit logs since the full audit system isn't implemented
+    mock_logs = [
+        {
+            "id": 1,
+            "action": "User Login",
+            "resource": "Authentication System",
+            "details": "Successful login attempt",
+            "success": True,
+            "timestamp": datetime.now().isoformat(),
+            "ip_address": "192.168.1.100",
+            "user_id": 1
+        },
+        {
+            "id": 2,
+            "action": "User Management",
+            "resource": "User Database",
+            "details": "User list accessed",
+            "success": True,
+            "timestamp": (datetime.now() - timedelta(minutes=30)).isoformat(),
+            "ip_address": "192.168.1.100",
+            "user_id": 1
+        }
+    ]
+    return mock_logs
 
 # Export the router
 router = simple_auth_router

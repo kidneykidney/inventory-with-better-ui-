@@ -104,6 +104,18 @@ const menuItems = [
     ]
   },
   {
+    id: 'tools',
+    label: 'Tools & Utilities',
+    icon: <QRCodeIcon />,
+    path: '/tools',
+    subItems: [
+      { id: 'barcode-scanner', label: 'Barcode Scanner', icon: <QRCodeIcon />, path: '/tools/scanner' },
+      { id: 'bulk-import', label: 'Bulk Import', icon: <DatabaseIcon />, path: '/tools/import' },
+      { id: 'data-export', label: 'Data Export', icon: <DatabaseIcon />, path: '/tools/export' },
+      { id: 'system-backup', label: 'System Backup', icon: <DatabaseIcon />, path: '/tools/backup' }
+    ]
+  },
+  {
     id: 'settings',
     label: 'System Settings',
     icon: <SettingsIcon />,
