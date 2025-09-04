@@ -2,7 +2,7 @@
 Invoice Management API Endpoints
 Handles invoice creation, management, and camera upload functionality
 """
-from fastapi import APIRouter, HTTPException, Depends, File, UploadFile, Form
+from fastapi import APIRouter, HTTPException, Depends, File, UploadFile, Form, Response
 from fastapi.responses import FileResponse, JSONResponse
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
@@ -300,6 +300,7 @@ async def create_invoice_with_student(
 
 @invoice_router.get("/", response_model=List[InvoiceDetail])
 async def get_invoices(
+    response: Response,
     skip: int = 0,
     limit: int = 100,
     status: Optional[str] = None,
@@ -308,6 +309,11 @@ async def get_invoices(
     db: DatabaseManager = Depends(get_db)
 ):
     """Get all invoices with filtering options"""
+    # Set cache control headers to prevent caching
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    
     where_conditions = []
     params = []
     
