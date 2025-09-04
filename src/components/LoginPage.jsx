@@ -513,12 +513,14 @@ Please change the password after first login.`);
   return (
     <Box sx={{
       minHeight: '100vh',
+      height: '100vh', // Fix height to viewport
       background: `linear-gradient(135deg, ${LOGIN_COLORS.background} 0%, #1A1A2E 50%, ${LOGIN_COLORS.surface} 100%)`,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       position: 'relative',
-      overflow: 'hidden'
+      overflow: 'hidden', // Hide scrollbar completely
+      padding: { xs: 1, sm: 2 } // Add responsive padding
     }}>
       {/* Canvas Particle System */}
       <CanvasParticles />
@@ -546,14 +548,14 @@ Please change the password after first login.`);
         }}
       />
 
-      {/* Glowing orbs */}
+      {/* Smaller glowing orbs */}
       <motion.div
         style={{
           position: 'absolute',
           top: '20%',
           left: '10%',
-          width: '300px',
-          height: '300px',
+          width: '200px', // Reduced from 300px
+          height: '200px', // Reduced from 300px
           background: `radial-gradient(circle, ${LOGIN_COLORS.primary}40 0%, transparent 70%)`,
           borderRadius: '50%',
           filter: 'blur(40px)',
@@ -577,8 +579,8 @@ Please change the password after first login.`);
           position: 'absolute',
           bottom: '20%',
           right: '10%',
-          width: '250px',
-          height: '250px',
+          width: '150px', // Reduced from 250px
+          height: '150px', // Reduced from 250px
           background: `radial-gradient(circle, ${LOGIN_COLORS.secondary}40 0%, transparent 70%)`,
           borderRadius: '50%',
           filter: 'blur(40px)',
@@ -598,11 +600,18 @@ Please change the password after first login.`);
         }}
       />
 
-      <Container maxWidth="sm" sx={{ position: 'relative', zIndex: 10 }}>
+      <Container maxWidth="sm" sx={{ 
+        position: 'relative', 
+        zIndex: 10,
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center'
+      }}>
         <motion.div
           variants={containerVariants}
           initial="hidden"
           animate="visible"
+          style={{ width: '100%' }}
         >
           <motion.div variants={cardVariants}>
             <Card sx={{
@@ -632,10 +641,10 @@ Please change the password after first login.`);
                 }}
               />
 
-              <CardContent sx={{ p: 6, position: 'relative' }}>
-                {/* Header */}
+              <CardContent sx={{ p: { xs: 3, sm: 4, md: 6 }, position: 'relative' }}> {/* Responsive padding */}
+                {/* Header - Compact */}
                 <motion.div variants={itemVariants}>
-                  <Box sx={{ textAlign: 'center', mb: 4 }}>
+                  <Box sx={{ textAlign: 'center', mb: 3 }}> {/* Reduced margin */}
                     <motion.div
                       variants={logoVariants}
                       initial="initial"
@@ -643,17 +652,17 @@ Please change the password after first login.`);
                       whileHover="hover"
                     >
                       <Avatar sx={{
-                        width: 80,
-                        height: 80,
+                        width: 60, // Reduced from 80
+                        height: 60, // Reduced from 80
                         mx: 'auto',
-                        mb: 2,
+                        mb: 1.5, // Reduced margin
                         background: `linear-gradient(135deg, ${LOGIN_COLORS.primary} 0%, ${LOGIN_COLORS.secondary} 100%)`,
                         boxShadow: `0 8px 32px ${LOGIN_COLORS.glow}`,
                         border: `2px solid ${LOGIN_COLORS.border}`,
                         position: 'relative',
                         overflow: 'visible'
                       }}>
-                        <InventoryIcon sx={{ fontSize: 40, color: '#FFFFFF' }} />
+                        <InventoryIcon sx={{ fontSize: 30, color: '#FFFFFF' }} /> {/* Reduced icon size */}
                         
                         {/* Rotating ring around avatar */}
                         <motion.div
@@ -678,13 +687,13 @@ Please change the password after first login.`);
                     </motion.div>
                     
                     <motion.div variants={itemVariants}>
-                      <Typography variant="h4" sx={{ 
+                      <Typography variant="h5" sx={{ // Reduced from h4
                         fontWeight: 700, 
                         background: `linear-gradient(135deg, ${LOGIN_COLORS.primary} 0%, ${LOGIN_COLORS.secondary} 100%)`,
                         WebkitBackgroundClip: 'text',
                         WebkitTextFillColor: 'transparent',
                         backgroundClip: 'text',
-                        mb: 1,
+                        mb: 0.5, // Reduced margin
                         textShadow: `0 0 20px ${LOGIN_COLORS.glow}`
                       }}>
                         College Inventory System
@@ -692,17 +701,17 @@ Please change the password after first login.`);
                     </motion.div>
                     
                     <motion.div variants={itemVariants}>
-                      <Typography variant="body1" sx={{ 
+                      <Typography variant="body2" sx={{ // Reduced from body1
                         color: LOGIN_COLORS.textSecondary,
-                        mb: 2,
-                        fontSize: '1.1rem'
+                        mb: 1.5, // Reduced margin
+                        fontSize: '0.95rem' // Reduced font size
                       }}>
                         Advanced Inventory Management Portal
                       </Typography>
                     </motion.div>
 
                     <motion.div variants={itemVariants}>
-                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 3 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 2 }}> {/* Reduced margin */}
                         <Chip 
                           icon={<SecurityIcon />} 
                           label="Secure Access" 
@@ -716,7 +725,7 @@ Please change the password after first login.`);
                         />
                         <Chip 
                           icon={<AdminIcon />} 
-                          label="Admin Portal" 
+                          label="Staff Portal" 
                           size="small"
                           sx={{ 
                             background: `linear-gradient(135deg, ${LOGIN_COLORS.secondary}20 0%, ${LOGIN_COLORS.secondary}10 100%)`,
@@ -730,7 +739,7 @@ Please change the password after first login.`);
                   </Box>
                 </motion.div>
 
-                {/* System Initialization Section */}
+                {/* System Initialization Section - Compact */}
                 {!isSystemInitialized && (
                   <motion.div
                     variants={itemVariants}
@@ -739,24 +748,24 @@ Please change the password after first login.`);
                     transition={{ duration: 0.5 }}
                   >
                     <Paper sx={{ 
-                      p: 3, 
-                      mb: 3, 
+                      p: 2, // Reduced padding
+                      mb: 2, // Reduced margin
                       background: `linear-gradient(135deg, ${LOGIN_COLORS.warning}20 0%, ${LOGIN_COLORS.warning}10 100%)`,
                       border: `1px solid ${LOGIN_COLORS.warning}40`,
                       borderRadius: 3,
                       backdropFilter: 'blur(10px)'
                     }}>
-                      <Typography variant="h6" sx={{ mb: 2, color: LOGIN_COLORS.warning }}>
+                      <Typography variant="subtitle2" sx={{ mb: 1, color: LOGIN_COLORS.warning, fontSize: '0.9rem' }}> {/* Smaller text */}
                         🚀 System Setup Required
                       </Typography>
-                      <Typography variant="body2" sx={{ mb: 2, color: LOGIN_COLORS.text }}>
-                        This appears to be the first time accessing the system. 
-                        Please initialize it to create the main administrator account.
+                      <Typography variant="caption" sx={{ mb: 1.5, color: LOGIN_COLORS.text, fontSize: '0.8rem' }}> {/* Smaller text */}
+                        First time access - Initialize to create admin account.
                       </Typography>
                       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                         <Button
                           variant="contained"
                           fullWidth
+                          size="small" // Smaller button
                           onClick={initializeSystem}
                           disabled={initializingSystem}
                           startIcon={<AdminIcon />}
@@ -764,13 +773,14 @@ Please change the password after first login.`);
                             background: `linear-gradient(135deg, ${LOGIN_COLORS.warning} 0%, #E65100 100%)`,
                             borderRadius: 2,
                             fontWeight: 600,
+                            fontSize: '0.85rem', // Smaller font
                             '&:hover': { 
                               background: `linear-gradient(135deg, #E65100 0%, ${LOGIN_COLORS.warning} 100%)`,
                               boxShadow: `0 8px 25px ${LOGIN_COLORS.warning}40`
                             }
                           }}
                         >
-                          {initializingSystem ? 'Initializing System...' : 'Initialize System'}
+                          {initializingSystem ? 'Initializing...' : 'Initialize System'}
                         </Button>
                       </motion.div>
                     </Paper>
@@ -1056,6 +1066,16 @@ Please change the password after first login.`);
                             color: LOGIN_COLORS.text,
                             fontSize: '1rem',
                             backgroundColor: 'transparent !important',
+                            // Hide browser's default password reveal button
+                            '&::-ms-reveal': {
+                              display: 'none'
+                            },
+                            '&::-webkit-credentials-auto-fill-button': {
+                              display: 'none !important'
+                            },
+                            '&::-webkit-strong-password-auto-fill-button': {
+                              display: 'none !important'
+                            },
                             '&:-webkit-autofill': {
                               WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
                               WebkitTextFillColor: `${LOGIN_COLORS.text} !important`,
@@ -1108,7 +1128,7 @@ Please change the password after first login.`);
                             Keep me signed in
                           </Typography>
                         }
-                        sx={{ mt: 2, mb: 2 }}
+                        sx={{ mt: 1, mb: 1 }} // Reduced margins
                       />
                     </motion.div>
 
@@ -1125,11 +1145,11 @@ Please change the password after first login.`);
                         disabled={loading || !formData.username || !formData.password}
                         startIcon={<LoginIcon />}
                         sx={{
-                          mt: 2,
-                          mb: 3,
-                          py: 1.8,
+                          mt: 1.5, // Reduced from 2
+                          mb: 2, // Reduced from 3
+                          py: 1.5, // Reduced from 1.8
                           borderRadius: 3,
-                          fontSize: '1.1rem',
+                          fontSize: '1rem', // Slightly reduced
                           fontWeight: 600,
                           background: `linear-gradient(135deg, ${LOGIN_COLORS.primary} 0%, ${LOGIN_COLORS.secondary} 100%)`,
                           boxShadow: `0 8px 32px ${LOGIN_COLORS.glow}`,
@@ -1166,111 +1186,6 @@ Please change the password after first login.`);
                   </Box>
                 </motion.div>
 
-                <Divider sx={{ 
-                  my: 3,
-                  borderColor: LOGIN_COLORS.border,
-                  '&::before, &::after': {
-                    borderColor: LOGIN_COLORS.border
-                  }
-                }} />
-
-                {/* Security Information */}
-                <motion.div variants={itemVariants}>
-                  <Box sx={{ textAlign: 'center', mb: 3 }}>
-                    <motion.div
-                      animate={{
-                        scale: [1, 1.1, 1],
-                        opacity: [0.7, 1, 0.7]
-                      }}
-                      transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                      }}
-                    >
-                      <Typography variant="caption" sx={{ 
-                        color: LOGIN_COLORS.primary,
-                        display: 'block',
-                        mb: 1,
-                        fontSize: '0.9rem'
-                      }}>
-                        🔒 Enterprise-Grade Security
-                      </Typography>
-                    </motion.div>
-                    <Typography variant="caption" sx={{ 
-                      color: LOGIN_COLORS.textSecondary,
-                      display: 'block',
-                      mb: 2
-                    }}>
-                      Protected by advanced encryption protocols
-                    </Typography>
-
-                    {/* Security badges */}
-                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
-                      <motion.div
-                        whileHover={{ scale: 1.1, rotate: 5 }}
-                        transition={{ type: "spring", stiffness: 300 }}
-                      >
-                        <Chip 
-                          size="small"
-                          label="SSL Encrypted"
-                          sx={{
-                            background: `linear-gradient(135deg, ${LOGIN_COLORS.success}20 0%, ${LOGIN_COLORS.success}10 100%)`,
-                            color: LOGIN_COLORS.success,
-                            border: `1px solid ${LOGIN_COLORS.success}30`,
-                            fontSize: '0.7rem'
-                          }}
-                        />
-                      </motion.div>
-                      
-                      <motion.div
-                        whileHover={{ scale: 1.1, rotate: -5 }}
-                        transition={{ type: "spring", stiffness: 300 }}
-                      >
-                        <Chip 
-                          size="small"
-                          label="2FA Ready"
-                          sx={{
-                            background: `linear-gradient(135deg, ${LOGIN_COLORS.accent}20 0%, ${LOGIN_COLORS.accent}10 100%)`,
-                            color: LOGIN_COLORS.accent,
-                            border: `1px solid ${LOGIN_COLORS.accent}30`,
-                            fontSize: '0.7rem'
-                          }}
-                        />
-                      </motion.div>
-                    </Box>
-                  </Box>
-                </motion.div>
-
-                {/* Footer */}
-                <motion.div variants={itemVariants}>
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Typography variant="caption" sx={{ 
-                      color: LOGIN_COLORS.textSecondary,
-                      display: 'block',
-                      mb: 1
-                    }}>
-                      College Incubation Inventory System
-                    </Typography>
-                    <motion.div
-                      animate={{
-                        opacity: [0.5, 1, 0.5]
-                      }}
-                      transition={{
-                        duration: 3,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                      }}
-                    >
-                      <Typography variant="caption" sx={{ 
-                        color: LOGIN_COLORS.primary,
-                        fontWeight: 600
-                      }}>
-                        v2.0.0 - Professional Edition
-                      </Typography>
-                    </motion.div>
-                  </Box>
-                </motion.div>
               </CardContent>
             </Card>
           </motion.div>
@@ -1302,24 +1217,6 @@ Please change the password after first login.`);
           50% { 
             box-shadow: 0 0 40px ${LOGIN_COLORS.primary}60, 0 0 60px ${LOGIN_COLORS.primary}40;
           }
-        }
-
-        /* Scrollbar styling */
-        ::-webkit-scrollbar {
-          width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-          background: ${LOGIN_COLORS.surface};
-        }
-
-        ::-webkit-scrollbar-thumb {
-          background: linear-gradient(135deg, ${LOGIN_COLORS.primary}, ${LOGIN_COLORS.secondary});
-          border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-          background: linear-gradient(135deg, ${LOGIN_COLORS.secondary}, ${LOGIN_COLORS.primary});
         }
       `}</style>
     </Box>

@@ -249,7 +249,7 @@ const InvoiceManagement = () => {
     if (!invoiceToDelete) return;
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/invoices/invoice/${invoiceToDelete.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/invoices/${invoiceToDelete.id}`, {
         method: 'DELETE',
       });
       
@@ -313,7 +313,7 @@ const InvoiceManagement = () => {
     try {
       // Delete invoices in parallel for better performance
       const deletePromises = selectedInvoices.map(invoiceId =>
-        fetch(`${API_BASE_URL}/api/invoices/invoice/${invoiceId}`, {
+        fetch(`${API_BASE_URL}/api/invoices/${invoiceId}`, {
           method: 'DELETE',
         })
       );
@@ -657,42 +657,13 @@ const InvoiceManagement = () => {
       >
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
           <Box display="flex" alignItems="center" gap={2}>
-            <motion.div
-              animate={{ 
-                rotate: [0, 360],
-                scale: [1, 1.1, 1]
-              }}
-              transition={{ 
-                duration: 3,
-                repeat: Infinity,
-                repeatDelay: 5
-              }}
-            >
-              <Box
-                sx={{
-                  background: 'linear-gradient(135deg, #00D4AA 0%, #00B899 100%)',
-                  borderRadius: '50%',
-                  width: '64px',
-                  height: '64px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 8px 32px rgba(0, 212, 170, 0.3)'
-                }}
-              >
-                <ReceiptIcon sx={{ fontSize: '2rem', color: '#FFFFFF' }} />
-              </Box>
-            </motion.div>
+            <ReceiptIcon sx={{ fontSize: '2rem', color: '#FFFFFF' }} />
             <Box>
               <Typography 
                 variant="h4" 
-                gutterBottom
                 sx={{ 
-                  background: 'linear-gradient(135deg, #00D4AA 0%, #6C63FF 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
                   fontWeight: 700,
-                  fontSize: '2.5rem'
+                  color: '#FFFFFF'
                 }}
               >
                 Invoice Management
@@ -868,81 +839,8 @@ const InvoiceManagement = () => {
                 </Box>
               )}
             </Box>
-
-            <Box display="flex" alignItems="center" gap={2} mb={2}>
-              <motion.div
-                animate={{ rotate: [0, 10, -10, 0] }}
-                transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-              >
-                <Box
-                  sx={{
-                    background: 'linear-gradient(135deg, #6C63FF 0%, #5A52FF 100%)',
-                    borderRadius: '50%',
-                    width: '40px',
-                    height: '40px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  <ScheduleIcon sx={{ color: '#FFFFFF', fontSize: '1.5rem' }} />
-                </Box>
-              </motion.div>
-              <Typography 
-                variant="h6" 
-                sx={{ 
-                  color: '#FFFFFF',
-                  fontWeight: 600
-                }}
-              >
-                Smart Filters
-              </Typography>
-            </Box>
-            <Grid container spacing={3}>
-            <Grid size={{ xs: 12, sm: 4 }}>
-              <TextField
-                select
-                fullWidth
-                label="Status"
-                value={filters.status}
-                onChange={(e) => setFilters({...filters, status: e.target.value})}
-                size="small"
-              >
-                <MenuItem value="">All Statuses</MenuItem>
-                <MenuItem value="draft">Draft</MenuItem>
-                <MenuItem value="issued">Issued</MenuItem>
-                <MenuItem value="acknowledged">Acknowledged</MenuItem>
-                <MenuItem value="archived">Archived</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 4 }}>
-              <TextField
-                select
-                fullWidth
-                label="Type"
-                value={filters.invoice_type}
-                onChange={(e) => setFilters({...filters, invoice_type: e.target.value})}
-                size="small"
-              >
-                <MenuItem value="">All Types</MenuItem>
-                <MenuItem value="lending">Lending</MenuItem>
-                <MenuItem value="return">Return</MenuItem>
-                <MenuItem value="damage">Damage</MenuItem>
-                <MenuItem value="replacement">Replacement</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 4 }}>
-              <Button
-                variant="outlined"
-                onClick={() => setFilters({status: '', invoice_type: '', student_id: ''})}
-                fullWidth
-              >
-                Clear Filters
-              </Button>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* Invoices Table */}

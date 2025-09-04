@@ -8,6 +8,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, date
 import uuid
 import time
+import requests
 from database_manager import get_db, DatabaseManager
 from logging_config import api_logger, main_logger, db_logger, log_performance
 import logging
@@ -1147,28 +1148,47 @@ async def approve_order(order_id: str, approved_by: str, db: DatabaseManager = D
     
     return {"message": "Order approved successfully"}
 
-# Status update model
+# Order update models
 class OrderStatusUpdate(BaseModel):
     status: str
 
+class OrderUpdate(BaseModel):
+    student_id: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    expected_return_date: Optional[date] = None
+    approved_by: Optional[str] = None
+
 @app.put("/api/orders/{order_id}/status")
 async def update_order_status(order_id: str, status_update: OrderStatusUpdate, db: DatabaseManager = Depends(get_db)):
-    """Update order status"""
+    """Update order status with automatic invoice creation"""
     valid_statuses = ['pending', 'approved', 'completed', 'overdue']
     
     if status_update.status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}")
     
+    # Get current order status to detect changes
+    current_order_query = "SELECT status FROM orders WHERE id = %s"
+    current_result = db.execute_query(current_order_query, (order_id,))
+    
+    if not current_result:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    current_status = current_result[0]['status']
+    
     # Update order status
     order_query = """
     UPDATE orders SET 
         status = %s,
+        approved_date = CASE WHEN %s = 'approved' THEN CURRENT_TIMESTAMP ELSE approved_date END,
         updated_at = CURRENT_TIMESTAMP
     WHERE id = %s
     """
     
-    if not db.execute_command(order_query, (status_update.status, order_id)):
+    if not db.execute_command(order_query, (status_update.status, status_update.status, order_id)):
         raise HTTPException(status_code=404, detail="Order not found")
+    
+    invoice_message = ""
     
     # If status is approved, also approve all order items
     if status_update.status == 'approved':
@@ -1179,6 +1199,18 @@ async def update_order_status(order_id: str, status_update: OrderStatusUpdate, d
         WHERE order_id = %s
         """
         db.execute_command(items_query, (order_id,))
+        
+        # 🆕 NEW FEATURE: Auto-create invoice when transitioning from pending to approved
+        if current_status == 'pending':
+            api_logger.info(f"🎯 Order {order_id} approved! Creating invoice automatically...")
+            created_invoice = await create_invoice_for_approved_order(order_id, db, "System")
+            
+            if created_invoice:
+                api_logger.info(f"🎉 Invoice {created_invoice.get('invoice_number')} created automatically for order {order_id}")
+                invoice_message = f" Invoice {created_invoice.get('invoice_number')} created automatically."
+            else:
+                api_logger.warning(f"⚠️ Failed to create invoice for order {order_id}")
+                invoice_message = " Note: Invoice creation failed - please create manually."
     
     # If status is completed, mark all items as returned
     elif status_update.status == 'completed':
@@ -1192,7 +1224,295 @@ async def update_order_status(order_id: str, status_update: OrderStatusUpdate, d
         db.execute_command(items_query, (order_id,))
     
     api_logger.info(f"Order {order_id} status updated to {status_update.status}")
-    return {"message": f"Order status updated to {status_update.status} successfully"}
+    return {
+        "message": f"Order status updated to {status_update.status} successfully.{invoice_message}",
+        "invoice_created": bool(status_update.status == 'approved' and current_status == 'pending' and 'created automatically' in invoice_message)
+    }
+
+async def create_invoice_for_approved_order(order_id: str, db: DatabaseManager, approved_by: str = "System") -> Optional[Dict]:
+    """Create an invoice automatically when an order is approved"""
+    try:
+        # Get order details
+        order_query = """
+        SELECT o.*, s.name as student_name, s.email as student_email, s.department
+        FROM orders o
+        LEFT JOIN students s ON o.student_id = s.id
+        WHERE o.id = %s AND o.status = 'approved'
+        """
+        
+        order_result = db.execute_query(order_query, (order_id,))
+        if not order_result:
+            api_logger.warning(f"No approved order found with ID: {order_id}")
+            return None
+            
+        order_data = order_result[0]
+        
+        # Create invoice via API call to invoice endpoint
+        invoice_data = {
+            "student_name": order_data.get('student_name', ''),
+            "student_id": order_data.get('student_id', ''),
+            "student_email": order_data.get('student_email', ''),
+            "department": order_data.get('department', ''),
+            "year_of_study": 1,  # Default value
+            "invoice_type": "lending",
+            "due_date": order_data.get('expected_return_date').isoformat() if order_data.get('expected_return_date') else None,
+            "issued_by": approved_by,
+            "notes": f"Auto-generated invoice for approved order {order_data.get('order_number', '')}"
+        }
+        
+        # Make internal API call to create invoice
+        try:
+            # Use requests to call the invoice creation endpoint
+            api_url = "http://localhost:8000/api/invoices/create-with-student"
+            response = requests.post(api_url, json=invoice_data, timeout=10)
+            
+            if response.status_code == 200:
+                invoice_response = response.json()
+                created_invoice = invoice_response.get('invoice')
+                
+                if created_invoice:
+                    # Update the order with the invoice reference
+                    update_order_query = """
+                    UPDATE orders SET 
+                        invoice_id = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                    """
+                    db.execute_command(update_order_query, (created_invoice['id'], order_id))
+                    
+                    # Add order items to the invoice
+                    await add_order_items_to_invoice(order_id, created_invoice['id'], db)
+                    
+                    api_logger.info(f"✅ Successfully created invoice {created_invoice.get('invoice_number')} for order {order_data.get('order_number')}")
+                    return created_invoice
+                else:
+                    api_logger.error("Invoice creation returned success but no invoice data")
+                    return None
+            else:
+                api_logger.error(f"Failed to create invoice via API. Status: {response.status_code}, Response: {response.text}")
+                return None
+                
+        except requests.exceptions.RequestException as e:
+            api_logger.error(f"Network error calling invoice API: {str(e)}")
+            # Fallback: create invoice directly in database
+            return await create_invoice_direct(order_data, db, approved_by)
+            
+    except Exception as e:
+        api_logger.error(f"Error creating invoice for order {order_id}: {str(e)}")
+        return None
+
+async def create_invoice_direct(order_data: Dict, db: DatabaseManager, approved_by: str) -> Optional[Dict]:
+    """Fallback method to create invoice directly in database"""
+    try:
+        # Generate invoice number
+        invoice_id = str(uuid.uuid4())
+        due_date = order_data.get('expected_return_date')
+        
+        # Create invoice directly
+        invoice_query = """
+        INSERT INTO invoices (
+            id, order_id, student_id, invoice_type, status, 
+            total_items, due_date, issued_by, notes
+        ) VALUES (%s, %s, %s, 'lending', 'issued', %s, %s, %s, %s)
+        RETURNING *
+        """
+        
+        invoice_result = db.execute_query(
+            invoice_query,
+            (
+                invoice_id,
+                order_data['id'],
+                order_data['student_id'],
+                order_data.get('total_items', 0),
+                due_date,
+                approved_by,
+                f"Auto-generated invoice for approved order {order_data.get('order_number', '')}"
+            )
+        )
+        
+        if invoice_result:
+            api_logger.info(f"✅ Created invoice directly in database for order {order_data.get('order_number')}")
+            return invoice_result[0]
+        else:
+            api_logger.error("Failed to create invoice directly in database")
+            return None
+            
+    except Exception as e:
+        api_logger.error(f"Error creating invoice directly: {str(e)}")
+        return None
+
+async def add_order_items_to_invoice(order_id: str, invoice_id: str, db: DatabaseManager):
+    """Add order items to the created invoice"""
+    try:
+        # Get order items
+        items_query = """
+        SELECT oi.*, p.name as product_name, p.sku as product_sku, p.unit_price
+        FROM order_items oi
+        LEFT JOIN products p ON oi.product_id = p.id
+        WHERE oi.order_id = %s AND oi.status = 'approved'
+        """
+        
+        items_result = db.execute_query(items_query, (order_id,))
+        
+        if items_result:
+            # Add each item to invoice_items table
+            for item in items_result:
+                invoice_item_query = """
+                INSERT INTO invoice_items (
+                    invoice_id, product_id, order_item_id, product_name, product_sku,
+                    quantity, unit_value, total_value, lending_duration_days,
+                    expected_return_date, notes
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                
+                total_value = item['quantity_approved'] * item.get('unit_price', 0)
+                
+                db.execute_command(
+                    invoice_item_query,
+                    (
+                        invoice_id,
+                        item['product_id'],
+                        item['id'],
+                        item.get('product_name', ''),
+                        item.get('product_sku', ''),
+                        item['quantity_approved'],
+                        item.get('unit_price', 0),
+                        total_value,
+                        30,  # Default lending duration
+                        item.get('expected_return_date'),
+                        item.get('notes', '')
+                    )
+                )
+            
+            api_logger.info(f"✅ Added {len(items_result)} items to invoice {invoice_id}")
+        
+    except Exception as e:
+        api_logger.error(f"Error adding items to invoice: {str(e)}")
+
+@app.put("/api/orders/{order_id}")
+async def update_order(order_id: str, order_update: OrderUpdate, db: DatabaseManager = Depends(get_db)):
+    """Update order with automatic invoice creation when approved"""
+    try:
+        # Get current order status to detect status changes
+        current_order_query = "SELECT * FROM orders WHERE id = %s"
+        current_order_result = db.execute_query(current_order_query, (order_id,))
+        
+        if not current_order_result:
+            raise HTTPException(status_code=404, detail="Order not found")
+        
+        current_order = current_order_result[0]
+        current_status = current_order['status']
+        
+        # Build update query dynamically
+        update_fields = []
+        update_values = []
+        
+        if order_update.student_id is not None:
+            update_fields.append("student_id = %s")
+            update_values.append(order_update.student_id)
+        
+        if order_update.status is not None:
+            valid_statuses = ['pending', 'approved', 'completed', 'overdue', 'cancelled']
+            if order_update.status not in valid_statuses:
+                raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}")
+            
+            update_fields.append("status = %s")
+            update_values.append(order_update.status)
+            
+            # Set approved_date if status is being set to approved
+            if order_update.status == 'approved':
+                update_fields.append("approved_date = CURRENT_TIMESTAMP")
+                if order_update.approved_by:
+                    update_fields.append("approved_by = %s")
+                    update_values.append(order_update.approved_by)
+        
+        if order_update.notes is not None:
+            update_fields.append("notes = %s")
+            update_values.append(order_update.notes)
+        
+        if order_update.expected_return_date is not None:
+            update_fields.append("expected_return_date = %s")
+            update_values.append(order_update.expected_return_date)
+        
+        # Always update the timestamp
+        update_fields.append("updated_at = CURRENT_TIMESTAMP")
+        
+        if not update_fields:
+            return {"message": "No fields to update"}
+        
+        # Execute the update
+        update_query = f"""
+        UPDATE orders SET {', '.join(update_fields)}
+        WHERE id = %s
+        """
+        update_values.append(order_id)
+        
+        if not db.execute_command(update_query, tuple(update_values)):
+            raise HTTPException(status_code=500, detail="Failed to update order")
+        
+        # Handle status-specific logic
+        if order_update.status:
+            # If status is approved, also approve all order items
+            if order_update.status == 'approved':
+                items_query = """
+                UPDATE order_items SET 
+                    quantity_approved = quantity_requested,
+                    status = 'approved'
+                WHERE order_id = %s
+                """
+                db.execute_command(items_query, (order_id,))
+                
+                # 🆕 NEW FEATURE: Auto-create invoice when order is approved
+                if current_status == 'pending':  # Only create invoice if transitioning from pending to approved
+                    api_logger.info(f"🎯 Order {order_id} approved! Creating invoice automatically...")
+                    created_invoice = await create_invoice_for_approved_order(
+                        order_id, 
+                        db, 
+                        order_update.approved_by or "System"
+                    )
+                    
+                    if created_invoice:
+                        api_logger.info(f"🎉 Invoice {created_invoice.get('invoice_number')} created automatically for order {order_id}")
+                        invoice_message = f" Invoice {created_invoice.get('invoice_number')} created automatically."
+                    else:
+                        api_logger.warning(f"⚠️ Failed to create invoice for order {order_id}")
+                        invoice_message = " Note: Invoice creation failed - please create manually."
+                else:
+                    invoice_message = ""
+            
+            # If status is completed, mark all items as returned
+            elif order_update.status == 'completed':
+                items_query = """
+                UPDATE order_items SET 
+                    quantity_returned = quantity_approved,
+                    status = 'returned',
+                    return_date = CURRENT_TIMESTAMP
+                WHERE order_id = %s AND status = 'approved'
+                """
+                db.execute_command(items_query, (order_id,))
+                invoice_message = ""
+            else:
+                invoice_message = ""
+        else:
+            invoice_message = ""
+        
+        # Get updated order for response
+        updated_order_result = db.execute_query(current_order_query, (order_id,))
+        updated_order = updated_order_result[0] if updated_order_result else None
+        
+        api_logger.info(f"Order {order_id} updated successfully")
+        
+        return {
+            "message": f"Order updated successfully.{invoice_message}",
+            "order": updated_order,
+            "invoice_created": bool(order_update.status == 'approved' and current_status == 'pending' and 'created automatically' in invoice_message)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        api_logger.error(f"Error updating order {order_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update order: {str(e)}")
 
 @app.put("/api/orders/{order_id}/items/{item_id}/return")
 async def return_item(

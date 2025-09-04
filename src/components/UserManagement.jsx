@@ -14,7 +14,8 @@ import {
   Block as BlockIcon, CheckCircle as ActiveIcon, CheckCircle,
   Warning as WarningIcon, History as HistoryIcon,
   VpnKey as KeyIcon, Email as EmailIcon,
-  SupervisorAccount as SupervisorIcon, Shield as ShieldIcon
+  SupervisorAccount as SupervisorIcon, Shield as ShieldIcon,
+  ManageAccounts as ManageAccountsIcon
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -571,9 +572,12 @@ function UserManagement() {
       >
         {/* Header */}
         <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" sx={{ fontWeight: 700, mb: 1, color: '#FFFFFF' }}>
-            👥 User Management
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+            <ManageAccountsIcon sx={{ fontSize: '2rem', color: '#FFFFFF' }} />
+            <Typography variant="h4" sx={{ fontWeight: 700, color: '#FFFFFF' }}>
+              User Management
+            </Typography>
+          </Box>
           <Typography variant="body1" sx={{ color: '#B0B0B0' }}>
             Manage users, roles, and permissions for the inventory system
           </Typography>

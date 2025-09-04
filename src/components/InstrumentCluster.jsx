@@ -13,7 +13,8 @@ import {
   Refresh as RefreshIcon,
   Timeline as TrendIcon,
   Download as DownloadIcon,
-  CloudDownload as CloudDownloadIcon
+  CloudDownload as CloudDownloadIcon,
+  BarChart as BarChartIcon
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 
@@ -270,11 +271,11 @@ function InstrumentCluster() {
           'Status': item.status || '',
           'Total Items': item.total_items || 0,
           'Total Value ($)': item.total_value ? parseFloat(item.total_value).toFixed(2) : '0.00',
-          'Issue Date': item.issue_date ? new Date(item.issue_date).toLocaleDateString() : '',
+          'Issue Date': item.issue_date ? item.issue_date.split('T')[0] : '',
           'Physical Copy': item.has_physical_copy ? 'Yes' : 'No',
           'Student Acknowledged': item.acknowledged_by_student ? 'Yes' : 'No',
-          'Created Date': item.created_at ? new Date(item.created_at).toLocaleDateString() : '',
-          'Last Updated': item.updated_at ? new Date(item.updated_at).toLocaleDateString() : ''
+          'Created Date': item.created_at ? item.created_at.split('T')[0] : '',
+          'Last Updated': item.updated_at ? item.updated_at.split('T')[0] : ''
         }));
       
       case 'users':
@@ -414,7 +415,15 @@ function InstrumentCluster() {
             }
             
             console.log(`Exporting ${module} from ${endpoint}`);
-            const response = await fetch(endpoint);
+            const timestamp = Date.now();
+            const urlWithTimestamp = `${endpoint}?_t=${timestamp}`;
+            const response = await fetch(urlWithTimestamp, {
+              cache: 'no-cache',
+              headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+              }
+            });
             
             if (response.ok) {
               const data = await response.json();
@@ -462,7 +471,15 @@ function InstrumentCluster() {
         }
         
         console.log(`Exporting ${type} from ${endpoint}`);
-        const response = await fetch(endpoint);
+        const timestamp = Date.now();
+        const urlWithTimestamp = `${endpoint}?_t=${timestamp}`;
+        const response = await fetch(urlWithTimestamp, {
+          cache: 'no-cache',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
         
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -584,13 +601,15 @@ function InstrumentCluster() {
           alignItems: 'center' 
         }}>
           <Box>
-            <Typography variant="h4" sx={{ 
-              fontWeight: 700, 
-              mb: 1, 
-              color: '#FFFFFF' 
-            }}>
-              📊 System Instrument Cluster
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+              <BarChartIcon sx={{ fontSize: '2rem', color: '#FFFFFF' }} />
+              <Typography variant="h4" sx={{ 
+                fontWeight: 700, 
+                color: '#FFFFFF' 
+              }}>
+                System Instrument Cluster
+              </Typography>
+            </Box>
             <Typography variant="body1" sx={{ color: '#B0B0B0' }}>
               Live monitoring of all system modules • Real-time status updates
             </Typography>

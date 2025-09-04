@@ -45,7 +45,10 @@ import {
   Schedule as ScheduleIcon,
   Logout as LogoutIcon,
   PersonAdd as PersonAddIcon,
-  SupervisorAccount as SupervisorAccountIcon
+  SupervisorAccount as SupervisorAccountIcon,
+  ManageAccounts as ManageAccountsIcon,
+  BarChart as BarChartIcon,
+  Store as StoreIcon
 } from '@mui/icons-material';
 
 // Import our modules
@@ -66,6 +69,9 @@ import UserManagement from './components/UserManagement';
 import { darkMatteTheme, animationVariants } from './theme/darkTheme';
 import LoadingAnimation from './components/LoadingAnimation';
 import { AnimatedBadge, GlowEffect } from './components/AnimatedComponents';
+
+// Import enhanced scrollbar styles
+import './styles/scrollbar.css';
 
 const drawerWidth = 280;
 const API_BASE_URL = 'http://localhost:8000';
@@ -330,10 +336,10 @@ function App() {
     { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, badge: 0, roles: ['main_admin', 'sub_admin', 'viewer'] },
     { id: 'products', label: 'Products Management', icon: <InventoryIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
     { id: 'students', label: 'Student Management', icon: <PeopleIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
-    { id: 'orders', label: 'Order Management', icon: <ShoppingCartIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
+    { id: 'orders', label: 'Order Management', icon: <StoreIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
     { id: 'invoicing', label: 'Invoicing & Billing', icon: <ReceiptIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
-    { id: 'reports', label: 'Reports & Analytics', icon: <AssessmentIcon />, badge: 0, roles: ['main_admin', 'sub_admin', 'viewer'] },
-    { id: 'users', label: 'User Management', icon: <SupervisorAccountIcon />, badge: 0, roles: ['main_admin'] },
+    { id: 'reports', label: 'Reports & Analytics', icon: <BarChartIcon />, badge: 0, roles: ['main_admin', 'sub_admin', 'viewer'] },
+    { id: 'users', label: 'User Management', icon: <ManageAccountsIcon />, badge: 0, roles: ['main_admin'] },
     { id: 'settings', label: 'System Settings', icon: <SettingsIcon />, badge: 0, roles: ['main_admin'] },
   ];
 
@@ -785,6 +791,7 @@ function App() {
             variant="persistent"
             anchor="left"
             open={sidebarOpen}
+            className="sidebar-scrollbar"
             sx={{
               width: sidebarOpen ? drawerWidth : 0,
               flexShrink: 0,
@@ -809,36 +816,36 @@ function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <Box sx={{ p: 2, textAlign: 'center', borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Box sx={{ p: 1.5, textAlign: 'center', borderBottom: '1px solid', borderColor: 'divider' }}>
                 <Avatar 
                   sx={{ 
-                    width: 64, 
-                    height: 64, 
+                    width: 40, 
+                    height: 40, 
                     mx: 'auto', 
-                    mb: 1,
+                    mb: 0.5,
                     background: `linear-gradient(135deg, ${darkMatteTheme.palette.primary.main} 0%, ${darkMatteTheme.palette.secondary.main} 100%)`,
                   }}
                 >
                   {currentUser?.full_name?.charAt(0) || 'U'}
                 </Avatar>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
                   {currentUser?.full_name || 'User'}
                 </Typography>
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
                   {currentUser?.role?.replace('_', ' ').toUpperCase() || 'USER'}
                 </Typography>
-                <Box sx={{ mt: 1 }}>
+                <Box sx={{ mt: 0.5 }}>
                   <Chip 
                     label="Online" 
                     color="success" 
                     size="small" 
-                    sx={{ fontSize: '0.7rem' }}
+                    sx={{ fontSize: '0.65rem', height: '18px' }}
                   />
                 </Box>
               </Box>
             </motion.div>
 
-            <Box sx={{ overflow: 'auto', flex: 1 }}>
+            <Box sx={{ overflow: 'auto', flex: 1 }} className="sidebar-scrollbar">
               <List sx={{ px: 1, py: 2 }}>
                 {getAccessibleMenuItems().map((item, index) => (
                   <motion.div
@@ -910,8 +917,8 @@ function App() {
 
             {/* Footer */}
             <Divider />
-            <Box sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            <Box sx={{ p: 1, textAlign: 'center' }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
                 v2.0.0 - Professional Edition
               </Typography>
             </Box>
@@ -920,6 +927,7 @@ function App() {
           {/* Main Content */}
           <Box
             component="main"
+            className="content-scrollbar"
             sx={{
               flexGrow: 1,
               background: darkMatteTheme.palette.background.gradient,

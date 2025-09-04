@@ -180,18 +180,72 @@ export const darkMatteTheme = createTheme({
       styleOverrides: {
         body: {
           scrollbarWidth: 'thin',
-          scrollbarColor: '#2A2A2A #0A0A0A',
+          scrollbarColor: 'rgba(0, 212, 170, 0.2) #0A0A0A',
+          // Modern animated scrollbar for webkit browsers
           '&::-webkit-scrollbar': {
-            width: '8px',
+            width: '10px',
+            height: '10px',
           },
           '&::-webkit-scrollbar-track': {
-            background: '#0A0A0A',
+            background: 'linear-gradient(180deg, #0A0A0A 0%, #151515 50%, #0A0A0A 100%)',
+            borderRadius: '8px',
+            border: '1px solid #1E1E1E',
           },
           '&::-webkit-scrollbar-thumb': {
-            background: '#2A2A2A',
-            borderRadius: '4px',
+            background: 'linear-gradient(180deg, rgba(0, 212, 170, 0.2) 0%, rgba(0, 161, 122, 0.15) 50%, rgba(108, 99, 255, 0.2) 100%)',
+            borderRadius: '8px',
+            border: '2px solid #151515',
+            boxShadow: '0px 0px 5px rgba(0, 212, 170, 0.1), inset 0px 1px 0px rgba(255, 255, 255, 0.03)',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             '&:hover': {
-              background: '#353535',
+              background: 'linear-gradient(180deg, rgba(0, 212, 170, 0.35) 0%, rgba(0, 212, 170, 0.25) 50%, rgba(108, 99, 255, 0.35) 100%)',
+              boxShadow: '0px 0px 8px rgba(0, 212, 170, 0.15), inset 0px 1px 0px rgba(255, 255, 255, 0.05)',
+              transform: 'scaleX(1.1)',
+            },
+            '&:active': {
+              background: 'linear-gradient(180deg, rgba(0, 212, 170, 0.4) 0%, rgba(0, 161, 122, 0.3) 50%, rgba(108, 99, 255, 0.4) 100%)',
+              boxShadow: '0px 0px 10px rgba(0, 212, 170, 0.2)',
+            },
+          },
+          '&::-webkit-scrollbar-corner': {
+            background: '#0A0A0A',
+          },
+          // Custom scrollbar for horizontal scrolling
+          '&::-webkit-scrollbar:horizontal': {
+            height: '8px',
+          },
+          '&::-webkit-scrollbar-thumb:horizontal': {
+            background: 'linear-gradient(90deg, rgba(0, 212, 170, 0.2) 0%, rgba(108, 99, 255, 0.2) 100%)',
+            '&:hover': {
+              background: 'linear-gradient(90deg, rgba(0, 212, 170, 0.35) 0%, rgba(108, 99, 255, 0.35) 100%)',
+              transform: 'scaleY(1.1)',
+            },
+          },
+        },
+        // Global scrollbar styles for all elements
+        '*': {
+          '&::-webkit-scrollbar': {
+            width: '8px',
+            height: '8px',
+          },
+          '&::-webkit-scrollbar-track': {
+            background: 'rgba(42, 42, 42, 0.2)',
+            borderRadius: '6px',
+            backdropFilter: 'blur(10px)',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: 'linear-gradient(45deg, rgba(0, 212, 170, 0.25) 0%, rgba(108, 99, 255, 0.25) 100%)',
+            borderRadius: '6px',
+            border: '1px solid rgba(255, 255, 255, 0.03)',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            '&:hover': {
+              background: 'linear-gradient(45deg, rgba(0, 212, 170, 0.4) 0%, rgba(108, 99, 255, 0.4) 100%)',
+              boxShadow: '0px 0px 6px rgba(0, 212, 170, 0.15)',
+              transform: 'scale(1.05)',
+            },
+            '&:active': {
+              background: 'linear-gradient(45deg, rgba(0, 212, 170, 0.5) 0%, rgba(108, 99, 255, 0.5) 100%)',
+              boxShadow: '0px 0px 8px rgba(0, 212, 170, 0.2)',
             },
           },
         },
@@ -212,15 +266,37 @@ export const darkMatteTheme = createTheme({
         paper: {
           background: 'linear-gradient(180deg, #151515 0%, #1E1E1E 100%)',
           borderRight: '1px solid #2A2A2A',
+          // Enhanced animated scrollbar for sidebar
           '&::-webkit-scrollbar': {
-            width: '6px',
+            width: '8px',
           },
           '&::-webkit-scrollbar-track': {
             background: 'transparent',
+            borderRadius: '4px',
           },
           '&::-webkit-scrollbar-thumb': {
-            background: '#2A2A2A',
-            borderRadius: '3px',
+            background: 'linear-gradient(180deg, rgba(0, 212, 170, 0.4) 0%, rgba(108, 99, 255, 0.4) 100%)',
+            borderRadius: '4px',
+            border: '1px solid rgba(255, 255, 255, 0.05)',
+            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            '&:hover': {
+              background: 'linear-gradient(180deg, rgba(0, 212, 170, 0.7) 0%, rgba(108, 99, 255, 0.7) 100%)',
+              boxShadow: '0px 0px 12px rgba(0, 212, 170, 0.3)',
+              transform: 'scaleX(1.5)',
+              border: '1px solid rgba(0, 212, 170, 0.3)',
+            },
+            '&:active': {
+              background: 'linear-gradient(180deg, #00D4AA 0%, #6C63FF 100%)',
+              boxShadow: '0px 0px 18px rgba(0, 212, 170, 0.5)',
+              transform: 'scaleX(1.2)',
+            },
+          },
+          // Add smooth scrolling animation
+          scrollBehavior: 'smooth',
+          '&:hover': {
+            '&::-webkit-scrollbar-thumb': {
+              background: 'linear-gradient(180deg, rgba(0, 212, 170, 0.6) 0%, rgba(108, 99, 255, 0.6) 100%)',
+            },
           },
         },
       },

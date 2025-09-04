@@ -56,8 +56,22 @@
     "docker:status": "docker-compose ps",
     "docker:clean": "docker-compose down -v --remove-orphans",
     "docker:rebuild": "docker-compose down && docker-compose build --no-cache && docker-compose up -d",
-    "one-click": "call start-one-click.bat",
-    "quick": "call start-one-click.bat"
+    "one-click": "call SIMPLE-DOCKER-START.bat",
+    "one-click-start": "call SIMPLE-DOCKER-START.bat",
+    "one-click-stop": "call ONE-CLICK-STOP.bat",
+    "docker-status": "call DOCKER-STATUS.bat",
+    "docker-troubleshoot": "call DOCKER-TROUBLESHOOT.bat",
+    "docker-fix": "call ENABLE-DOCKER.bat",
+    "enable-docker": "call ENABLE-DOCKER.bat",
+    "local": "call LOCAL-START.bat",
+    "local-start": "call LOCAL-START.bat",
+    "local-stop": "call LOCAL-STOP.bat",
+    "local-status": "call LOCAL-STATUS.bat",
+    "quick": "call LOCAL-START.bat",
+    "start-local": "call LOCAL-START.bat",
+    "wsl": "call WSL-START.bat",
+    "wsl-start": "call WSL-START.bat",
+    "wsl-status": "call WSL-STATUS.bat"
   },
   "eslintConfig": {
     "extends": [

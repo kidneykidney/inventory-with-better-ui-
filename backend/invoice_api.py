@@ -360,68 +360,82 @@ async def get_invoices(
     params.extend([skip, limit])
     return db.execute_query(query, params)
 
-# Re-enable this route with specific path to avoid conflicts with main app routes
-@invoice_router.get("/invoice/{invoice_id}", response_model=InvoiceDetail)
+# Fix the route to match frontend expectations
+@invoice_router.get("/{invoice_id}", response_model=InvoiceDetail)
 async def get_invoice(invoice_id: str, db: DatabaseManager = Depends(get_db)):
     """Get invoice by ID with all related data"""
-    # Get main invoice data
-    invoice_query = """
-    SELECT 
-        i.*,
-        o.order_number,
-        o.status as order_status,
-        o.requested_date,
-        o.expected_return_date,
-        s.name as student_name,
-        s.student_id as student_id_number,
-        s.email as student_email,
-        s.department,
-        s.year_of_study
-    FROM invoices i
-    LEFT JOIN orders o ON i.order_id = o.id
-    LEFT JOIN students s ON i.student_id = s.id
-    WHERE i.id = %s
-    """
-    
-    invoice_data = db.execute_query(invoice_query, (invoice_id,))
-    if not invoice_data:
-        raise HTTPException(status_code=404, detail="Invoice not found")
-    
-    # Get the first result
-    invoice_data = invoice_data[0]
-    
-    # Get invoice items
-    items_query = "SELECT * FROM invoice_items WHERE invoice_id = %s ORDER BY created_at"
-    items_data = db.execute_query(items_query, (invoice_id,))
-    
-    # Get invoice images
-    images_query = "SELECT * FROM invoice_images WHERE invoice_id = %s ORDER BY created_at"
-    images_data = db.execute_query(images_query, (invoice_id,))
-    
-    # Get acknowledgments
-    acknowledgments_query = "SELECT * FROM student_acknowledgments WHERE invoice_id = %s ORDER BY acknowledged_at"
-    acknowledgments_data = db.execute_query(acknowledgments_query, (invoice_id,))
-    
-    # Get transactions
-    transactions_query = "SELECT * FROM invoice_transactions WHERE invoice_id = %s ORDER BY created_at"
-    transactions_data = db.execute_query(transactions_query, (invoice_id,))
-    
-    # Combine all data
-    result = dict(invoice_data)
-    result.update({
-        'items': items_data or [],
-        'images': images_data or [],
-        'acknowledgments': acknowledgments_data or [],
-        'transactions': transactions_data or [],
-        'item_count': len(items_data or []),
-        'image_count': len(images_data or []),
-        'acknowledgment_count': len(acknowledgments_data or []),
-        'latest_acknowledgment': acknowledgments_data[-1]['acknowledged_at'] if acknowledgments_data else None
-    })
-    
-    return result
+    try:
+        api_logger.info(f"Fetching invoice with ID: {invoice_id}")
+        
+        # Get main invoice data
+        invoice_query = """
+        SELECT 
+            i.*,
+            o.order_number,
+            o.status as order_status,
+            o.requested_date,
+            o.expected_return_date,
+            s.name as student_name,
+            s.student_id as student_id_number,
+            s.email as student_email,
+            s.department,
+            s.year_of_study
+        FROM invoices i
+        LEFT JOIN orders o ON i.order_id = o.id
+        LEFT JOIN students s ON i.student_id = s.id
+        WHERE i.id = %s
+        """
+        
+        invoice_data = db.execute_query(invoice_query, (invoice_id,))
+        api_logger.info(f"Invoice query returned: {len(invoice_data) if invoice_data else 0} results")
+        
+        if not invoice_data:
+            api_logger.warning(f"Invoice not found: {invoice_id}")
+            raise HTTPException(status_code=404, detail="Invoice not found")
+        
+        # Get the first result
+        invoice_data = invoice_data[0]
+        api_logger.info(f"Found invoice: {invoice_data.get('invoice_number', 'Unknown')}")
+        
+        # Get invoice items
+        items_query = "SELECT * FROM invoice_items WHERE invoice_id = %s ORDER BY created_at"
+        items_data = db.execute_query(items_query, (invoice_id,))
+        
+        # Get invoice images
+        images_query = "SELECT * FROM invoice_images WHERE invoice_id = %s ORDER BY created_at"
+        images_data = db.execute_query(images_query, (invoice_id,))
+        
+        # Get acknowledgments
+        acknowledgments_query = "SELECT * FROM student_acknowledgments WHERE invoice_id = %s ORDER BY acknowledged_at"
+        acknowledgments_data = db.execute_query(acknowledgments_query, (invoice_id,))
+        
+        # Get transactions
+        transactions_query = "SELECT * FROM invoice_transactions WHERE invoice_id = %s ORDER BY created_at"
+        transactions_data = db.execute_query(transactions_query, (invoice_id,))
+        
+        # Combine all data
+        result = dict(invoice_data)
+        result.update({
+            'items': items_data or [],
+            'images': images_data or [],
+            'acknowledgments': acknowledgments_data or [],
+            'transactions': transactions_data or [],
+            'item_count': len(items_data or []),
+            'image_count': len(images_data or []),
+            'acknowledgment_count': len(acknowledgments_data or []),
+            'latest_acknowledgment': acknowledgments_data[-1]['acknowledged_at'] if acknowledgments_data else None
+        })
+        
+        api_logger.info(f"Successfully retrieved invoice {invoice_id}")
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        api_logger.error(f"Error retrieving invoice {invoice_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving invoice: {str(e)}")
 
-@invoice_router.put("/invoice/{invoice_id}", response_model=Invoice)
+@invoice_router.put("/{invoice_id}", response_model=Invoice)
 async def update_invoice(invoice_id: str, invoice_update: InvoiceUpdate, db: DatabaseManager = Depends(get_db)):
     """Update invoice (optimized for 8GB RAM)"""
     try:
@@ -511,14 +525,20 @@ async def update_invoice(invoice_id: str, invoice_update: InvoiceUpdate, db: Dat
         api_logger.error(f"Invoice update failed: {e}")
         raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
 
-@invoice_router.delete("/invoice/{invoice_id}")
+@invoice_router.delete("/{invoice_id}")
 async def delete_invoice(invoice_id: str, db: DatabaseManager = Depends(get_db)):
     """Delete invoice and all related data"""
     try:
+        api_logger.info(f"Attempting to delete invoice: {invoice_id}")
+        
         # Check if invoice exists
-        existing_result = db.execute_query("SELECT id FROM invoices WHERE id = %s", (invoice_id,))
+        existing_result = db.execute_query("SELECT id, invoice_number FROM invoices WHERE id = %s", (invoice_id,))
         if not existing_result:
+            api_logger.warning(f"Invoice not found for deletion: {invoice_id}")
             raise HTTPException(status_code=404, detail="Invoice not found")
+        
+        invoice_number = existing_result[0]['invoice_number']
+        api_logger.info(f"Found invoice {invoice_number} for deletion")
         
         # Get all associated images to delete files
         images_query = "SELECT image_url, image_filename FROM invoice_images WHERE invoice_id = %s"
@@ -528,6 +548,8 @@ async def delete_invoice(invoice_id: str, db: DatabaseManager = Depends(get_db))
         delete_query = "DELETE FROM invoices WHERE id = %s"
         
         if db.execute_command(delete_query, (invoice_id,)):
+            api_logger.info(f"Successfully deleted invoice {invoice_number} from database")
+            
             # Clean up uploaded files
             if images_result:
                 upload_dir = os.path.join(os.path.dirname(__file__), 'uploads', 'invoices')
