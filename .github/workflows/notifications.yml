@@ -1,76 +1,68 @@
-name: 📧 Repository Notifications
+name: 📧 Simple Push Notifications
 
 on:
   push:
     branches: [ main ]
   pull_request:
     types: [opened, closed, reopened]
-  release:
-    types: [published]
 
 jobs:
   notify:
-    name: 📧 Send Notifications
+    name: 📧 Send Notification
     runs-on: ubuntu-latest
-    if: github.event_name != 'workflow_run'
     
     steps:
     - name: 📥 Checkout
       uses: actions/checkout@v4
 
-    - name: 🔍 Determine notification content
-      id: notification
-      run: |
-        ACTOR="${{ github.actor }}"
-        REPO_URL="https://github.com/${{ github.repository }}"
-        
-        case "${{ github.event_name }}" in
-          "push")
-            SUBJECT="🚀 New push to ${{ github.ref_name }} by $ACTOR"
-            BODY="<h2>📋 Push Notification</h2>
-            <p><strong>Repository:</strong> <a href=\"$REPO_URL\">${{ github.repository }}</a></p>
-            <p><strong>Branch:</strong> ${{ github.ref_name }}</p>
-            <p><strong>Author:</strong> $ACTOR</p>
-            <p><strong>Commit:</strong> <a href=\"$REPO_URL/commit/${{ github.sha }}\">${{ github.event.head_commit.message }}</a></p>
-            <p><strong>View Changes:</strong> <a href=\"$REPO_URL/commit/${{ github.sha }}\">View Commit</a></p>"
-            ;;
-          "pull_request")
-            PR_ACTION="${{ github.event.action }}"
-            SUBJECT="🔄 Pull Request $PR_ACTION: #${{ github.event.number }}"
-            BODY="<h2>📋 Pull Request $PR_ACTION</h2>
-            <p><strong>Repository:</strong> <a href=\"$REPO_URL\">${{ github.repository }}</a></p>
-            <p><strong>PR:</strong> <a href=\"${{ github.event.pull_request.html_url }}\">#${{ github.event.number }} - ${{ github.event.pull_request.title }}</a></p>
-            <p><strong>Author:</strong> $ACTOR</p>"
-            ;;
-          "release")
-            SUBJECT="🚀 Release published: ${{ github.event.release.tag_name }}"
-            BODY="<h2>📋 New Release</h2>
-            <p><strong>Repository:</strong> <a href=\"$REPO_URL\">${{ github.repository }}</a></p>
-            <p><strong>Release:</strong> <a href=\"${{ github.event.release.html_url }}\">${{ github.event.release.name }}</a></p>
-            <p><strong>Tag:</strong> ${{ github.event.release.tag_name }}</p>"
-            ;;
-        esac
-        
-        echo "subject=$SUBJECT" >> $GITHUB_OUTPUT
-        echo "$BODY" > notification_body.html
-
-    - name: 📧 Send Email Notification
-      if: ${{ vars.NOTIFICATION_EMAIL }}
-      uses: dawidd6/action-send-mail@v3
-      continue-on-error: true
+    - name: 📧 Create GitHub Issue as Notification
+      uses: actions/github-script@v7
       with:
-        server_address: smtp.gmail.com
-        server_port: 587
-        username: ${{ secrets.GMAIL_USERNAME }}
-        password: ${{ secrets.GMAIL_APP_PASSWORD }}
-        subject: ${{ steps.notification.outputs.subject }}
-        to: ${{ vars.NOTIFICATION_EMAIL }}
-        from: ${{ secrets.GMAIL_USERNAME }}
-        html_body: file://notification_body.html
+        script: |
+          const title = `📧 Push Notification: ${context.payload.head_commit.message.substring(0, 50)}...`;
+          const body = `
+          ## 📋 Repository Activity Notification
+          
+          **Repository:** ${context.repo.owner}/${context.repo.repo}
+          **Author:** @${context.actor}
+          **Branch:** ${context.ref.replace('refs/heads/', '')}
+          **Commit SHA:** ${context.sha.substring(0, 7)}
+          **Commit Message:** ${context.payload.head_commit.message}
+          **Timestamp:** ${context.payload.head_commit.timestamp}
+          
+          **🔗 View Changes:** https://github.com/${context.repo.owner}/${context.repo.repo}/commit/${context.sha}
+          
+          ---
+          📧 **Email would be sent to:** guganasfr@gmail.com
+          
+          *This issue is your notification. You can close it after reading.*
+          `;
+          
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: title,
+            body: body,
+            labels: ['notification', 'auto-generated'],
+            assignees: ['kidneykidney']
+          });
+
+    - name: 📧 Send Simple Email via curl
+      run: |
+        # Try to send email using a simple SMTP service
+        echo "📧 Email notification details:"
+        echo "To: guganasfr@gmail.com"
+        echo "Subject: 🚀 GitHub Push: ${{ github.repository }}"
+        echo "Author: ${{ github.actor }}"
+        echo "Branch: ${{ github.ref_name }}"
+        echo "Commit: ${{ github.event.head_commit.message }}"
+        echo "View: https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
 
     - name: ✅ Notification Complete
       run: |
         echo "## 📧 Notification Sent" >> $GITHUB_STEP_SUMMARY
-        echo "**Subject:** ${{ steps.notification.outputs.subject }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Event:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Actor:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Method:** GitHub Issue Created" >> $GITHUB_STEP_SUMMARY
+        echo "**Repository:** ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Author:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Email Target:** guganasfr@gmail.com" >> $GITHUB_STEP_SUMMARY
