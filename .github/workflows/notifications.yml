@@ -1,0 +1,76 @@
+name: 📧 Repository Notifications
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    types: [opened, closed, reopened]
+  release:
+    types: [published]
+
+jobs:
+  notify:
+    name: 📧 Send Notifications
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_run'
+    
+    steps:
+    - name: 📥 Checkout
+      uses: actions/checkout@v4
+
+    - name: 🔍 Determine notification content
+      id: notification
+      run: |
+        ACTOR="${{ github.actor }}"
+        REPO_URL="https://github.com/${{ github.repository }}"
+        
+        case "${{ github.event_name }}" in
+          "push")
+            SUBJECT="🚀 New push to ${{ github.ref_name }} by $ACTOR"
+            BODY="<h2>📋 Push Notification</h2>
+            <p><strong>Repository:</strong> <a href=\"$REPO_URL\">${{ github.repository }}</a></p>
+            <p><strong>Branch:</strong> ${{ github.ref_name }}</p>
+            <p><strong>Author:</strong> $ACTOR</p>
+            <p><strong>Commit:</strong> <a href=\"$REPO_URL/commit/${{ github.sha }}\">${{ github.event.head_commit.message }}</a></p>
+            <p><strong>View Changes:</strong> <a href=\"$REPO_URL/commit/${{ github.sha }}\">View Commit</a></p>"
+            ;;
+          "pull_request")
+            PR_ACTION="${{ github.event.action }}"
+            SUBJECT="🔄 Pull Request $PR_ACTION: #${{ github.event.number }}"
+            BODY="<h2>📋 Pull Request $PR_ACTION</h2>
+            <p><strong>Repository:</strong> <a href=\"$REPO_URL\">${{ github.repository }}</a></p>
+            <p><strong>PR:</strong> <a href=\"${{ github.event.pull_request.html_url }}\">#${{ github.event.number }} - ${{ github.event.pull_request.title }}</a></p>
+            <p><strong>Author:</strong> $ACTOR</p>"
+            ;;
+          "release")
+            SUBJECT="🚀 Release published: ${{ github.event.release.tag_name }}"
+            BODY="<h2>📋 New Release</h2>
+            <p><strong>Repository:</strong> <a href=\"$REPO_URL\">${{ github.repository }}</a></p>
+            <p><strong>Release:</strong> <a href=\"${{ github.event.release.html_url }}\">${{ github.event.release.name }}</a></p>
+            <p><strong>Tag:</strong> ${{ github.event.release.tag_name }}</p>"
+            ;;
+        esac
+        
+        echo "subject=$SUBJECT" >> $GITHUB_OUTPUT
+        echo "$BODY" > notification_body.html
+
+    - name: 📧 Send Email Notification
+      if: ${{ vars.NOTIFICATION_EMAIL }}
+      uses: dawidd6/action-send-mail@v3
+      continue-on-error: true
+      with:
+        server_address: smtp.gmail.com
+        server_port: 587
+        username: ${{ secrets.GMAIL_USERNAME }}
+        password: ${{ secrets.GMAIL_APP_PASSWORD }}
+        subject: ${{ steps.notification.outputs.subject }}
+        to: ${{ vars.NOTIFICATION_EMAIL }}
+        from: ${{ secrets.GMAIL_USERNAME }}
+        html_body: file://notification_body.html
+
+    - name: ✅ Notification Complete
+      run: |
+        echo "## 📧 Notification Sent" >> $GITHUB_STEP_SUMMARY
+        echo "**Subject:** ${{ steps.notification.outputs.subject }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Event:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Actor:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
