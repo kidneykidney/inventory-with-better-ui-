@@ -97,11 +97,11 @@ def sync_user_to_database(user):
         conn.commit()
         cursor.close()
         conn.close()
-        print(f"✅ Successfully synced {user['username']} to database")
+        print(f"=> Successfully synced {user['username']} to database")
         return True
         
     except Exception as e:
-        print(f"❌ Database sync failed for {user['username']}: {e}")
+        print(f"ERROR: Database sync failed for {user['username']}: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -133,11 +133,11 @@ next_user_id = 2
 # Initialize database sync on startup
 def initialize_database_sync():
     """Sync existing users to database on startup"""
-    print("🔄 Initializing database sync...")
+    print("=> Initializing database sync...")
     for user in users_db:
         sync_success = sync_user_to_database(user)
         if sync_success:
-            print(f"✅ Synced existing user: {user['username']}")
+            print(f"=> Synced existing user: {user['username']}")
         else:
             print(f"⚠️ Failed to sync user: {user['username']}")
 
@@ -292,7 +292,7 @@ async def get_users():
         return users
         
     except Exception as e:
-        print(f"❌ Database error: {e}")
+        print(f"ERROR: Database error: {e}")
         import traceback
         traceback.print_exc()
         
@@ -364,7 +364,7 @@ async def create_user(user_data: CreateUserRequest):
     def background_sync():
         sync_success = sync_user_to_database(new_user)
         if sync_success:
-            print(f"✅ User {new_user['username']} synced to database")
+            print(f"=> User {new_user['username']} synced to database")
         else:
             print(f"⚠️  Database sync failed for {new_user['username']}")
     

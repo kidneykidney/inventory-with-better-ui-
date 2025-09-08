@@ -17,8 +17,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Simple initialization message
-logger.info("🔐 Using simple authentication system")
-logger.info("📋 Admin credentials: admin / College@2025")
+logger.info("=> Using simple authentication system")
+logger.info("=> Admin credentials: admin / College@2025")
 
 # Include the authentication router
 app.include_router(auth_router, tags=["authentication"])

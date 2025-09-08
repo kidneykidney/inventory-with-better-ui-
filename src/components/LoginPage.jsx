@@ -1096,12 +1096,6 @@ Please change the password after first login.`);
                               WebkitTextFillColor: `${LOGIN_COLORS.text} !important`,
                               backgroundColor: 'transparent !important',
                             }
-                          },
-                          '& .MuiInputLabel-root': {
-                            color: LOGIN_COLORS.textSecondary,
-                            '&.Mui-focused': {
-                              color: LOGIN_COLORS.secondary
-                            }
                           }
                         }}
                       />
