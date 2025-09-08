@@ -447,3 +447,6 @@ For technical support or questions about the inventory management system:
 **Built with ❤️ for college incubation centers to efficiently manage their electrical inventory and equipment.** 🎓⚡🔬
 
 *Last updated: August 22, 2025*
+#   T e s t   e m a i l   n o t i f i c a t i o n   w o r k f l o w  
+ 
+# Test email notification workflow
