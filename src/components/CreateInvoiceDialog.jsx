@@ -78,10 +78,11 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
 
   const fetchStudents = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/students`);
+      const response = await fetch(`${API_BASE_URL}/api/students`);
       const data = await response.json();
       if (response.ok) {
         setStudents(data);
+        console.log('Students fetched:', data);
       }
     } catch (err) {
       console.error('Error fetching students:', err);
@@ -358,6 +359,15 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                fullWidth
+                label="Issued By"
+                value={invoiceData.issued_by}
+                onChange={(e) => setInvoiceData(prev => ({ ...prev, issued_by: e.target.value }))}
+                placeholder="Who is issuing this invoice"
+              />
+            </Grid>
             <Grid size={12}>
               <TextField
                 fullWidth
@@ -523,7 +533,7 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
                   <Typography variant="body2">
                     <strong>Type:</strong> {invoiceData.invoice_type}<br />
                     <strong>Total Items:</strong> {getTotalItems()}<br />
-                    <strong>Total Value:</strong> ${getTotalValue().toFixed(2)}<br />
+                    <strong>Total Value:</strong> ₹{getTotalValue().toFixed(2)}<br />
                     <strong>Due Date:</strong> {invoiceData.due_date || 'Not set'}
                   </Typography>
                 </CardContent>
@@ -554,7 +564,7 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
                               <TableCell>{product?.name || 'Unknown Product'}</TableCell>
                               <TableCell>{product?.sku || 'N/A'}</TableCell>
                               <TableCell align="right">{item.quantity}</TableCell>
-                              <TableCell align="right">${(product?.unit_price || 0).toFixed(2)}</TableCell>
+                              <TableCell align="right">₹{(product?.unit_price || 0).toFixed(2)}</TableCell>
                               <TableCell>{item.expected_return_date || invoiceData.due_date || 'Not set'}</TableCell>
                             </TableRow>
                           );

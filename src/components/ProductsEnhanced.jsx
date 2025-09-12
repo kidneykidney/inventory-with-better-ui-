@@ -496,7 +496,7 @@ const EnhancedProducts = () => {
                     </div>
                   </Tooltip>
                   
-                  <Tooltip title="Create Order" arrow>
+                  <Tooltip title="Create Lending" arrow>
                     <AnimatedBadge count={selectedProducts.length}>
                       <AnimatedFab onClick={() => setOpenOrderDialog(true)}>
                         <CartIcon />

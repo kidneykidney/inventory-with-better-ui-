@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Box,
   Typography,
@@ -27,7 +26,15 @@ import {
   Badge,
   Button,
   Checkbox,
-  Menu
+  Menu,
+  Tabs,
+  Tab,
+  TableContainer as MuiTableContainer,
+  Table as MuiTable,
+  TableHead as MuiTableHead,
+  TableRow as MuiTableRow,
+  TableCell as MuiTableCell,
+  TableBody as MuiTableBody
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -49,8 +56,6 @@ import {
   Search as SearchIcon,
   Clear as ClearIcon
 } from '@mui/icons-material';
-import { AnimatedButton, AnimatedCard } from './AnimatedComponents';
-import StudentForm from './StudentForm';
 import NotificationService from '../services/notificationService';
 
 const API_BASE_URL = 'http://localhost:8000';
@@ -69,7 +74,6 @@ const ListView = ({ type = 'products' }) => {
   const [categories, setCategories] = useState([]);
   const [students, setStudents] = useState([]);
   const [products, setProducts] = useState([]);
-  const [showStudentForm, setShowStudentForm] = useState(false);
   
   // Bulk selection states
   const [selectedItems, setSelectedItems] = useState([]);
@@ -81,6 +85,63 @@ const ListView = ({ type = 'products' }) => {
   const [selectedItemForStatus, setSelectedItemForStatus] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
+  // Bulk items state (universal for all modules)
+  const [bulkItems, setBulkItems] = useState([]);
+
+  // Legacy bulk products state for backward compatibility
+  const [bulkProducts, setBulkProducts] = useState([]);
+
+  const initializeBulkItem = () => {
+    switch (type) {
+      case 'products':
+        return {
+          id: Date.now(),
+          name: '',
+          sku: '',
+          unit_price: 0,
+          category_id: '',
+          quantity_total: 0,
+          quantity_available: 0,
+          description: '',
+          location: '',
+          is_returnable: true
+        };
+      case 'students':
+        return {
+          id: Date.now(),
+          student_id: '',
+          name: '',
+          email: '',
+          phone: '',
+          department: '',
+          year_of_study: '',
+          course: ''
+        };
+      case 'orders':
+        return {
+          id: Date.now(),
+          student_id: '',
+          product_id: '',
+          quantity_requested: 1,
+          notes: '',
+          expected_return_date: ''
+        };
+      default:
+        return { id: Date.now() };
+    }
+  };
+
+  useEffect(() => {
+    // Initialize bulk items based on module type
+    const initialItem = initializeBulkItem();
+    setBulkItems([initialItem]);
+    
+    // Keep legacy products for backward compatibility
+    if (type === 'products') {
+      setBulkProducts([initialItem]);
+    }
+  }, [type]);
+
   // Configuration for different list types
   const config = {
     products: {
@@ -90,7 +151,7 @@ const ListView = ({ type = 'products' }) => {
       columns: [
         { key: 'name', label: 'Product Name', type: 'text' },
         { key: 'sku', label: 'SKU', type: 'text' },
-        { key: 'unit_price', label: 'Price', type: 'number', prefix: '$' },
+        { key: 'unit_price', label: 'Price', type: 'number', prefix: '₹' },
         { key: 'category_name', label: 'Category', type: 'text' },
         { key: 'quantity_available', label: 'Stock', type: 'number' },
         { key: 'status', label: 'Status', type: 'status' }
@@ -110,11 +171,11 @@ const ListView = ({ type = 'products' }) => {
       ]
     },
     orders: {
-      title: 'Orders Management',
+      title: 'Lending Management',
       icon: <AssignmentIcon />,
       endpoint: '/api/orders',
       columns: [
-        { key: 'order_number', label: 'Order #', type: 'number', prefix: '' },
+        { key: 'order_number', label: 'Lending #', type: 'number', prefix: '' },
         { key: 'student_name', label: 'Student', type: 'text' },
         { key: 'department', label: 'Department', type: 'text' },
         { key: 'total_items', label: 'Items', type: 'number' },
@@ -273,7 +334,8 @@ const ListView = ({ type = 'products' }) => {
     try {
       setSubmitting(true);
       
-      console.log('Submitting form data for type:', type, 'Data:', formData);
+      console.log('handleSubmit called for type:', type, 'Data:', formData);
+      console.log('editingItem:', editingItem);
       
       // Validate required fields
       const fields = getFormFields();
@@ -412,6 +474,214 @@ const ListView = ({ type = 'products' }) => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Universal bulk create function
+  const handleBulkCreate = async () => {
+    try {
+      setSubmitting(true);
+      let validItems = [];
+      let moduleName = type.slice(0, -1);
+
+      console.log('handleBulkCreate called for type:', type);
+      console.log('Current bulkItems:', bulkItems);
+      console.log('Current bulkProducts:', bulkProducts);
+
+      // Validate items based on module type
+      if (type === 'products') {
+        validItems = bulkProducts.filter(product => 
+          product.name.trim() && product.sku.trim()
+        );
+      } else if (type === 'students') {
+        validItems = bulkItems.filter(student => 
+          student.name.trim() && student.department.trim()
+        );
+      } else if (type === 'orders') {
+        validItems = bulkItems.filter(order => 
+          order.student_id && order.product_id && order.quantity_requested > 0
+        );
+      }
+
+      if (validItems.length === 0) {
+        const requiredFields = type === 'products' ? 'name and SKU' : 
+                              type === 'students' ? 'name and department' :
+                              type === 'orders' ? 'student, product and quantity' : 'required fields';
+        setError(`Please add at least one valid ${moduleName} with ${requiredFields}`);
+        setSubmitting(false);
+        return;
+      }
+
+      const promises = validItems.map(item => {
+        let itemData = { ...item };
+        
+        // Type-specific data processing
+        if (type === 'products') {
+          itemData = {
+            ...item,
+            category_id: item.category_id || null,
+            quantity_total: Number(item.quantity_total) || 0,
+            quantity_available: Number(item.quantity_available) || 0,
+            unit_price: Number(item.unit_price) || 0
+          };
+        } else if (type === 'students') {
+          itemData = {
+            ...item,
+            year_of_study: item.year_of_study ? Number(item.year_of_study) : null
+          };
+        } else if (type === 'orders') {
+          // Orders require a different structure with items array
+          itemData = {
+            student_id: String(item.student_id),
+            items: [{
+              product_id: String(item.product_id),
+              quantity_requested: Number(item.quantity_requested) || 1,
+              notes: item.notes || null
+            }],
+            notes: item.notes || null,
+            expected_return_date: item.expected_return_date || null
+          };
+        }
+        
+        // Remove the temporary id field
+        delete itemData.id;
+        
+        return fetch(`${API_BASE_URL}${currentConfig.endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(itemData)
+        });
+      });
+
+      const results = await Promise.allSettled(promises);
+      const successful = results.filter(result => result.status === 'fulfilled' && result.value.ok).length;
+      const failed = results.length - successful;
+
+      if (successful > 0) {
+        NotificationService.success(
+          `Bulk ${moduleName.charAt(0).toUpperCase() + moduleName.slice(1)}s Created`,
+          `Successfully created ${successful} ${moduleName}${successful > 1 ? 's' : ''}${failed > 0 ? `, ${failed} failed` : ''}`,
+          null
+        );
+        handleCloseDialog();
+        resetBulkForm();
+        await fetchData(); // Refresh the data
+      } else {
+        setError(`Failed to create any ${type}`);
+      }
+    } catch (error) {
+      setError(`Failed to create bulk ${type}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Reset bulk form
+  const resetBulkForm = () => {
+    const initialItem = initializeBulkItem();
+    setBulkItems([initialItem]);
+    
+    if (type === 'products') {
+      setBulkProducts([initialItem]);
+    }
+  };
+
+  // Render bulk table headers based on module type
+  const renderBulkTableHeaders = () => {
+    const formFields = getFormFields();
+    
+    return (
+      <MuiTableRow>
+        {formFields.filter(field => field.type !== 'hidden').map(field => (
+          <MuiTableCell 
+            key={field.key}
+            sx={{ 
+              minWidth: field.key === 'description' || field.key === 'notes' ? 200 : 150, 
+              fontWeight: 'bold', 
+              color: '#374151', 
+              backgroundColor: '#F9FAFB' 
+            }}
+          >
+            {field.label.toUpperCase()}{field.required ? '*' : ''}
+          </MuiTableCell>
+        ))}
+        <MuiTableCell sx={{ minWidth: 80, fontWeight: 'bold', color: '#374151', backgroundColor: '#F9FAFB' }}>
+          ACTIONS
+        </MuiTableCell>
+      </MuiTableRow>
+    );
+  };
+
+  // Render bulk table cells based on module type  
+  const renderBulkTableCells = (item, itemIndex) => {
+    const formFields = getFormFields();
+    const itemsArray = type === 'products' ? bulkProducts : bulkItems;
+    
+    return (
+      <MuiTableRow key={item.id}>
+        {formFields.filter(field => field.type !== 'hidden').map(field => (
+          <MuiTableCell key={field.key}>
+            {field.type === 'select' ? (
+              <Select
+                size="small"
+                fullWidth
+                value={item[field.key] || ''}
+                onChange={(e) => updateBulkItem(item.id, field.key, e.target.value)}
+                displayEmpty
+                sx={{
+                  color: '#374151',
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E5E7EB' }
+                }}
+              >
+                <MenuItem value="">Select {field.label}</MenuItem>
+                {field.options?.map(option => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            ) : field.type === 'checkbox' ? (
+              <Checkbox
+                size="small"
+                checked={item[field.key] || false}
+                onChange={(e) => updateBulkItem(item.id, field.key, e.target.checked)}
+                sx={{ color: '#3B82F6' }}
+              />
+            ) : (
+              <TextField
+                size="small"
+                fullWidth
+                type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+                placeholder={`Enter ${field.label.toLowerCase()}`}
+                value={item[field.key] || ''}
+                onChange={(e) => updateBulkItem(item.id, field.key, field.type === 'number' ? (parseFloat(e.target.value) || 0) : e.target.value)}
+                error={field.required && !item[field.key]}
+                multiline={field.multiline}
+                rows={field.multiline ? 2 : 1}
+                InputLabelProps={field.type === 'date' ? { shrink: true } : {}}
+                sx={{
+                  '& .MuiInputBase-input': { color: '#374151' },
+                  '& .MuiOutlinedInput-notchedOutline': { 
+                    borderColor: field.required && !item[field.key] ? '#f44336' : '#E5E7EB' 
+                  }
+                }}
+              />
+            )}
+          </MuiTableCell>
+        ))}
+        <MuiTableCell>
+          {itemsArray.length > 1 && (
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => removeBulkItem(item.id)}
+              sx={{ '&:hover': { backgroundColor: '#FEF2F2' } }}
+            >
+              <DeleteIcon />
+            </IconButton>
+          )}
+        </MuiTableCell>
+      </MuiTableRow>
+    );
   };
 
   // Handle delete
@@ -607,22 +877,76 @@ const ListView = ({ type = 'products' }) => {
   const handleOpenDialog = (item = null) => {
     console.log('=== HANDLE OPEN DIALOG ===');
     console.log('Item passed:', item);
-    console.log('Current openDialog state:', openDialog);
+    console.log('Type:', type);
     
     setEditingItem(item);
-    setFormData(item || {});
-    setOpenDialog(true);
     
-    console.log('Set openDialog to true');
-    console.log('Set formData to:', item || {});
-    console.log('Set editingItem to:', item);
+    if (item) {
+      // Editing existing item - use single form
+      setFormData(item);
+    } else {
+      // Creating new items - use bulk form, clear any form data
+      setFormData({});
+      // Ensure bulk items are initialized
+      const initialItem = initializeBulkItem();
+      setBulkItems([initialItem]);
+      if (type === 'products') {
+        setBulkProducts([initialItem]);
+      }
+    }
+    
+    setOpenDialog(true);
+    setError(''); // Clear any existing errors
+    
+    console.log('Dialog opened for', item ? 'editing' : 'bulk creation');
   };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setEditingItem(null);
     setFormData({});
+    setError(''); // Clear any errors when closing
   };
+
+  // Universal bulk functions
+  const addBulkItem = () => {
+    const newItem = initializeBulkItem();
+    setBulkItems([...bulkItems, newItem]);
+    
+    // Legacy support for products
+    if (type === 'products') {
+      setBulkProducts([...bulkProducts, newItem]);
+    }
+  };
+
+  const removeBulkItem = (id) => {
+    if (bulkItems.length > 1) {
+      setBulkItems(bulkItems.filter(item => item.id !== id));
+      
+      // Legacy support for products
+      if (type === 'products') {
+        setBulkProducts(bulkProducts.filter(p => p.id !== id));
+      }
+    }
+  };
+
+  const updateBulkItem = (id, field, value) => {
+    setBulkItems(bulkItems.map(item =>
+      item.id === id ? { ...item, [field]: value } : item
+    ));
+    
+    // Legacy support for products
+    if (type === 'products') {
+      setBulkProducts(bulkProducts.map(product =>
+        product.id === id ? { ...product, [field]: value } : product
+      ));
+    }
+  };
+
+  // Legacy functions for backward compatibility
+  const addBulkProduct = addBulkItem;
+  const removeBulkProduct = removeBulkItem;
+  const updateBulkProduct = updateBulkItem;
 
   // Status chip component
   const StatusChip = ({ status }) => {
@@ -664,7 +988,7 @@ const ListView = ({ type = 'products' }) => {
         sx={{
           fontWeight: 600,
           '& .MuiChip-label': {
-            color: '#FFFFFF'
+            color: '#374151'
           }
         }}
       />
@@ -685,7 +1009,7 @@ const ListView = ({ type = 'products' }) => {
         return <StatusChip status={value} />;
       case 'number':
         return (
-          <Typography variant="body2" sx={{ fontWeight: 600, color: '#00D4AA' }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, color: '#3B82F6' }}>
             {column.prefix || ''}{value}
           </Typography>
         );
@@ -693,7 +1017,7 @@ const ListView = ({ type = 'products' }) => {
         return value ? new Date(value).toLocaleDateString() : '-';
       case 'email':
         return (
-          <Typography variant="body2" sx={{ color: '#00D4AA' }}>
+          <Typography variant="body2" sx={{ color: '#3B82F6' }}>
             {value}
           </Typography>
         );
@@ -705,22 +1029,24 @@ const ListView = ({ type = 'products' }) => {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
-        <CircularProgress sx={{ color: '#00D4AA' }} />
+        <CircularProgress sx={{ color: '#3B82F6' }} />
       </Box>
     );
   }
 
   return (
-    <AnimatedCard sx={{ 
+    <Paper sx={{ 
       overflow: 'visible',
       position: 'relative',
-      // Ensure proper spacing around the card
-      m: 2,
-      // Prevent any layout issues
-      boxSizing: 'border-box'
+      m: 0.5,
+      boxSizing: 'border-box',
+      backgroundColor: '#FFFFFF',
+      borderRadius: 2,
+      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+      border: '1px solid #E5E7EB'
     }}>
       <Box sx={{ 
-        p: 3,
+        p: 1.5,
         // Ensure the card has proper overflow handling
         overflow: 'visible',
         position: 'relative',
@@ -732,16 +1058,15 @@ const ListView = ({ type = 'products' }) => {
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
-          alignItems: 'flex-start',  // Changed to flex-start to prevent overlap
-          mb: 4,  // Increased margin bottom
-          // Enhanced padding and spacing for better button accessibility
-          pr: 0,  // Remove right padding to prevent overflow
-          pb: 2,
-          pt: 1,
+          alignItems: 'flex-start',
+          mb: 1,
+          pr: 0,
+          pb: 0.5,
+          pt: 0.25,
           overflow: 'visible',
           position: 'relative',
-          minHeight: '70px', // Increased height
-          width: '100%',  // Ensure full width
+          minHeight: '32px',
+          width: '100%',
           boxSizing: 'border-box'
         }}>
           <Box sx={{ 
@@ -750,22 +1075,23 @@ const ListView = ({ type = 'products' }) => {
             gap: 2, 
             flex: '1 1 auto',  // Allow shrinking
             minWidth: 0,  // Allow shrinking
-            maxWidth: selectedItems.length > 0 ? 'calc(100% - 320px)' : 'calc(100% - 240px)'  // Reserve more space when bulk delete is visible
+            maxWidth: selectedItems.length > 0 ? 'calc(100% - 350px)' : 'calc(100% - 240px)'  // Reserve space for wider buttons
           }}>
             {currentConfig.icon}
-            <Typography variant="h5" sx={{ 
-              fontWeight: 700, 
-              color: '#FFFFFF',
+            <Typography variant="h6" sx={{ 
+              fontWeight: 600, 
+              color: '#374151',
               whiteSpace: 'nowrap',  // Prevent text wrapping
               overflow: 'hidden',
-              textOverflow: 'ellipsis'
+              textOverflow: 'ellipsis',
+              fontSize: '1.1rem'
             }}>
               {currentConfig.title}
             </Typography>
             <Badge badgeContent={data.length} color="primary" sx={{
               '& .MuiBadge-badge': {
-                backgroundColor: '#00D4AA',
-                color: '#0A0A0A'
+                backgroundColor: '#3B82F6',
+                color: '#374151'
               }
             }}>
               <Box />
@@ -774,7 +1100,7 @@ const ListView = ({ type = 'products' }) => {
           
           <Box sx={{ 
             // Fixed button container to prevent overlap
-            width: selectedItems.length > 0 ? '320px' : '240px',  // Increased width when bulk delete is visible
+            width: selectedItems.length > 0 ? '350px' : '240px',  // Increased width to accommodate wider buttons
             display: 'flex',
             justifyContent: 'flex-end',
             alignItems: 'center',
@@ -789,18 +1115,23 @@ const ListView = ({ type = 'products' }) => {
             {selectedItems.length > 0 && (
               <Button
                 variant="outlined"
-                startIcon={<DeleteIcon />}
+                startIcon={<DeleteIcon fontSize="small" />}
                 onClick={handleBulkDelete}
                 disabled={bulkDeleting}
                 sx={{
-                  minHeight: '44px',
-                  px: 2,
-                  py: 1.25,
-                  fontSize: '0.875rem',
+                  minHeight: '32px',
+                  height: '32px',
+                  minWidth: '120px',
+                  px: 3,
+                  py: 0.75,
+                  fontSize: '0.8rem',
                   fontWeight: 600,
-                  borderRadius: '10px',
+                  textTransform: 'none',
+                  letterSpacing: '0.025em',
+                  borderRadius: '8px',
                   cursor: 'pointer',
                   userSelect: 'none',
+                  whiteSpace: 'nowrap',
                   border: '1px solid rgba(255, 82, 82, 0.3)',
                   color: '#FF5252',
                   '&:hover': {
@@ -823,25 +1154,30 @@ const ListView = ({ type = 'products' }) => {
             
             <Button
               variant="outlined"
-              startIcon={<RefreshIcon />}
+              startIcon={<RefreshIcon fontSize="small" />}
               onClick={() => {
                 console.log('Manual refresh triggered for:', type);
                 fetchData();
               }}
               sx={{
-                minHeight: '44px',
-                px: 2,
-                py: 1.25,
-                fontSize: '0.875rem',
+                minHeight: '32px',
+                height: '32px',
+                minWidth: '100px',
+                px: 3,
+                py: 0.75,
+                fontSize: '0.8rem',
                 fontWeight: 600,
-                borderRadius: '10px',
+                textTransform: 'none',
+                letterSpacing: '0.025em',
+                borderRadius: '8px',
                 cursor: 'pointer',
                 userSelect: 'none',
-                border: '1px solid rgba(0, 212, 170, 0.3)',
-                color: '#00D4AA',
+                whiteSpace: 'nowrap',
+                border: '1px solid #3B82F6',
+                color: '#3B82F6',
                 '&:hover': {
-                  border: '1px solid rgba(0, 212, 170, 0.6)',
-                  backgroundColor: 'rgba(0, 212, 170, 0.08)'
+                  border: '1px solid #2563EB',
+                  backgroundColor: 'rgba(59, 130, 246, 0.08)'
                 }
               }}
             >
@@ -850,26 +1186,27 @@ const ListView = ({ type = 'products' }) => {
             
             <Button
               variant="contained"
-              startIcon={<AddIcon />}
+              startIcon={<AddIcon fontSize="small" />}
               onClick={() => {
-                if (type === 'students') {
-                  setShowStudentForm(true);
-                } else {
-                  handleOpenDialog();
-                }
+                handleOpenDialog();
               }}
               sx={{
-                backgroundColor: '#00D4AA',
-                color: '#0A0A0A',
-                minHeight: '44px',
-                px: 2.5,
-                py: 1.25,
-                fontSize: '0.875rem',
+                backgroundColor: '#3B82F6',
+                color: '#FFFFFF',
+                minHeight: '32px',
+                height: '32px',
+                minWidth: '120px',
+                px: 3,
+                py: 0.75,
+                fontSize: '0.8rem',
                 fontWeight: 600,
-                borderRadius: '10px',
+                textTransform: 'none',
+                letterSpacing: '0.025em',
+                borderRadius: '8px',
                 cursor: 'pointer',
+                whiteSpace: 'nowrap',
                 '&:hover': {
-                  backgroundColor: '#00B899',
+                  backgroundColor: '#2563EB',
                 },
               }}
             >
@@ -880,14 +1217,14 @@ const ListView = ({ type = 'products' }) => {
 
         {/* Search Bar */}
         <Box sx={{ 
-          mb: 3,
+          mb: 1,
           display: 'flex',
           alignItems: 'center',
-          gap: 2,
-          backgroundColor: '#1A1A1A',
-          borderRadius: '12px',
-          border: '1px solid #2A2A2A',
-          p: 2
+          gap: 1,
+          backgroundColor: '#FFFFFF',
+          borderRadius: '6px',
+          border: '1px solid #E5E7EB',
+          p: 0.75
         }}>
           <TextField
             fullWidth
@@ -911,7 +1248,7 @@ const ListView = ({ type = 'products' }) => {
                   sx={{ 
                     color: '#888888',
                     '&:hover': {
-                      color: '#00D4AA',
+                      color: '#3B82F6',
                       backgroundColor: 'rgba(0, 212, 170, 0.08)'
                     }
                   }}
@@ -920,20 +1257,20 @@ const ListView = ({ type = 'products' }) => {
                 </IconButton>
               ),
               sx: {
-                backgroundColor: '#0A0A0A',
-                borderRadius: '8px',
+                backgroundColor: '#FFFFFF',
+                borderRadius: '6px',
                 '& .MuiOutlinedInput-notchedOutline': {
-                  border: '1px solid #2A2A2A',
+                  border: '1px solid #E5E7EB',
                 },
                 '&:hover .MuiOutlinedInput-notchedOutline': {
-                  border: '1px solid #00D4AA',
+                  border: '1px solid #3B82F6',
                 },
                 '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                  border: '1px solid #00D4AA',
+                  border: '1px solid #3B82F6',
                   boxShadow: '0 0 0 2px rgba(0, 212, 170, 0.2)',
                 },
                 '& input': {
-                  color: '#FFFFFF',
+                  color: '#374151',
                   '&::placeholder': {
                     color: '#888888',
                     opacity: 1,
@@ -960,7 +1297,7 @@ const ListView = ({ type = 'products' }) => {
 
         {/* Error Alert */}
         {error && (
-          <Alert severity="error" sx={{ mb: 3, backgroundColor: '#2A1A1A', color: '#FF5252' }}>
+          <Alert severity="error" sx={{ mb: 1, backgroundColor: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', py: 0.5 }}>
             {error}
           </Alert>
         )}
@@ -969,26 +1306,27 @@ const ListView = ({ type = 'products' }) => {
         <TableContainer 
           component={Paper} 
           sx={{ 
-            backgroundColor: '#1A1A1A',
-            borderRadius: '12px',
-            border: '1px solid #2A2A2A',
-            // Remove any height restrictions that might limit display
+            backgroundColor: '#FFFFFF',
+            borderRadius: '6px',
+            border: '1px solid #E5E7EB',
             maxHeight: 'none',
             height: 'auto',
             overflow: 'visible'
           }}
         >
-          <Table stickyHeader={false}>
+          <Table stickyHeader={false} size="small" sx={{ '& .MuiTableCell-root': { py: 0.25 } }}>
             <TableHead>
-              <TableRow sx={{ backgroundColor: '#252525' }}>
+              <TableRow sx={{ backgroundColor: '#F8FAFC' }}>
                 {/* Select All Checkbox Column */}
                 <TableCell 
                   sx={{ 
-                    color: '#FFFFFF', 
+                    color: '#374151', 
                     fontWeight: 700,
-                    borderBottom: '1px solid #2A2A2A',
-                    width: '60px',
-                    textAlign: 'center'
+                    borderBottom: '1px solid #E5E7EB',
+                    width: '40px',
+                    textAlign: 'center',
+                    py: 0.5,
+                    px: 0.5
                   }}
                 >
                   <Tooltip title={selectAll ? 'Deselect All' : 'Select All'}>
@@ -998,12 +1336,12 @@ const ListView = ({ type = 'products' }) => {
                       onChange={handleSelectAll}
                       disabled={filteredData.length === 0}
                       sx={{
-                        color: '#00D4AA',
+                        color: '#3B82F6',
                         '&.Mui-checked': {
-                          color: '#00D4AA',
+                          color: '#3B82F6',
                         },
                         '&.MuiCheckbox-indeterminate': {
-                          color: '#00D4AA',
+                          color: '#3B82F6',
                         }
                       }}
                     />
@@ -1013,9 +1351,12 @@ const ListView = ({ type = 'products' }) => {
                   <TableCell 
                     key={column.key}
                     sx={{ 
-                      color: '#FFFFFF', 
+                      color: '#374151', 
                       fontWeight: 700,
-                      borderBottom: '1px solid #2A2A2A'
+                      borderBottom: '1px solid #E5E7EB',
+                      py: 0.5,
+                      px: 1,
+                      fontSize: '0.8rem'
                     }}
                   >
                     {column.label}
@@ -1023,10 +1364,14 @@ const ListView = ({ type = 'products' }) => {
                 ))}
                 <TableCell 
                   sx={{ 
-                    color: '#FFFFFF', 
+                    color: '#374151', 
                     fontWeight: 700,
-                    borderBottom: '1px solid #2A2A2A',
-                    textAlign: 'center'
+                    borderBottom: '1px solid #E5E7EB',
+                    textAlign: 'center',
+                    py: 0.5,
+                    px: 1,
+                    fontSize: '0.8rem',
+                    width: '100px'
                   }}
                 >
                   Actions
@@ -1038,41 +1383,38 @@ const ListView = ({ type = 'products' }) => {
               {console.log('Rendering table with data:', data)}
               {console.log('Data length:', data.length)}
               
-              <AnimatePresence>
-                {filteredData && filteredData.length > 0 ? filteredData.map((item, index) => {
-                  console.log(`Rendering row ${index}:`, item);
-                  const isSelected = selectedItems.includes(item.id);
-                  return (
-                    <motion.tr
-                      key={item.id || `item-${index}`}
-                      component={TableRow}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      transition={{ delay: index * 0.02 }} // Reduced delay for faster rendering
-                      sx={{
+              {filteredData && filteredData.length > 0 ? filteredData.map((item, index) => {
+                console.log(`Rendering row ${index}:`, item);
+                const isSelected = selectedItems.includes(item.id);
+                return (
+                  <TableRow
+                    key={item.id || `item-${index}`}
+                    sx={{
                         '&:hover': {
-                          backgroundColor: '#252525'
+                          backgroundColor: '#F8FAFC'
                         },
-                        backgroundColor: isSelected ? 'rgba(0, 212, 170, 0.08)' : 'transparent',
-                        borderBottom: '1px solid #2A2A2A'
+                        backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.08)' : 'transparent',
+                        borderBottom: '1px solid #E5E7EB'
                       }}
                     >
                       {/* Individual Select Checkbox */}
                       <TableCell 
                         sx={{ 
-                          borderBottom: '1px solid #2A2A2A',
+                          borderBottom: '1px solid #E5E7EB',
                           textAlign: 'center',
-                          width: '60px'
+                          width: '40px',
+                          py: 0.25,
+                          px: 0.5
                         }}
                       >
                         <Checkbox
                           checked={isSelected}
                           onChange={() => handleSelectItem(item.id)}
+                          size="small"
                           sx={{
-                            color: '#00D4AA',
+                            color: '#3B82F6',
                             '&.Mui-checked': {
-                              color: '#00D4AA',
+                              color: '#3B82F6',
                             }
                           }}
                         />
@@ -1081,8 +1423,11 @@ const ListView = ({ type = 'products' }) => {
                         <TableCell 
                           key={`${item.id}-${column.key}`}
                           sx={{ 
-                            color: '#E0E0E0',
-                            borderBottom: '1px solid #2A2A2A'
+                            color: '#374151',
+                            borderBottom: '1px solid #E5E7EB',
+                            py: 0.5,
+                            px: 1,
+                            fontSize: '0.8rem'
                           }}
                         >
                           {renderCellContent(item, column)}
@@ -1090,16 +1435,20 @@ const ListView = ({ type = 'products' }) => {
                       ))}
                       <TableCell 
                         sx={{ 
-                          borderBottom: '1px solid #2A2A2A',
-                          textAlign: 'center'
+                          borderBottom: '1px solid #E5E7EB',
+                          textAlign: 'center',
+                          py: 0.25,
+                          px: 0.5,
+                          width: '100px'
                         }}
                       >
                         <Tooltip title="Edit">
                           <IconButton
                             onClick={() => handleOpenDialog(item)}
-                            sx={{ color: '#00D4AA', mr: 1 }}
+                            size="small"
+                            sx={{ color: '#3B82F6', mr: 0.5, p: 0.5 }}
                           >
-                            <EditIcon />
+                            <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         
@@ -1108,13 +1457,14 @@ const ListView = ({ type = 'products' }) => {
                           <Tooltip title="Update Status">
                             <IconButton
                               onClick={(e) => handleStatusMenuOpen(e, item)}
-                              sx={{ color: '#FFB74D', mr: 1 }}
+                              size="small"
+                              sx={{ color: '#FFB74D', mr: 0.5, p: 0.5 }}
                               disabled={updatingStatus}
                             >
                               {updatingStatus && selectedItemForStatus?.id === item.id ? (
-                                <CircularProgress size={20} sx={{ color: '#FFB74D' }} />
+                                <CircularProgress size={16} sx={{ color: '#FFB74D' }} />
                               ) : (
-                                <MoreVertIcon />
+                                <MoreVertIcon fontSize="small" />
                               )}
                             </IconButton>
                           </Tooltip>
@@ -1123,16 +1473,16 @@ const ListView = ({ type = 'products' }) => {
                         <Tooltip title="Delete">
                           <IconButton
                             onClick={() => handleDelete(item.id)}
-                            sx={{ color: '#FF5252' }}
+                            size="small"
+                            sx={{ color: '#FF5252', p: 0.5 }}
                           >
-                            <DeleteIcon />
+                            <DeleteIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       </TableCell>
-                    </motion.tr>
+                    </TableRow>
                   );
                 }) : null}
-              </AnimatePresence>
               {(!filteredData || filteredData.length === 0) && (
                 <TableRow>
                   <TableCell 
@@ -1159,105 +1509,153 @@ const ListView = ({ type = 'products' }) => {
         <Dialog 
           open={openDialog} 
           onClose={handleCloseDialog}
-          maxWidth="sm"
+          maxWidth={(type === 'products' || type === 'orders' || type === 'students') && !editingItem ? "xl" : "sm"}
           fullWidth
           PaperProps={{
             sx: {
-              backgroundColor: '#1A1A1A',
-              border: '1px solid #2A2A2A',
-              borderRadius: '12px'
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #E5E7EB',
+              borderRadius: '12px',
+              ...((type === 'products' || type === 'orders' || type === 'students') && !editingItem && {
+                minWidth: '1400px',
+                width: '95vw',
+                maxWidth: '95vw'
+              })
             }
           }}
         >
-          <DialogTitle sx={{ color: '#FFFFFF', fontWeight: 700 }}>
-            {editingItem ? `Edit ${type.slice(0, -1)}` : `Add New ${type.slice(0, -1)}`}
+          <DialogTitle sx={{ color: '#374151', fontWeight: 700 }}>
+            {editingItem ? `Edit ${type.slice(0, -1)}` : `Bulk Add ${type.slice(0, -1).charAt(0).toUpperCase() + type.slice(0, -1).slice(1)}s`}
           </DialogTitle>
           <DialogContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-              {getFormFields().map((field) => {
-                if (field.type === 'select') {
-                  return (
-                    <FormControl key={field.key} fullWidth required={field.required}
-                      error={field.required && (!formData[field.key] || formData[field.key] === '')}
-                    >
-                      <InputLabel sx={{ color: '#888888' }}>
-                        {field.label}{field.required ? ' *' : ''}
-                      </InputLabel>
-                      <Select
-                        value={formData[field.key] || ''}
-                        onChange={(e) => {
-                          console.log(`Select field ${field.key} changed to:`, e.target.value);
-                          setFormData({...formData, [field.key]: e.target.value});
-                          console.log('Updated formData:', {...formData, [field.key]: e.target.value});
-                        }}
-                        sx={{
-                          color: '#FFFFFF',
-                          '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: field.required && (!formData[field.key] || formData[field.key] === '') ? '#f44336' : '#2A2A2A'
-                          },
-                          '&:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: '#00D4AA'
-                          }
-                        }}
+            {/* Edit Mode - Single Item Form */}
+            {editingItem && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                {getFormFields().map((field) => {
+                  if (field.type === 'select') {
+                    return (
+                      <FormControl key={field.key} fullWidth required={field.required}
+                        error={field.required && (!formData[field.key] || formData[field.key] === '')}
                       >
-                        {field.options?.map((option) => (
-                          <MenuItem 
-                            key={typeof option === 'object' ? option.value : option} 
-                            value={typeof option === 'object' ? option.value : option} 
-                            sx={{ color: '#FFFFFF' }}
-                          >
-                            {typeof option === 'object' ? option.label : option}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                      {field.required && (!formData[field.key] || formData[field.key] === '') && (
-                        <span style={{ color: '#f44336', fontSize: '0.75rem', marginTop: '3px', marginLeft: '14px' }}>
-                          This field is required
-                        </span>
-                      )}
-                    </FormControl>
-                  );
-                }
+                        <InputLabel sx={{ color: '#888888' }}>
+                          {field.label}{field.required ? ' *' : ''}
+                        </InputLabel>
+                        <Select
+                          value={formData[field.key] || ''}
+                          onChange={(e) => {
+                            console.log(`Select field ${field.key} changed to:`, e.target.value);
+                            setFormData({...formData, [field.key]: e.target.value});
+                            console.log('Updated formData:', {...formData, [field.key]: e.target.value});
+                          }}
+                          sx={{
+                            color: '#374151',
+                            '& .MuiOutlinedInput-notchedOutline': {
+                              borderColor: field.required && (!formData[field.key] || formData[field.key] === '') ? '#f44336' : '#E5E7EB'
+                            },
+                            '&:hover .MuiOutlinedInput-notchedOutline': {
+                              borderColor: '#3B82F6'
+                            }
+                          }}
+                        >
+                          {field.options?.map((option) => (
+                            <MenuItem 
+                              key={typeof option === 'object' ? option.value : option} 
+                              value={typeof option === 'object' ? option.value : option} 
+                              sx={{ color: '#374151' }}
+                            >
+                              {typeof option === 'object' ? option.label : option}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        {field.required && (!formData[field.key] || formData[field.key] === '') && (
+                          <span style={{ color: '#f44336', fontSize: '0.75rem', marginTop: '3px', marginLeft: '14px' }}>
+                            This field is required
+                          </span>
+                        )}
+                      </FormControl>
+                    );
+                  }
 
-                return (
-                  <TextField
-                    key={field.key}
-                    label={`${field.label}${field.required ? ' *' : ''}`}
-                    type={field.type === 'date' ? 'date' : field.type}
-                    value={formData[field.key] || ''}
-                    onChange={(e) => {
-                      console.log(`Field ${field.key} changed to:`, e.target.value);
-                      setFormData({...formData, [field.key]: e.target.value});
-                      console.log('Updated formData:', {...formData, [field.key]: e.target.value});
+                  return (
+                    <TextField
+                      key={field.key}
+                      label={`${field.label}${field.required ? ' *' : ''}`}
+                      type={field.type === 'date' ? 'date' : field.type}
+                      value={formData[field.key] || ''}
+                      onChange={(e) => {
+                        console.log(`Field ${field.key} changed to:`, e.target.value);
+                        setFormData({...formData, [field.key]: e.target.value});
+                        console.log('Updated formData:', {...formData, [field.key]: e.target.value});
+                      }}
+                      required={field.required}
+                      multiline={field.multiline}
+                      rows={field.multiline ? 3 : 1}
+                      fullWidth
+                      error={field.required && (!formData[field.key] || formData[field.key] === '')}
+                      helperText={field.required && (!formData[field.key] || formData[field.key] === '') ? 'This field is required' : ''}
+                      InputLabelProps={field.type === 'date' ? { shrink: true } : undefined}
+                      sx={{
+                        '& .MuiInputLabel-root': { color: '#888888' },
+                        '& .MuiInputBase-input': { color: '#374151' },
+                        '& .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#E5E7EB'
+                        },
+                        '&:hover .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#3B82F6'
+                        }
+                      }}
+                    />
+                  );
+                })}
+              </Box>
+            )}
+
+            {/* Bulk Items - For all modules in create mode */}
+            {!editingItem && (
+              <Box sx={{ mt: 2 }}>
+                <Alert severity="info" sx={{ mb: 2, backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+                  Add multiple {type} at once. Fill in the required fields (marked with *) for each {type.slice(0, -1)}. Click "Add More {type.charAt(0).toUpperCase() + type.slice(1)}" to add additional rows.
+                </Alert>
+                
+                <MuiTableContainer component={Paper} sx={{ maxHeight: 500, border: '1px solid #E5E7EB' }}>
+                  <MuiTable stickyHeader size="small">
+                    <MuiTableHead>
+                      {renderBulkTableHeaders()}
+                    </MuiTableHead>
+                    <MuiTableBody>
+                      {(type === 'products' ? bulkProducts : bulkItems).map((item, index) => 
+                        renderBulkTableCells(item, index)
+                      )}
+                    </MuiTableBody>
+                  </MuiTable>
+                </MuiTableContainer>
+
+                <Box sx={{ mt: 2 }}>
+                  <Button
+                    startIcon={<AddIcon />}
+                    onClick={addBulkItem}
+                    variant="outlined"
+                    sx={{ 
+                      color: '#3B82F6', 
+                      borderColor: '#3B82F6', 
+                      '&:hover': { 
+                        backgroundColor: '#EFF6FF',
+                        borderColor: '#2563EB'
+                      } 
                     }}
-                    required={field.required}
-                    multiline={field.multiline}
-                    rows={field.multiline ? 3 : 1}
-                    fullWidth
-                    error={field.required && (!formData[field.key] || formData[field.key] === '')}
-                    helperText={field.required && (!formData[field.key] || formData[field.key] === '') ? 'This field is required' : ''}
-                    InputLabelProps={field.type === 'date' ? { shrink: true } : undefined}
-                    sx={{
-                      '& .MuiInputLabel-root': { color: '#888888' },
-                      '& .MuiInputBase-input': { color: '#FFFFFF' },
-                      '& .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#2A2A2A'
-                      },
-                      '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#00D4AA'
-                      }
-                    }}
-                  />
-                );
-              })}
-            </Box>
+                  >
+                    Add More {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </Button>
+                </Box>
+              </Box>
+            )}
           </DialogContent>
           <DialogActions sx={{ p: 3 }}>
             <Button
               onClick={handleCloseDialog}
               variant="outlined"
               disabled={submitting}
-              sx={{ color: '#FFFFFF', borderColor: '#2A2A2A' }}
+              sx={{ color: '#374151', borderColor: '#E5E7EB' }}
             >
               Cancel
             </Button>
@@ -1265,28 +1663,23 @@ const ListView = ({ type = 'products' }) => {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('=== REGULAR BUTTON CLICKED ===');
-                console.log('Event:', e);
-                console.log('Button disabled?', submitting);
-                console.log('Current formData:', formData);
-                console.log('Form fields:', getFormFields());
-                console.log('Required fields:', getFormFields().filter(field => field.required));
-                console.log('Calling handleSubmit...');
-                try {
+                
+                if (!editingItem) {
+                  // Bulk create (for new items)
+                  handleBulkCreate();
+                } else {
+                  // Single update (for editing existing items)
                   handleSubmit();
-                  console.log('handleSubmit called successfully');
-                } catch (error) {
-                  console.error('Error calling handleSubmit:', error);
                 }
               }}
               variant="contained"
               disabled={submitting}
               type="button"
               sx={{
-                backgroundColor: '#00D4AA',
-                color: '#0A0A0A',
+                backgroundColor: '#3B82F6',
+                color: '#FFFFFF',
                 '&:hover': {
-                  backgroundColor: '#00B899',
+                  backgroundColor: '#2563EB',
                 },
                 '&:disabled': {
                   backgroundColor: '#666666',
@@ -1295,24 +1688,25 @@ const ListView = ({ type = 'products' }) => {
               }}
             >
               {submitting ? (
-                <CircularProgress size={20} sx={{ color: '#0A0A0A' }} />
+                <CircularProgress size={20} sx={{ color: '#FFFFFF' }} />
               ) : (
-                editingItem ? 'Update' : 'Create'
+                editingItem 
+                  ? 'Update' 
+                  : (() => {
+                      const items = type === 'products' ? bulkProducts : bulkItems;
+                      const validItems = items.filter(item => {
+                        if (type === 'products') return item.name.trim() && item.sku.trim();
+                        if (type === 'students') return item.name.trim() && item.department.trim();
+                        if (type === 'orders') return item.student_id && item.product_id;
+                        return true;
+                      });
+                      const moduleName = type.charAt(0).toUpperCase() + type.slice(1);
+                      return `Create ${validItems.length} ${moduleName}`;
+                    })()
               )}
             </Button>
           </DialogActions>
         </Dialog>
-
-        {/* Student Form - Dedicated form for students */}
-        {type === 'students' && (
-          <StudentForm
-            open={showStudentForm}
-            onClose={() => setShowStudentForm(false)}
-            onSuccess={(newStudent) => {
-              fetchData(); // Refresh the student list
-            }}
-          />
-        )}
 
         {/* Status Update Menu - only for orders */}
         {type === 'orders' && (
@@ -1322,8 +1716,8 @@ const ListView = ({ type = 'products' }) => {
             onClose={handleStatusMenuClose}
             PaperProps={{
               sx: {
-                backgroundColor: '#1A1A1A',
-                border: '1px solid #2A2A2A',
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #E5E7EB',
                 borderRadius: '8px',
                 minWidth: '180px'
               }
@@ -1332,8 +1726,8 @@ const ListView = ({ type = 'products' }) => {
             <MenuItem 
               onClick={() => handleStatusUpdate(selectedItemForStatus?.id, 'pending')}
               sx={{ 
-                color: '#FFFFFF',
-                '&:hover': { backgroundColor: '#2A2A2A' }
+                color: '#374151',
+                '&:hover': { backgroundColor: '#E5E7EB' }
               }}
             >
               <ScheduleIcon sx={{ mr: 1, color: '#FFB74D' }} />
@@ -1342,8 +1736,8 @@ const ListView = ({ type = 'products' }) => {
             <MenuItem 
               onClick={() => handleStatusUpdate(selectedItemForStatus?.id, 'approved')}
               sx={{ 
-                color: '#FFFFFF',
-                '&:hover': { backgroundColor: '#2A2A2A' }
+                color: '#374151',
+                '&:hover': { backgroundColor: '#E5E7EB' }
               }}
             >
               <CheckIcon sx={{ mr: 1, color: '#2196F3' }} />
@@ -1352,8 +1746,8 @@ const ListView = ({ type = 'products' }) => {
             <MenuItem 
               onClick={() => handleStatusUpdate(selectedItemForStatus?.id, 'completed')}
               sx={{ 
-                color: '#FFFFFF',
-                '&:hover': { backgroundColor: '#2A2A2A' }
+                color: '#374151',
+                '&:hover': { backgroundColor: '#E5E7EB' }
               }}
             >
               <CheckCircleIcon sx={{ mr: 1, color: '#4CAF50' }} />
@@ -1362,8 +1756,8 @@ const ListView = ({ type = 'products' }) => {
             <MenuItem 
               onClick={() => handleStatusUpdate(selectedItemForStatus?.id, 'overdue')}
               sx={{ 
-                color: '#FFFFFF',
-                '&:hover': { backgroundColor: '#2A2A2A' }
+                color: '#374151',
+                '&:hover': { backgroundColor: '#E5E7EB' }
               }}
             >
               <CancelIcon sx={{ mr: 1, color: '#F44336' }} />
@@ -1372,7 +1766,7 @@ const ListView = ({ type = 'products' }) => {
           </Menu>
         )}
       </Box>
-    </AnimatedCard>
+    </Paper>
   );
 };
 

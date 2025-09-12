@@ -14,9 +14,19 @@ import {
   IconButton,
   Badge,
   Avatar,
-  Menu,
-  MenuItem,
-  useTheme,
+  Menu,      {/* User Profile Section */}
+      <Box sx={{ p: 0.1, borderTop: 1, borderColor: 'divider' }}>
+        <Box display="flex" alignItems="center" gap={0.1}>
+          <Avatar sx={{ bgcolor: 'primary.main', width: 12, height: 12, fontSize: '0.5rem' }}>A</Avatar>
+          <Box sx={{ flexGrow: 1 }}>
+            <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.5rem', lineHeight: 1 }}>
+              Admin
+            </Typography>
+          </Box>
+          <IconButton onClick={handleMenuClick} size="small" sx={{ p: 0.05, width: 12, height: 12 }}>
+            <AccountIcon sx={{ fontSize: '0.6rem' }} />
+          </IconButton>
+        </Box> useTheme,
   useMediaQuery
 } from '@mui/material';
 import {
@@ -36,7 +46,7 @@ import {
   Receipt as InvoiceIcon
 } from '@mui/icons-material';
 
-const drawerWidth = 280;
+const drawerWidth = 120;
 
 const menuItems = [
   {
@@ -72,12 +82,12 @@ const menuItems = [
     label: 'Order Management',
     icon: <OrdersIcon />,
     path: '/orders',
-    badge: 5, // Pending orders count
+    badge: 5, // Pending lending count
     subItems: [
-      { id: 'pending-orders', label: 'Pending Orders', icon: <OrdersIcon />, path: '/orders/pending' },
-      { id: 'active-orders', label: 'Active Orders', icon: <OrdersIcon />, path: '/orders/active' },
-      { id: 'create-order', label: 'Create Order', icon: <OrdersIcon />, path: '/orders/create' },
-      { id: 'order-history', label: 'Order History', icon: <OrdersIcon />, path: '/orders/history' }
+      { id: 'pending-orders', label: 'Pending Lending', icon: <OrdersIcon />, path: '/orders/pending' },
+      { id: 'active-orders', label: 'Active Lending', icon: <OrdersIcon />, path: '/orders/active' },
+      { id: 'create-order', label: 'Create Lending', icon: <OrdersIcon />, path: '/orders/create' },
+      { id: 'order-history', label: 'Lending History', icon: <OrdersIcon />, path: '/orders/history' }
     ]
   },
   {
@@ -152,7 +162,7 @@ function Sidebar({ activeModule, onModuleChange, mobileOpen, onMobileToggle }) {
   };
 
   const renderMenuItem = (item, level = 0) => (
-    <ListItem key={item.id} disablePadding sx={{ pl: level * 2 }}>
+    <ListItem key={item.id} disablePadding sx={{ pl: level * 0.5 }}>
       <ListItemButton
         selected={activeModule === item.id}
         onClick={() => {
@@ -164,17 +174,24 @@ function Sidebar({ activeModule, onModuleChange, mobileOpen, onMobileToggle }) {
           }
         }}
         sx={{
-          minHeight: 48,
+          minHeight: 24,
           backgroundColor: activeModule === item.id ? 'action.selected' : 'transparent',
           '&:hover': {
             backgroundColor: 'action.hover',
           },
           borderRadius: 1,
-          mx: 1,
-          mb: 0.5
+          mx: 0.1,
+          mb: 0.05,
+          py: 0.05
         }}
       >
-        <ListItemIcon sx={{ color: activeModule === item.id ? 'primary.main' : 'inherit' }}>
+        <ListItemIcon sx={{ 
+          color: activeModule === item.id ? 'primary.main' : 'inherit',
+          minWidth: 20,
+          '& .MuiSvgIcon-root': {
+            fontSize: '0.8rem'
+          }
+        }}>
           {item.badge ? (
             <Badge badgeContent={item.badge} color="error">
               {item.icon}
@@ -189,7 +206,7 @@ function Sidebar({ activeModule, onModuleChange, mobileOpen, onMobileToggle }) {
             color: activeModule === item.id ? 'primary.main' : 'inherit',
             '& .MuiTypography-root': {
               fontWeight: activeModule === item.id ? 600 : 400,
-              fontSize: level > 0 ? '0.875rem' : '0.9rem'
+              fontSize: level > 0 ? '0.6rem' : '0.65rem'
             }
           }}
         />
@@ -200,14 +217,14 @@ function Sidebar({ activeModule, onModuleChange, mobileOpen, onMobileToggle }) {
   const drawerContent = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
-      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-        <Box display="flex" alignItems="center" gap={2}>
-          <InventoryIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+      <Box sx={{ p: 0.25, borderBottom: 1, borderColor: 'divider' }}>
+        <Box display="flex" alignItems="center" gap={0.25}>
+          <InventoryIcon sx={{ fontSize: 16, color: 'primary.main' }} />
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, lineHeight: 1, fontSize: '0.7rem' }}>
               Incubation
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.55rem' }}>
               Inventory System
             </Typography>
           </Box>
@@ -215,8 +232,8 @@ function Sidebar({ activeModule, onModuleChange, mobileOpen, onMobileToggle }) {
       </Box>
 
       {/* Navigation Menu */}
-      <Box sx={{ flexGrow: 1, overflow: 'auto', py: 1 }}>
-        <List component="nav">
+      <Box sx={{ flexGrow: 1, overflow: 'auto', py: 0.1 }}>
+        <List component="nav" sx={{ py: 0, px: 0 }}>
           {menuItems.map((item) => (
             <Box key={item.id}>
               {renderMenuItem(item)}
@@ -231,19 +248,19 @@ function Sidebar({ activeModule, onModuleChange, mobileOpen, onMobileToggle }) {
       </Box>
 
       {/* User Profile Section */}
-      <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
-        <Box display="flex" alignItems="center" gap={2}>
-          <Avatar sx={{ bgcolor: 'primary.main' }}>A</Avatar>
+      <Box sx={{ p: 0.125, borderTop: 1, borderColor: 'divider' }}>
+        <Box display="flex" alignItems="center" gap={0.125}>
+          <Avatar sx={{ bgcolor: 'primary.main', width: 12, height: 12, fontSize: '0.5rem' }}>A</Avatar>
           <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+            <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.5rem', lineHeight: 0.9 }}>
               Admin User
             </Typography>
-            <Typography variant="caption" color="text.secondary">
-              System Administrator
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.4rem', display: 'block', lineHeight: 0.8 }}>
+              System Admin
             </Typography>
           </Box>
-          <IconButton onClick={handleMenuClick} size="small">
-            <AccountIcon />
+          <IconButton onClick={handleMenuClick} size="small" sx={{ p: 0.05, width: 12, height: 12 }}>
+            <AccountIcon sx={{ fontSize: '0.6rem' }} />
           </IconButton>
         </Box>
         <Menu

@@ -5,7 +5,7 @@ import {
   DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem,
   FormControl, InputLabel, Grid, Alert, Snackbar, Avatar, Tooltip,
   Switch, FormControlLabel, List, ListItem, ListItemText, ListItemIcon,
-  Divider, Badge, LinearProgress, Tab, Tabs, Container
+  Divider, Badge, Tab, Tabs, Container
 } from '@mui/material';
 import {
   Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, 
@@ -23,24 +23,22 @@ const API_BASE_URL = 'http://localhost:8000';
 
 // User management colors
 const COLORS = {
-  primary: '#1976D2',
-  secondary: '#388E3C',
-  error: '#D32F2F',
-  warning: '#F57C00',
-  info: '#1976D2',
-  success: '#388E3C',
+  primary: '#3B82F6',
+  secondary: '#10B981',
+  error: '#EF4444',
+  warning: '#F59E0B',
+  info: '#3B82F6',
+  success: '#10B981',
   surface: '#FFFFFF',
-  background: '#F5F7FA'
+  background: '#F8FAFC'
 };
 
 function UserManagement() {
   // State management
   const [users, setUsers] = useState([]);
-  const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [selectedTab, setSelectedTab] = useState(0);
   
   // Dialog states
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
@@ -62,12 +60,8 @@ function UserManagement() {
   });
 
   useEffect(() => {
-    if (selectedTab === 0) {
-      fetchUsers();
-    } else if (selectedTab === 1) {
-      fetchAuditLogs();
-    }
-  }, [selectedTab]);
+    fetchUsers();
+  }, []);
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('access_token');
@@ -154,85 +148,6 @@ function UserManagement() {
     }
   };
 
-  const fetchAuditLogs = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/audit-logs?limit=50`, {
-        headers: getAuthHeaders()
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setAuditLogs(data);
-      } else {
-        // If audit logs endpoint is not available, provide mock data for now
-        console.warn('Audit logs endpoint not available, using mock data');
-        setAuditLogs([
-          {
-            id: 1,
-            action: 'User Login',
-            resource: 'Authentication',
-            details: 'Successful login attempt',
-            success: true,
-            timestamp: new Date().toISOString(),
-            ip_address: '192.168.1.100',
-            user_id: 1
-          },
-          {
-            id: 2,
-            action: 'User Creation',
-            resource: 'User Management',
-            details: 'New user account created',
-            success: true,
-            timestamp: new Date(Date.now() - 3600000).toISOString(),
-            ip_address: '192.168.1.100',
-            user_id: 1
-          },
-          {
-            id: 3,
-            action: 'Failed Login',
-            resource: 'Authentication',
-            details: 'Invalid credentials provided',
-            success: false,
-            timestamp: new Date(Date.now() - 7200000).toISOString(),
-            ip_address: '192.168.1.105',
-            user_id: null
-          }
-        ]);
-      }
-    } catch (error) {
-      console.error('Audit logs error:', error);
-      // Provide mock data on connection error
-      setAuditLogs([
-        {
-          id: 1,
-          action: 'System Access',
-          resource: 'Dashboard',
-          details: 'User accessed system dashboard',
-          success: true,
-          timestamp: new Date().toISOString(),
-          ip_address: '192.168.1.100',
-          user_id: 1
-        }
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Function to add audit log entries locally
-  const addAuditLogEntry = (logEntry) => {
-    const newEntry = {
-      id: Date.now(),
-      ...logEntry,
-      timestamp: new Date().toISOString(),
-      ip_address: '192.168.1.100', // Mock IP for now
-      user_id: 1 // Current user ID
-    };
-    
-    setAuditLogs(prevLogs => [newEntry, ...prevLogs]);
-  };
-
   const createUser = async () => {
     setLoading(true);
     try {
@@ -249,13 +164,6 @@ function UserManagement() {
         resetForm();
         fetchUsers();
         
-        // Add audit log entry
-        addAuditLogEntry({
-          action: 'User Created',
-          resource: `User: ${formData.full_name}`,
-          details: `Created new ${formData.role.replace('_', ' ')} user with username: ${formData.username}`,
-          success: true
-        });
       } else if (response.status === 404) {
         // API not available, create user locally
         const newUser = {
@@ -560,10 +468,10 @@ function UserManagement() {
 
   return (
     <Box sx={{ 
-      p: 3,
+      p: 1,
       minHeight: '100vh',
-      backgroundColor: 'transparent',
-      color: '#FFFFFF'
+      backgroundColor: '#F8FAFC',
+      color: '#1F2937'
     }}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -571,80 +479,45 @@ function UserManagement() {
         transition={{ duration: 0.5 }}
       >
         {/* Header */}
-        <Box sx={{ mb: 4 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-            <ManageAccountsIcon sx={{ fontSize: '2rem', color: '#FFFFFF' }} />
-            <Typography variant="h4" sx={{ fontWeight: 700, color: '#FFFFFF' }}>
+        <Box sx={{ mb: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+            <ManageAccountsIcon sx={{ fontSize: '1.5rem', color: '#3B82F6' }} />
+            <Typography variant="h5" sx={{ fontWeight: 700, color: '#1F2937', fontSize: '1.25rem' }}>
               User Management
             </Typography>
           </Box>
-          <Typography variant="body1" sx={{ color: '#B0B0B0' }}>
+          <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '0.8rem' }}>
             Manage users, roles, and permissions for the inventory system
           </Typography>
         </Box>
 
-        {/* Tabs */}
-        <Card sx={{ 
-          mb: 3,
-          backgroundColor: '#1A1A1A',
-          border: '1px solid #2A2A2A',
-          borderRadius: '12px'
+        {/* Users Management */}
+        <Card sx={{
+          backgroundColor: '#FFFFFF',
+          border: '1px solid #E5E7EB',
+          borderRadius: '8px'
         }}>
-          <Tabs
-            value={selectedTab}
-            onChange={(e, newValue) => setSelectedTab(newValue)}
-            sx={{ 
-              borderBottom: 1, 
-              borderColor: '#2A2A2A',
-              '& .MuiTab-root': {
-                color: '#B0B0B0',
-                '&.Mui-selected': {
-                  color: '#00D4AA'
-                }
-              },
-              '& .MuiTabs-indicator': {
-                backgroundColor: '#00D4AA'
-              }
-            }}
-          >
-            <Tab 
-              label="Users" 
-              icon={<PersonIcon />} 
-              iconPosition="start"
-            />
-            <Tab 
-              label="Audit Logs" 
-              icon={<HistoryIcon />} 
-              iconPosition="start"
-            />
-          </Tabs>
-        </Card>
-
-        {/* Loading */}
-        {loading && <LinearProgress sx={{ mb: 2 }} />}
-
-        {/* Users Tab */}
-        {selectedTab === 0 && (
-          <Card sx={{
-            backgroundColor: '#1A1A1A',
-            border: '1px solid #2A2A2A',
-            borderRadius: '12px'
-          }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, color: '#FFFFFF' }}>
+            <CardContent sx={{ p: 1.5 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, color: '#1F2937', fontSize: '1rem' }}>
                   System Users ({users.length})
                 </Typography>
                 <Button
                   variant="contained"
-                  startIcon={<AddIcon />}
+                  startIcon={<AddIcon sx={{ fontSize: '1rem' }} />}
                   onClick={handleOpenCreateDialog}
                   sx={{ 
-                    borderRadius: 2,
-                    backgroundColor: '#00D4AA',
-                    color: '#0A0A0A',
+                    minHeight: '32px',
+                    height: '32px',
+                    px: 2,
+                    py: 0.5,
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    borderRadius: '6px',
+                    backgroundColor: '#3B82F6',
+                    color: '#FFFFFF',
                     '&:hover': {
-                      backgroundColor: '#00B899'
+                      backgroundColor: '#2563EB'
                     }
                   }}
                 >
@@ -653,19 +526,19 @@ function UserManagement() {
               </Box>
 
               <TableContainer component={Paper} sx={{ 
-                borderRadius: 2,
-                backgroundColor: '#1A1A1A',
-                border: '1px solid #2A2A2A'
+                borderRadius: 1,
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #E5E7EB'
               }}>
-                <Table>
+                <Table size="small">
                   <TableHead>
-                    <TableRow sx={{ bgcolor: '#2A2A2A' }}>
-                      <TableCell sx={{ color: '#FFFFFF', fontWeight: 600 }}>User</TableCell>
-                      <TableCell sx={{ color: '#FFFFFF', fontWeight: 600 }}>Role</TableCell>
-                      <TableCell sx={{ color: '#FFFFFF', fontWeight: 600 }}>Status</TableCell>
-                      <TableCell sx={{ color: '#FFFFFF', fontWeight: 600 }}>Last Login</TableCell>
-                      <TableCell sx={{ color: '#FFFFFF', fontWeight: 600 }}>Created</TableCell>
-                      <TableCell align="center" sx={{ color: '#FFFFFF', fontWeight: 600 }}>Actions</TableCell>
+                    <TableRow sx={{ bgcolor: '#F3F4F6' }}>
+                      <TableCell sx={{ color: '#374151', fontWeight: 600, py: 0.5, fontSize: '0.75rem' }}>User</TableCell>
+                      <TableCell sx={{ color: '#374151', fontWeight: 600, py: 0.5, fontSize: '0.75rem' }}>Role</TableCell>
+                      <TableCell sx={{ color: '#374151', fontWeight: 600, py: 0.5, fontSize: '0.75rem' }}>Status</TableCell>
+                      <TableCell sx={{ color: '#374151', fontWeight: 600, py: 0.5, fontSize: '0.75rem' }}>Last Login</TableCell>
+                      <TableCell sx={{ color: '#374151', fontWeight: 600, py: 0.5, fontSize: '0.75rem' }}>Created</TableCell>
+                      <TableCell align="center" sx={{ color: '#374151', fontWeight: 600, py: 0.5, fontSize: '0.75rem' }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -678,33 +551,35 @@ function UserManagement() {
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
                           sx={{ 
-                            backgroundColor: '#1A1A1A',
-                            '&:hover': { bgcolor: '#2A2A2A' },
+                            backgroundColor: '#FFFFFF',
+                            '&:hover': { bgcolor: '#F3F4F6' },
                             '& .MuiTableCell-root': {
-                              borderBottom: '1px solid #2A2A2A',
-                              color: '#FFFFFF'
+                              borderBottom: '1px solid #E5E7EB',
+                              color: '#374151',
+                              py: 0.25,
+                              px: 0.5
                             }
                           }}
                         >
                           <TableCell>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                              <Avatar sx={{ bgcolor: COLORS.primary }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Avatar sx={{ bgcolor: COLORS.primary, width: 24, height: 24, fontSize: '0.7rem' }}>
                                 {user.full_name.charAt(0)}
                               </Avatar>
                               <Box>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#FFFFFF' }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1F2937', fontSize: '0.75rem', lineHeight: 1.2 }}>
                                   {user.full_name}
                                 </Typography>
-                                <Typography variant="caption" sx={{ color: '#B0B0B0' }}>
+                                <Typography variant="caption" sx={{ color: '#B0B0B0', fontSize: '0.65rem', lineHeight: 1 }}>
                                   @{user.username} • {user.email}
                                 </Typography>
                               </Box>
                             </Box>
                           </TableCell>
                           <TableCell>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                               {getRoleIcon(user.role)}
-                              <Typography variant="body2" sx={{ textTransform: 'capitalize', color: '#FFFFFF' }}>
+                              <Typography variant="body2" sx={{ textTransform: 'capitalize', color: '#374151', fontSize: '0.75rem' }}>
                                 {user.role.replace('_', ' ')}
                               </Typography>
                             </Box>
@@ -713,33 +588,33 @@ function UserManagement() {
                             {getStatusChip(user.status)}
                           </TableCell>
                           <TableCell>
-                            <Typography variant="body2" sx={{ color: '#FFFFFF' }}>
+                            <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '0.7rem' }}>
                               {user.last_login ? formatDate(user.last_login) : 'Never'}
                             </Typography>
                           </TableCell>
                           <TableCell>
-                            <Typography variant="body2" sx={{ color: '#FFFFFF' }}>
+                            <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '0.7rem' }}>
                               {formatDate(user.created_at)}
                             </Typography>
                           </TableCell>
                           <TableCell align="center">
-                            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                            <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
                               <Tooltip title="Edit User">
                                 <IconButton
                                   size="small"
                                   onClick={() => handleOpenEditDialog(user)}
-                                  sx={{ color: COLORS.primary }}
+                                  sx={{ color: COLORS.primary, p: 0.25 }}
                                 >
-                                  <EditIcon />
+                                  <EditIcon sx={{ fontSize: '1rem' }} />
                                 </IconButton>
                               </Tooltip>
                               <Tooltip title="Delete User">
                                 <IconButton
                                   size="small"
                                   onClick={() => deleteUser(user.id)}
-                                  sx={{ color: COLORS.error }}
+                                  sx={{ color: COLORS.error, p: 0.25 }}
                                 >
-                                  <DeleteIcon />
+                                  <DeleteIcon sx={{ fontSize: '1rem' }} />
                                 </IconButton>
                               </Tooltip>
                             </Box>
@@ -752,85 +627,6 @@ function UserManagement() {
               </TableContainer>
             </CardContent>
           </Card>
-        )}
-
-        {/* Audit Logs Tab */}
-        {selectedTab === 1 && (
-          <Card sx={{
-            backgroundColor: '#1A1A1A',
-            border: '1px solid #2A2A2A',
-            borderRadius: '12px'
-          }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, color: '#FFFFFF' }}>
-                Security Audit Logs
-              </Typography>
-
-              <List>
-                {auditLogs.length === 0 ? (
-                  <ListItem sx={{ 
-                    border: 1, 
-                    borderColor: '#2A2A2A', 
-                    borderRadius: 2, 
-                    backgroundColor: '#1A1A1A',
-                    justifyContent: 'center',
-                    py: 4
-                  }}>
-                    <Typography variant="body2" sx={{ color: '#B0B0B0' }}>
-                      No audit logs available
-                    </Typography>
-                  </ListItem>
-                ) : (
-                  <AnimatePresence>
-                    {auditLogs.map((log, index) => (
-                      <motion.div
-                        key={log.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                      >
-                      <ListItem sx={{ 
-                        border: 1, 
-                        borderColor: '#2A2A2A', 
-                        borderRadius: 2, 
-                        mb: 1,
-                        backgroundColor: log.success ? '#1A4A3A' : '#4A1A1A',
-                        '&:hover': { 
-                          backgroundColor: log.success ? '#1A5A4A' : '#5A1A1A' 
-                        }
-                      }}>
-                        <ListItemIcon>
-                          {log.success ? 
-                            <CheckCircle sx={{ color: '#00D4AA' }} /> : 
-                            <WarningIcon sx={{ color: '#FF6B6B' }} />
-                          }
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={
-                            <Typography variant="subtitle2" sx={{ color: '#FFFFFF' }}>
-                              {log.action} {log.resource && `• ${log.resource}`}
-                            </Typography>
-                          }
-                          secondary={
-                            <Box>
-                              <Typography variant="caption" sx={{ display: 'block', color: '#B0B0B0' }}>
-                                {log.details}
-                              </Typography>
-                              <Typography variant="caption" sx={{ color: '#888888' }}>
-                                {formatDate(log.timestamp)} • IP: {log.ip_address}
-                              </Typography>
-                            </Box>
-                          }
-                        />
-                      </ListItem>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-                )}
-              </List>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Create User Dialog */}
         <Dialog 

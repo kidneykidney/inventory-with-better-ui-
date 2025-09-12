@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Typography, Card, CardContent, Grid, FormControl, InputLabel,
   Select, MenuItem, Button, Paper, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, CircularProgress, Alert,
+  TableContainer, TableHead, TableRow, Alert,
   Chip, IconButton, Tooltip, Switch, FormControlLabel, Divider,
-  LinearProgress, Dialog, DialogTitle, DialogContent, DialogActions
+  Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend,
@@ -16,7 +16,6 @@ import {
   PictureAsPdf, InsertChart, ShowChart, DonutLarge, AutoGraph,
   CloudDownload, Schedule, Notifications, Speed, DataUsage
 } from '@mui/icons-material';
-import { motion, AnimatePresence } from 'framer-motion';
 
 const API_BASE_URL = 'http://localhost:8000/api';
 
@@ -535,12 +534,7 @@ function ReportsAnalytics() {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-    >
-      <Box>
+    <Box>
         {/* Header */}
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" gutterBottom sx={{ fontWeight: 600, color: '#2c3e50', display: 'flex', alignItems: 'center' }}>
@@ -610,7 +604,7 @@ function ReportsAnalytics() {
                 startIcon={<Refresh />} 
                 fullWidth
                 onClick={fetchAllData}
-                disabled={loading}
+                
               >
                 Refresh
               </Button>
@@ -621,7 +615,7 @@ function ReportsAnalytics() {
                 startIcon={<Download />} 
                 fullWidth
                 onClick={() => testSimpleExport()}
-                disabled={loading}
+                
               >
                 Test Export
               </Button>
@@ -678,7 +672,7 @@ function ReportsAnalytics() {
                       fullWidth
                       startIcon={<TableChart sx={{ fontSize: 24 }} />}
                       onClick={() => handleModuleExport('products', 'csv')}
-                      disabled={loading}
+                      
                       sx={{ 
                         py: 1.5,
                         fontSize: '1rem',
@@ -710,7 +704,7 @@ function ReportsAnalytics() {
                       fullWidth
                       startIcon={<TableChart sx={{ fontSize: 24 }} />}
                       onClick={() => handleModuleExport('students', 'csv')}
-                      disabled={loading}
+                      
                       sx={{ 
                         py: 1.5,
                         fontSize: '1rem',
@@ -742,7 +736,7 @@ function ReportsAnalytics() {
                       fullWidth
                       startIcon={<TableChart sx={{ fontSize: 24 }} />}
                       onClick={() => handleModuleExport('orders', 'csv')}
-                      disabled={loading}
+                      
                       sx={{ 
                         py: 1.5,
                         fontSize: '1rem',
@@ -774,7 +768,7 @@ function ReportsAnalytics() {
                       fullWidth
                       startIcon={<TableChart sx={{ fontSize: 24 }} />}
                       onClick={() => handleModuleExport('invoices', 'csv')}
-                      disabled={loading}
+                      
                       sx={{ 
                         py: 1.5,
                         fontSize: '1rem',
@@ -806,7 +800,7 @@ function ReportsAnalytics() {
                       fullWidth
                       startIcon={<TableChart sx={{ fontSize: 24 }} />}
                       onClick={() => handleModuleExport('users', 'csv')}
-                      disabled={loading}
+                      
                       sx={{ 
                         py: 1.5,
                         fontSize: '1rem',
@@ -838,7 +832,7 @@ function ReportsAnalytics() {
                       fullWidth
                       startIcon={<TableChart sx={{ fontSize: 24 }} />}
                       onClick={() => handleModuleExport('categories', 'csv')}
-                      disabled={loading}
+                      
                       sx={{ 
                         py: 1.5,
                         fontSize: '1rem',
@@ -865,9 +859,9 @@ function ReportsAnalytics() {
             <Button 
               variant="contained" 
               size="large"
-              startIcon={loading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : <Download sx={{ fontSize: 28 }} />}
+              startIcon={<Download sx={{ fontSize: 28 }} />}
               onClick={handleExportAllData}
-              disabled={loading}
+              
               sx={{ 
                 bgcolor: 'white', 
                 color: 'primary.main',
@@ -884,13 +878,6 @@ function ReportsAnalytics() {
             </Button>
           </Box>
         </Card>
-
-        {/* Loading State */}
-        {loading && (
-          <Box sx={{ mb: 3 }}>
-            <LinearProgress />
-          </Box>
-        )}
 
         {/* Real-Time Status */}
         <Card sx={{ mb: 3, p: 2, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
@@ -1183,23 +1170,22 @@ function ReportsAnalytics() {
             <Button 
               variant="outlined" 
               onClick={() => handleExportData('csv')}
-              disabled={loading}
-              startIcon={loading ? <CircularProgress size={16} /> : <TableChart />}
+              
+              startIcon={<TableChart />}
             >
               CSV Format
             </Button>
             <Button 
               variant="contained" 
               onClick={() => handleExportData('excel')}
-              disabled={loading}
-              startIcon={loading ? <CircularProgress size={16} /> : <PictureAsPdf />}
+              
+              startIcon={<PictureAsPdf />}
             >
               Excel Format
             </Button>
           </DialogActions>
         </Dialog>
       </Box>
-    </motion.div>
   );
 }
 

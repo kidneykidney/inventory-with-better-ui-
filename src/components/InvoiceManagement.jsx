@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Box,
-  Grid,
   Card,
   CardContent,
   Typography,
@@ -40,7 +38,6 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   CameraAlt as CameraIcon,
-  Receipt as ReceiptIcon,
   Assignment as AssignmentIcon,
   CloudUpload as UploadIcon,
   Dashboard as DashboardIcon,
@@ -52,19 +49,23 @@ import {
   Add as AddIcon,
   AutoAwesome as AIIcon,
   Refresh as RefreshIcon,
-  TrendingUp as TrendingUpIcon,
   AttachMoney as MoneyIcon,
   Schedule as ScheduleIcon,
   PhotoCamera as PhotoCameraIcon,
   SmartToy as SmartToyIcon,
   CloudUpload as CloudUploadIcon,
   Search as SearchIcon,
-  Clear as ClearIcon
+  Clear as ClearIcon,
+  Receipt as ReceiptIcon,
+  TableChart as TableChartIcon
 } from '@mui/icons-material';
 import CameraUploadDialog from './CameraUploadDialog';
 import CreateInvoiceDialog from './CreateInvoiceDialog';
+import ManualInvoiceCreationDialog from './ManualInvoiceCreationDialog';
 import OCRInvoiceUploadDialog from './OCRInvoiceUploadDialog';
 import BulkInvoiceUploadDialog from './BulkInvoiceUploadDialog';
+import BulkInvoiceCSVDialog from './BulkInvoiceCSVDialog';
+import BulkManualInvoiceDialog from './BulkManualInvoiceDialog';
 import ErrorBoundary from './ErrorBoundary';
 import NotificationService from '../services/notificationService';
 
@@ -75,7 +76,7 @@ const InvoiceManagement = () => {
   const [filteredInvoices, setFilteredInvoices] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [filters, setFilters] = useState({
@@ -93,8 +94,11 @@ const InvoiceManagement = () => {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
   const [createInvoiceDialogOpen, setCreateInvoiceDialogOpen] = useState(false);
+  const [manualInvoiceDialogOpen, setManualInvoiceDialogOpen] = useState(false);
+  const [bulkManualDialogOpen, setBulkManualDialogOpen] = useState(false);
   const [ocrInvoiceDialogOpen, setOcrInvoiceDialogOpen] = useState(false);
   const [bulkUploadDialogOpen, setBulkUploadDialogOpen] = useState(false);
+  const [bulkCSVDialogOpen, setBulkCSVDialogOpen] = useState(false);
   const [speedDialOpen, setSpeedDialOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState(null);
@@ -358,117 +362,82 @@ const InvoiceManagement = () => {
   };
 
   const SummaryCard = ({ title, value, icon, color = 'primary', gradient = false }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20, scale: 0.9 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.5 }}
-      whileHover={{ 
-        scale: 1.05, 
-        y: -5,
-        transition: { duration: 0.2 }
-      }}
-      whileTap={{ scale: 0.98 }}
-    >
-      <Card 
-        sx={{ 
-          height: '100%',
+    <Card 
+      sx={{ 
+        height: '100%',
+        background: gradient 
+          ? `linear-gradient(135deg, ${color === 'primary' ? '#3B82F6' : color === 'success' ? '#4CAF50' : color === 'warning' ? '#FF9800' : color === 'error' ? '#F44336' : '#2196F3'} 0%, ${color === 'primary' ? '#2563EB' : color === 'success' ? '#388E3C' : color === 'warning' ? '#F57C00' : color === 'error' ? '#D32F2F' : '#1976D2'} 100%)`
+          : '#FFFFFF',
+        
+        borderRadius: '16px',
+        position: 'relative',
+        overflow: 'hidden',
+        cursor: 'pointer',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
           background: gradient 
-            ? `linear-gradient(135deg, ${color === 'primary' ? '#00D4AA' : color === 'success' ? '#4CAF50' : color === 'warning' ? '#FF9800' : color === 'error' ? '#F44336' : '#2196F3'} 0%, ${color === 'primary' ? '#00B899' : color === 'success' ? '#388E3C' : color === 'warning' ? '#F57C00' : color === 'error' ? '#D32F2F' : '#1976D2'} 100%)`
-            : '#1A1A1A',
-          border: '1px solid #2A2A2A',
-          borderRadius: '16px',
-          position: 'relative',
-          overflow: 'hidden',
-          cursor: 'pointer',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: gradient 
-              ? 'transparent'
-              : `linear-gradient(135deg, ${color === 'primary' ? 'rgba(0, 212, 170, 0.1)' : color === 'success' ? 'rgba(76, 175, 80, 0.1)' : color === 'warning' ? 'rgba(255, 152, 0, 0.1)' : color === 'error' ? 'rgba(244, 67, 54, 0.1)' : 'rgba(33, 150, 243, 0.1)'} 0%, transparent 100%)`,
-            opacity: 0.8,
-            pointerEvents: 'none'
-          }
-        }}
-      >
-        <CardContent sx={{ position: 'relative', zIndex: 1 }}>
-          <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Box>
-              <Typography 
-                color={gradient ? "rgba(255,255,255,0.9)" : "textSecondary"} 
-                gutterBottom
-                sx={{ 
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}
-              >
-                {title}
-              </Typography>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3, duration: 0.5 }}
-              >
-                <Typography 
-                  variant="h3" 
-                  component="div"
-                  sx={{ 
-                    color: gradient ? '#FFFFFF' : color === 'primary' ? '#00D4AA' : color === 'success' ? '#4CAF50' : color === 'warning' ? '#FF9800' : color === 'error' ? '#F44336' : '#2196F3',
-                    fontWeight: 700,
-                    fontSize: '2.5rem'
-                  }}
-                >
-                  {typeof value === 'number' && title.includes('Value') 
-                    ? `$${value.toFixed(2)}` 
-                    : value
-                  }
-                </Typography>
-              </motion.div>
-            </Box>
-            <motion.div
-              animate={{ 
-                rotate: [0, 10, -10, 0],
-                scale: [1, 1.1, 1]
-              }}
-              transition={{ 
-                duration: 2,
-                repeat: Infinity,
-                repeatDelay: 3
-              }}
-              whileHover={{ 
-                scale: 1.2,
-                rotate: 360,
-                transition: { duration: 0.5 }
+            ? 'transparent'
+            : `linear-gradient(135deg, ${color === 'primary' ? 'rgba(0, 212, 170, 0.1)' : color === 'success' ? 'rgba(76, 175, 80, 0.1)' : color === 'warning' ? 'rgba(255, 152, 0, 0.1)' : color === 'error' ? 'rgba(244, 67, 54, 0.1)' : 'rgba(33, 150, 243, 0.1)'} 0%, transparent 100%)`,
+          opacity: 0.8,
+          pointerEvents: 'none'
+        }
+      }}
+    >
+      <CardContent sx={{ position: 'relative', zIndex: 1 }}>
+        <Box display="flex" alignItems="center" justifyContent="space-between">
+          <Box>
+            <Typography 
+              color={gradient ? "rgba(255,255,255,0.9)" : "#6B7280"} 
+              gutterBottom
+              sx={{ 
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
               }}
             >
-              <Box 
-                sx={{ 
-                  color: gradient ? 'rgba(255,255,255,0.9)' : color === 'primary' ? '#00D4AA' : color === 'success' ? '#4CAF50' : color === 'warning' ? '#FF9800' : color === 'error' ? '#F44336' : '#2196F3',
-                  fontSize: '3rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '64px',
-                  height: '64px',
-                  borderRadius: '50%',
-                  background: gradient 
-                    ? 'rgba(255,255,255,0.1)'
-                    : color === 'primary' ? 'rgba(0, 212, 170, 0.1)' : color === 'success' ? 'rgba(76, 175, 80, 0.1)' : color === 'warning' ? 'rgba(255, 152, 0, 0.1)' : color === 'error' ? 'rgba(244, 67, 54, 0.1)' : 'rgba(33, 150, 243, 0.1)'
-                }}
-              >
-                {icon}
-              </Box>
-            </motion.div>
+              {title}
+            </Typography>
+            <Typography 
+              variant="h3" 
+              component="div"
+              sx={{ 
+                color: gradient ? '#FFFFFF' : color === 'primary' ? '#3B82F6' : color === 'success' ? '#4CAF50' : color === 'warning' ? '#FF9800' : color === 'error' ? '#F44336' : '#2196F3',
+                fontWeight: 700,
+                fontSize: '2.5rem'
+              }}
+            >
+              {typeof value === 'number' && title.includes('Value') 
+                ? `₹${value.toFixed(2)}` 
+                : value
+              }
+            </Typography>
           </Box>
-        </CardContent>
-      </Card>
-    </motion.div>
+          <Box 
+            sx={{ 
+              color: gradient ? 'rgba(255,255,255,0.9)' : color === 'primary' ? '#3B82F6' : color === 'success' ? '#4CAF50' : color === 'warning' ? '#FF9800' : color === 'error' ? '#F44336' : '#2196F3',
+              fontSize: '3rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              background: gradient 
+                ? 'rgba(255,255,255,0.1)'
+                : color === 'primary' ? 'rgba(0, 212, 170, 0.1)' : color === 'success' ? 'rgba(76, 175, 80, 0.1)' : color === 'warning' ? 'rgba(255, 152, 0, 0.1)' : color === 'error' ? 'rgba(244, 67, 54, 0.1)' : 'rgba(33, 150, 243, 0.1)'
+            }}
+          >
+            {icon}
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
   );
 
   const InvoiceDetailsDialog = () => (
@@ -492,46 +461,45 @@ const InvoiceManagement = () => {
       </DialogTitle>
       <DialogContent dividers>
         {selectedInvoice && (
-          <Grid container spacing={2}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             {/* Student Information */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Student Information
-                  </Typography>
-                  <Typography><strong>Name:</strong> {selectedInvoice.student_name}</Typography>
-                  <Typography><strong>Student ID:</strong> {selectedInvoice.student_id_number}</Typography>
-                  <Typography><strong>Email:</strong> {selectedInvoice.student_email}</Typography>
-                  <Typography><strong>Department:</strong> {selectedInvoice.department}</Typography>
-                  <Typography><strong>Year:</strong> {selectedInvoice.year_of_study}</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
+            <Card sx={{ mb: 1 }}>
+              <CardContent sx={{ py: 1 }}>
+                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mb: 1 }}>
+                  Student Information
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                  <Typography variant="body2"><strong>Name:</strong> {selectedInvoice.student_name}</Typography>
+                  <Typography variant="body2"><strong>Student ID:</strong> {selectedInvoice.student_id_number}</Typography>
+                  <Typography variant="body2"><strong>Email:</strong> {selectedInvoice.student_email}</Typography>
+                  <Typography variant="body2"><strong>Department:</strong> {selectedInvoice.department}</Typography>
+                  <Typography variant="body2"><strong>Year:</strong> {selectedInvoice.year_of_study}</Typography>
+                </Box>
+              </CardContent>
+            </Card>
 
             {/* Invoice Details */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Invoice Details
-                  </Typography>
-                  <Typography><strong>Order:</strong> {selectedInvoice.order_number}</Typography>
-                  <Typography><strong>Type:</strong> {selectedInvoice.invoice_type}</Typography>
-                  <Typography><strong>Items:</strong> {selectedInvoice.total_items}</Typography>
-                  <Typography><strong>Issue Date:</strong> {formatDate(selectedInvoice.issue_date)}</Typography>
-                  <Typography><strong>Due Date:</strong> {formatDate(selectedInvoice.due_date)}</Typography>
-                  <Typography><strong>Issued By:</strong> {selectedInvoice.issued_by}</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
+            <Card sx={{ mb: 1 }}>
+              <CardContent sx={{ py: 1 }}>
+                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mb: 1 }}>
+                  Invoice Details
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                  <Typography variant="body2"><strong>Order:</strong> {selectedInvoice.order_number}</Typography>
+                  <Typography variant="body2"><strong>Type:</strong> {selectedInvoice.invoice_type}</Typography>
+                  <Typography variant="body2"><strong>Items:</strong> {selectedInvoice.total_items}</Typography>
+                  <Typography variant="body2"><strong>Issue Date:</strong> {formatDate(selectedInvoice.issue_date)}</Typography>
+                  <Typography variant="body2"><strong>Due Date:</strong> {formatDate(selectedInvoice.due_date)}</Typography>
+                  <Typography variant="body2"><strong>Issued By:</strong> {selectedInvoice.issued_by}</Typography>
+                </Box>
+              </CardContent>
+            </Card>
 
             {/* Physical Invoice Status */}
-            <Grid size={12}>
-              <Card>
-                <CardContent>
-                  <Box display="flex" alignItems="center" justifyContent="space-between">
-                    <Typography variant="h6">Physical Invoice</Typography>
+            <Card>
+              <CardContent sx={{ py: 1 }}>
+                <Box display="flex" alignItems="center" justifyContent="space-between">
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Physical Invoice</Typography>
                     <Box>
                       <Chip 
                         label={selectedInvoice.has_physical_copy ? 'Has Physical Copy' : 'Digital Only'}
@@ -566,14 +534,12 @@ const InvoiceManagement = () => {
                   )}
                 </CardContent>
               </Card>
-            </Grid>
 
             {/* Items */}
             {selectedInvoice.items && selectedInvoice.items.length > 0 && (
-              <Grid size={12}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>Items</Typography>
+              <Card>
+                <CardContent sx={{ py: 1 }}>
+                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mb: 1 }}>Items</Typography>
                     <TableContainer>
                       <Table size="small">
                         <TableHead>
@@ -591,7 +557,7 @@ const InvoiceManagement = () => {
                               <TableCell>{item.product_name}</TableCell>
                               <TableCell>{item.product_sku}</TableCell>
                               <TableCell align="right">{item.quantity}</TableCell>
-                              <TableCell align="right">${item.unit_value.toFixed(2)}</TableCell>
+                              <TableCell align="right">₹{item.unit_value.toFixed(2)}</TableCell>
                               <TableCell>{formatDate(item.expected_return_date)}</TableCell>
                             </TableRow>
                           ))}
@@ -600,44 +566,39 @@ const InvoiceManagement = () => {
                     </TableContainer>
                   </CardContent>
                 </Card>
-              </Grid>
-            )}
+              )}
 
             {/* Images */}
             {selectedInvoice.images && selectedInvoice.images.length > 0 && (
-              <Grid size={12}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      Uploaded Images ({selectedInvoice.images.length})
-                    </Typography>
-                    <Grid container spacing={1}>
-                      {selectedInvoice.images.map((image, index) => (
-                        <Grid size={{ xs: 6, md: 3 }} key={index}>
-                          <Card variant="outlined">
-                            <CardContent sx={{ p: 1 }}>
-                              <Typography variant="body2" noWrap>
-                                {image.image_type.replace('_', ' ').toUpperCase()}
-                              </Typography>
-                              <Typography variant="caption" color="textSecondary">
-                                {formatDateTime(image.created_at)}
-                              </Typography>
-                              <Button
-                                size="small"
-                                onClick={() => window.open(`${API_BASE_URL}/api/invoices/images/${image.id}`, '_blank')}
-                              >
-                                View
-                              </Button>
-                            </CardContent>
-                          </Card>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  </CardContent>
-                </Card>
-              </Grid>
+              <Card>
+                <CardContent sx={{ py: 1 }}>
+                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mb: 1 }}>
+                    Uploaded Images ({selectedInvoice.images.length})
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {selectedInvoice.images.map((image, index) => (
+                      <Card variant="outlined" key={index} sx={{ minWidth: '140px' }}>
+                        <CardContent sx={{ p: 1 }}>
+                          <Typography variant="body2" noWrap>
+                            {image.image_type.replace('_', ' ').toUpperCase()}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#6B7280' }}>
+                            {formatDateTime(image.created_at)}
+                          </Typography>
+                          <Button
+                            size="small"
+                            onClick={() => window.open(`${API_BASE_URL}/api/invoices/images/${image.id}`, '_blank')}
+                          >
+                            View
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </Box>
+                </CardContent>
+              </Card>
             )}
-          </Grid>
+          </Box>
         )}
       </DialogContent>
       <DialogActions>
@@ -648,216 +609,47 @@ const InvoiceManagement = () => {
 
   return (
     <ErrorBoundary>
-      <Box p={3}>
+      <Box sx={{ p: 0.5, backgroundColor: '#F8FAFC', minHeight: '100vh' }}>
       {/* Page Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-      >
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
-          <Box display="flex" alignItems="center" gap={2}>
-            <ReceiptIcon sx={{ fontSize: '2rem', color: '#FFFFFF' }} />
-            <Box>
-              <Typography 
-                variant="h4" 
-                sx={{ 
-                  fontWeight: 700,
-                  color: '#FFFFFF'
-                }}
-              >
-                Invoice Management
-              </Typography>
-              <Typography variant="subtitle1" sx={{ color: '#888888' }}>
-                AI-Powered Invoice Processing & Analytics
-              </Typography>
-            </Box>
-          </Box>
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={() => {
-                fetchInvoices();
-                fetchSummary();
-              }}
-              sx={{
-                borderColor: '#00D4AA',
-                color: '#00D4AA',
-                '&:hover': {
-                  borderColor: '#00B899',
-                  backgroundColor: 'rgba(0, 212, 170, 0.08)'
-                }
+      <Box>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.25}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2 
+          }}>
+            <ReceiptIcon sx={{ fontSize: '1.2rem', color: '#000000' }} />
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                fontWeight: 600,
+                color: '#374151',
+                fontSize: '1.1rem'
               }}
             >
-              Refresh Data
-            </Button>
-          </motion.div>
-        </Box>
-      </motion.div>
-
-      {/* Summary Cards */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 0.2 }}
-      >
-        <Grid container spacing={3} mb={4}>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <SummaryCard
-              title="Total Invoices"
-              value={summary.total_invoices}
-              icon={<ReceiptIcon sx={{ fontSize: '2.5rem' }} />}
-              color="primary"
-              gradient={true}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <SummaryCard
-              title="Issued"
-              value={summary.issued_invoices}
-              icon={<TrendingUpIcon sx={{ fontSize: '2.5rem' }} />}
-              color="info"
-              gradient={false}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <SummaryCard
-              title="Acknowledged"
-              value={summary.acknowledged_invoices}
-              icon={<CheckCircleIcon sx={{ fontSize: '2.5rem' }} />}
-              color="success"
-              gradient={true}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <SummaryCard
-              title="AI Captured"
-              value={summary.physical_invoices_captured}
-              icon={<SmartToyIcon sx={{ fontSize: '2.5rem' }} />}
-              color="warning"
-              gradient={false}
-            />
-          </Grid>
-        </Grid>
-      </motion.div>
-
-      {/* Filters */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.4 }}
-      >
-        <Card 
-          sx={{ 
-            mb: 4,
-            background: '#1A1A1A',
-            border: '1px solid #2A2A2A',
-            borderRadius: '16px'
-          }}
-        >
-          <CardContent>
-            {/* Search Bar */}
-            <Box sx={{ 
-              mb: 3,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-              backgroundColor: '#0A0A0A',
-              borderRadius: '12px',
-              border: '1px solid #2A2A2A',
-              p: 2
-            }}>
-              <TextField
-                fullWidth
-                placeholder="Search invoices by number, student, status, or type..."
-                value={searchQuery}
-                onChange={handleSearchChange}
-                variant="outlined"
-                size="small"
-                InputProps={{
-                  startAdornment: (
-                    <SearchIcon sx={{ 
-                      color: '#888888', 
-                      mr: 1,
-                      fontSize: '1.2rem'
-                    }} />
-                  ),
-                  endAdornment: searchQuery && (
-                    <IconButton
-                      size="small"
-                      onClick={handleClearSearch}
-                      sx={{ 
-                        color: '#888888',
-                        '&:hover': {
-                          color: '#00D4AA',
-                          backgroundColor: 'rgba(0, 212, 170, 0.08)'
-                        }
-                      }}
-                    >
-                      <ClearIcon fontSize="small" />
-                    </IconButton>
-                  ),
-                  sx: {
-                    backgroundColor: '#1A1A1A',
-                    borderRadius: '8px',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      border: '1px solid #2A2A2A',
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      border: '1px solid #00D4AA',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      border: '1px solid #00D4AA',
-                      boxShadow: '0 0 0 2px rgba(0, 212, 170, 0.2)',
-                    },
-                    '& input': {
-                      color: '#FFFFFF',
-                      '&::placeholder': {
-                        color: '#888888',
-                        opacity: 1,
-                      },
-                    },
-                  }
-                }}
-              />
-              {searchQuery && (
-                <Box sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 1, 
-                  color: '#888888',
-                  fontSize: '0.875rem',
-                  whiteSpace: 'nowrap'
-                }}>
-                  <Typography variant="body2" sx={{ color: '#888888' }}>
-                    {filteredInvoices.length} of {invoices.length} results
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Invoices Table */}
-      <Card>
-        <CardContent>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-            <Typography variant="h6">
-              Invoices ({invoices.length})
+              Invoice Management
             </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
             {/* Bulk Delete Button - only show when items are selected */}
             {selectedInvoices.length > 0 && (
               <Button
                 variant="outlined"
-                startIcon={<DeleteIcon />}
+                startIcon={<DeleteIcon fontSize="small" />}
                 onClick={handleBulkDelete}
                 disabled={bulkDeleting}
                 sx={{
+                  minHeight: '32px',
+                  height: '32px',
+                  minWidth: '140px',
+                  px: 3,
+                  py: 0.75,
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  letterSpacing: '0.025em',
+                  borderRadius: '8px',
+                  whiteSpace: 'nowrap',
                   color: '#FF5252',
                   borderColor: 'rgba(255, 82, 82, 0.3)',
                   '&:hover': {
@@ -877,32 +669,155 @@ const InvoiceManagement = () => {
                 )}
               </Button>
             )}
-          </Box>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.6 }}
-          >
-            <TableContainer 
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon fontSize="small" />}
+              onClick={() => {
+                fetchInvoices();
+                fetchSummary();
+              }}
               sx={{
-                background: '#1A1A1A',
-                borderRadius: '16px',
-                border: '1px solid #2A2A2A',
-                overflow: 'hidden'
+                minHeight: '32px',
+                height: '32px',
+                minWidth: '130px',
+                px: 3,
+                py: 0.75,
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                textTransform: 'none',
+                letterSpacing: '0.025em',
+                borderRadius: '8px',
+                borderColor: '#3B82F6',
+                color: '#3B82F6',
+                '&:hover': {
+                  borderColor: '#2563EB',
+                  backgroundColor: 'rgba(59, 130, 246, 0.08)'
+                }
               }}
             >
-              <Table>
+              Refresh Data
+            </Button>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Filters */}
+      <Card 
+        sx={{ 
+          mb: 0.5,
+          background: '#FFFFFF',
+          
+          borderRadius: '6px'
+        }}
+      >
+          <CardContent sx={{ py: 0.5, px: 1, '&:last-child': { pb: 0.5 } }}>
+            {/* Search Bar */}
+            <Box sx={{ mb: 0.5 }}>
+              <TextField
+                fullWidth
+                placeholder="Search invoices by number, student, status, or type..."
+                value={searchQuery}
+                onChange={handleSearchChange}
+                variant="outlined"
+                size="small"
+                InputProps={{
+                  startAdornment: (
+                    <SearchIcon sx={{ 
+                      color: '#6B7280', 
+                      mr: 1,
+                      fontSize: '16px'
+                    }} />
+                  ),
+                  endAdornment: searchQuery && (
+                    <IconButton
+                      size="small"
+                      onClick={handleClearSearch}
+                      sx={{ 
+                        color: '#6B7280',
+                        p: 0.5,
+                        '&:hover': {
+                          color: '#3B82F6',
+                          backgroundColor: 'rgba(59, 130, 246, 0.08)'
+                        }
+                      }}
+                    >
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  ),
+                  sx: {
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: '6px',
+                    height: '32px',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      border: '1px solid #3B82F6',
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      border: '2px solid #3B82F6',
+                      boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
+                    },
+                    '& input': {
+                      color: '#1F2937',
+                      fontSize: '13px',
+                      padding: '4px 0',
+                      '&::placeholder': {
+                        color: '#9CA3AF',
+                        opacity: 1,
+                      },
+                    },
+                  }
+                }}
+              />
+            </Box>
+          </CardContent>
+        </Card>
+
+      {/* Invoices Table */}
+      <Card sx={{ borderRadius: '6px' }}>
+        <CardContent sx={{ py: 0.1, px: 0.25, '&:last-child': { pb: 0.1 } }}>
+          <Box display="flex" justifyContent="flex-start" alignItems="center" mb={0.1}>
+            <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
+              Invoices ({invoices.length})
+            </Typography>
+          </Box>
+          <TableContainer 
+            sx={{
+              background: '#FFFFFF',
+              borderRadius: '6px',
+              
+              overflow: 'hidden'
+            }}
+          >
+              <Table size="small" sx={{
+                '& .MuiTableCell-root': {
+                  py: 0.25,
+                  px: 0.5,
+                  fontSize: '0.75rem',
+                  border: 'none',
+                  borderBottom: '1px solid #F3F4F6'
+                },
+                '& .MuiTableHead-root .MuiTableCell-root': {
+                  py: 0.5,
+                  borderBottom: '1px solid #E5E7EB',
+                  backgroundColor: '#F9FAFB'
+                },
+                '& .MuiTableRow-root:hover': {
+                  backgroundColor: '#F8FAFC'
+                }
+              }}>
                 <TableHead>
                   <TableRow sx={{ 
-                    background: 'linear-gradient(135deg, #2A2A2A 0%, #1A1A1A 100%)'
+                    background: 'linear-gradient(135deg, #FFFFFF 0%, #FFFFFF 100%)'
                   }}>
                     {/* Select All Checkbox Column */}
                     <TableCell sx={{ 
-                      width: '60px', 
+                      width: '50px', 
                       textAlign: 'center',
-                      borderBottom: '1px solid #2A2A2A',
-                      color: '#FFFFFF',
-                      fontWeight: 700
+                      color: '#1F2937',
+                      fontWeight: 700,
+                      fontSize: '0.75rem'
                     }}>
                       <Tooltip title={selectAll ? 'Deselect All' : 'Select All'}>
                         <Checkbox
@@ -911,72 +826,72 @@ const InvoiceManagement = () => {
                           onChange={handleSelectAll}
                           disabled={filteredInvoices.length === 0}
                           sx={{
-                            color: '#00D4AA',
+                            color: '#3B82F6',
                             '&.Mui-checked': {
-                              color: '#00D4AA',
+                              color: '#3B82F6',
                             },
                             '&.MuiCheckbox-indeterminate': {
-                              color: '#00D4AA',
+                              color: '#3B82F6',
                             }
                         }}
                       />
                     </Tooltip>
                   </TableCell>
                   <TableCell sx={{ 
-                    color: '#FFFFFF', 
+                    color: '#1F2937', 
                     fontWeight: 700,
-                    borderBottom: '1px solid #2A2A2A'
+                    fontSize: '0.75rem'
                   }}>
                     Invoice #
                   </TableCell>
                   <TableCell sx={{ 
-                    color: '#FFFFFF', 
+                    color: '#1F2937', 
                     fontWeight: 700,
-                    borderBottom: '1px solid #2A2A2A'
+                    fontSize: '0.75rem'
                   }}>
                     Type
                   </TableCell>
                   <TableCell sx={{ 
-                    color: '#FFFFFF', 
+                    color: '#1F2937', 
                     fontWeight: 700,
-                    borderBottom: '1px solid #2A2A2A'
+                    fontSize: '0.75rem'
                   }}>
                     Student
                   </TableCell>
                   <TableCell sx={{ 
-                    color: '#FFFFFF', 
+                    color: '#1F2937', 
                     fontWeight: 700,
-                    borderBottom: '1px solid #2A2A2A'
+                    fontSize: '0.75rem'
                   }}>
                     Status
                   </TableCell>
                   <TableCell sx={{ 
-                    color: '#FFFFFF', 
+                    color: '#1F2937', 
                     fontWeight: 700,
-                    borderBottom: '1px solid #2A2A2A'
+                    fontSize: '0.75rem'
                   }}>
                     Issue Date
                   </TableCell>
                   <TableCell sx={{ 
-                    color: '#FFFFFF', 
+                    color: '#1F2937', 
                     fontWeight: 700,
-                    borderBottom: '1px solid #2A2A2A'
+                    fontSize: '0.75rem'
                   }}>
                     Items
                   </TableCell>
                   <TableCell sx={{ 
-                    color: '#FFFFFF', 
+                    color: '#1F2937', 
                     fontWeight: 700,
-                    borderBottom: '1px solid #2A2A2A'
+                    fontSize: '0.75rem'
                   }}>
                     Physical
                   </TableCell>
                   <TableCell 
                     align="center"
                     sx={{ 
-                      color: '#FFFFFF', 
+                      color: '#1F2937', 
                       fontWeight: 700,
-                      borderBottom: '1px solid #2A2A2A'
+                      fontSize: '0.75rem'
                     }}
                   >
                     Actions
@@ -984,13 +899,13 @@ const InvoiceManagement = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {loading ? (
+                {filteredInvoices.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} align="center">Loading...</TableCell>
-                  </TableRow>
-                ) : filteredInvoices.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} align="center">
+                    <TableCell colSpan={9} align="center" sx={{ 
+                      color: '#6B7280',
+                      fontStyle: 'italic',
+                      py: 4
+                    }}>
                       {searchQuery 
                         ? `No invoices found matching "${searchQuery}". Try adjusting your search.`
                         : 'No invoices found'
@@ -998,32 +913,20 @@ const InvoiceManagement = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  <AnimatePresence>
-                    {filteredInvoices.map((invoice, index) => {
+                  filteredInvoices.map((invoice, index) => {
                       const isSelected = selectedInvoices.includes(invoice.id);
                       return (
-                        <motion.tr
+                        <TableRow
                           key={invoice.id}
-                          component={TableRow}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -20 }}
-                          transition={{ delay: index * 0.05, duration: 0.4 }}
-                          whileHover={{
-                            scale: 1.01,
-                            boxShadow: '0 4px 20px rgba(0, 212, 170, 0.1)',
-                            transition: { duration: 0.2 }
-                          }}
                           sx={{
-                            backgroundColor: isSelected ? 'rgba(0, 212, 170, 0.08)' : 'transparent',
-                            borderBottom: '1px solid #2A2A2A',
+                            backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.08)' : 'transparent',
                             cursor: 'pointer',
                             '&:hover': {
                               backgroundColor: isSelected 
-                                ? 'rgba(0, 212, 170, 0.12)' 
-                                : 'rgba(255, 255, 255, 0.02)',
+                                ? 'rgba(59, 130, 246, 0.12)' 
+                                : 'rgba(59, 130, 246, 0.04)',
                               '& .MuiTableCell-root': {
-                                color: '#FFFFFF'
+                                color: '#1F2937'
                               }
                             }
                           }}
@@ -1032,88 +935,90 @@ const InvoiceManagement = () => {
                           <TableCell sx={{ 
                             textAlign: 'center', 
                             width: '60px',
-                            borderBottom: '1px solid #2A2A2A',
-                            color: '#E0E0E0'
+                            color: '#1F2937'
                           }}>
-                            <motion.div
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                            >
+                            <Box>
                               <Checkbox
                                 checked={isSelected}
                                 onChange={() => handleSelectInvoice(invoice.id)}
                                 sx={{
-                                  color: '#00D4AA',
+                                  color: '#3B82F6',
                                   '&.Mui-checked': {
-                                    color: '#00D4AA',
+                                    color: '#3B82F6',
                                   }
                                 }}
                               />
-                            </motion.div>
+                            </Box>
                           </TableCell>
                           <TableCell sx={{ 
-                            borderBottom: '1px solid #2A2A2A',
-                            color: '#E0E0E0'
+                            
+                            color: '#1F2937'
                           }}>
-                            <motion.div
-                              whileHover={{ x: 5 }}
-                              transition={{ duration: 0.2 }}
-                            >
+                            <Box>
                               <Box display="flex" alignItems="center">
-                                <motion.div
-                                  animate={{ 
-                                    rotate: [0, 5, -5, 0],
-                                  }}
-                                  transition={{ 
-                                    duration: 2,
-                                    repeat: Infinity,
-                                    repeatDelay: 5
-                                  }}
-                                >
+                                <Box>
                                   {getTypeIcon(invoice.invoice_type)}
-                                </motion.div>
+                                </Box>
                                 <Typography 
                                   variant="body2" 
                                   sx={{ 
                                     ml: 1,
-                                    color: '#00D4AA',
+                                    color: '#3B82F6',
                                     fontWeight: 600
                                   }}
                                 >
                                   {invoice.invoice_number}
                                 </Typography>
                               </Box>
-                            </motion.div>
+                            </Box>
                           </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ 
+                        
+                        color: '#1F2937'
+                      }}>
                         <Chip 
                           label={invoice.invoice_type}
                           size="small"
                           variant="outlined"
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ 
+                        
+                        color: '#1F2937'
+                      }}>
                         <Box>
-                          <Typography variant="body2">{invoice.student_name}</Typography>
-                          <Typography variant="caption" color="textSecondary">
+                          <Typography variant="body2" sx={{ color: '#1F2937' }}>{invoice.student_name}</Typography>
+                          <Typography variant="caption" sx={{ color: '#6B7280' }}>
                             {invoice.department}
                           </Typography>
                         </Box>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ 
+                        
+                        color: '#1F2937'
+                      }}>
                         <Chip 
                           label={invoice.status}
                           color={getStatusColor(invoice.status)}
                           size="small"
                         />
                       </TableCell>
-                      <TableCell>{formatDate(invoice.issue_date)}</TableCell>
-                      <TableCell>
+                      <TableCell sx={{ 
+                        
+                        color: '#1F2937'
+                      }}>{formatDate(invoice.issue_date)}</TableCell>
+                      <TableCell sx={{ 
+                        
+                        color: '#1F2937'
+                      }}>
                         <Badge badgeContent={invoice.item_count} color="primary">
                           <AssignmentIcon />
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ 
+                        
+                        color: '#1F2937'
+                      }}>
                         <Box display="flex" alignItems="center">
                           {invoice.physical_invoice_captured ? (
                             <Tooltip title="Physical invoice captured">
@@ -1131,55 +1036,50 @@ const InvoiceManagement = () => {
                           )}
                         </Box>
                       </TableCell>
-                      <TableCell align="center">
-                        <motion.div
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          <IconButton
-                            onClick={() => handleViewInvoice(invoice.id)}
-                            title="View Invoice"
-                            size="small"
-                            sx={{
-                              color: '#00D4AA',
-                              '&:hover': {
-                                backgroundColor: 'rgba(0, 212, 170, 0.1)',
-                                transform: 'scale(1.1)'
-                              }
-                            }}
-                          >
-                            <ViewIcon />
-                          </IconButton>
-                        </motion.div>
-                        <motion.div
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
+                      <TableCell align="center" sx={{ 
+                        
+                        color: '#1F2937'
+                      }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
                           <IconButton
                             onClick={() => handleDeleteClick(invoice)}
                             title="Delete Invoice"
                             size="small"
                             sx={{
                               color: '#FF5252',
+                              p: 0.25,
                               '&:hover': {
                                 backgroundColor: 'rgba(255, 82, 82, 0.1)',
                                 transform: 'scale(1.1)'
                               }
                             }}
                           >
-                            <DeleteIcon />
+                            <DeleteIcon fontSize="small" />
                           </IconButton>
-                        </motion.div>
+                          <IconButton
+                            onClick={() => handleViewInvoice(invoice.id)}
+                            title="View Invoice"
+                            size="small"
+                            sx={{
+                              color: '#3B82F6',
+                              p: 0.25,
+                              '&:hover': {
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                transform: 'scale(1.1)'
+                              }
+                            }}
+                          >
+                            <ViewIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
                       </TableCell>
-                    </motion.tr>
+                    </TableRow>
                     );
-                    })}
-                  </AnimatePresence>
+                    })
                 )}
               </TableBody>
             </Table>
           </TableContainer>
-          </motion.div>
         </CardContent>
       </Card>
 
@@ -1266,10 +1166,10 @@ const InvoiceManagement = () => {
       </Dialog>
 
       {/* Floating Action Buttons for Creating Invoices */}
-      <motion.div
-        initial={{ scale: 0, rotate: -180 }}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ duration: 0.8, delay: 1 }}
+      <Box
+        
+        
+        
       >
         <SpeedDial
           ariaLabel="Create Invoice Options"
@@ -1278,22 +1178,22 @@ const InvoiceManagement = () => {
             bottom: 32, 
             right: 32,
             '& .MuiFab-primary': {
-              background: 'linear-gradient(135deg, #00D4AA 0%, #6C63FF 100%)',
+              background: 'linear-gradient(135deg, #3B82F6 0%, #6C63FF 100%)',
               width: '64px',
               height: '64px',
               boxShadow: '0 12px 48px rgba(0, 212, 170, 0.4)',
               '&:hover': {
-                background: 'linear-gradient(135deg, #00B899 0%, #5A52FF 100%)',
+                background: 'linear-gradient(135deg, #2563EB 0%, #5A52FF 100%)',
                 transform: 'scale(1.1)',
                 boxShadow: '0 16px 64px rgba(0, 212, 170, 0.5)',
               }
             },
             '& .MuiSpeedDialAction-fab': {
-              background: '#1A1A1A',
-              border: '2px solid #2A2A2A',
-              color: '#00D4AA',
+              background: '#FFFFFF',
+              
+              color: '#3B82F6',
               '&:hover': {
-                background: 'linear-gradient(135deg, #00D4AA 0%, #6C63FF 100%)',
+                background: 'linear-gradient(135deg, #3B82F6 0%, #6C63FF 100%)',
                 color: '#FFFFFF',
                 transform: 'scale(1.15)',
                 boxShadow: '0 8px 32px rgba(0, 212, 170, 0.3)',
@@ -1301,12 +1201,12 @@ const InvoiceManagement = () => {
             }
           }}
           icon={
-            <motion.div
+            <Box
               animate={{ 
                 rotate: speedDialOpen ? 45 : 0,
                 scale: speedDialOpen ? 1.2 : 1
               }}
-              transition={{ duration: 0.3 }}
+              
             >
               <SpeedDialIcon 
                 sx={{ 
@@ -1314,7 +1214,7 @@ const InvoiceManagement = () => {
                   color: '#FFFFFF'
                 }} 
               />
-            </motion.div>
+            </Box>
           }
           open={speedDialOpen}
           onClose={() => setSpeedDialOpen(false)}
@@ -1322,22 +1222,22 @@ const InvoiceManagement = () => {
         >
           <SpeedDialAction
             icon={
-              <motion.div
-                whileHover={{ rotate: 360, scale: 1.2 }}
-                transition={{ duration: 0.5 }}
+              <Box
+                
+                
               >
                 <AddIcon sx={{ fontSize: '1.5rem' }} />
-              </motion.div>
+              </Box>
             }
             tooltipTitle="Create Invoice Manually"
             onClick={() => {
-              setCreateInvoiceDialogOpen(true);
+              setManualInvoiceDialogOpen(true);
               setSpeedDialOpen(false);
             }}
           />
           <SpeedDialAction
             icon={
-              <motion.div
+              <Box
                 animate={{ 
                   rotate: [0, 10, -10, 0],
                   scale: [1, 1.1, 1]
@@ -1354,7 +1254,7 @@ const InvoiceManagement = () => {
                 }}
               >
                 <SmartToyIcon sx={{ fontSize: '1.5rem' }} />
-              </motion.div>
+              </Box>
             }
             tooltipTitle="AI-Powered OCR Upload"
             onClick={() => {
@@ -1364,7 +1264,7 @@ const InvoiceManagement = () => {
           />
           <SpeedDialAction
             icon={
-              <motion.div
+              <Box
                 animate={{ 
                   y: [0, -5, 0],
                   scale: [1, 1.1, 1]
@@ -1380,7 +1280,7 @@ const InvoiceManagement = () => {
                 }}
               >
                 <CloudUploadIcon sx={{ fontSize: '1.5rem' }} />
-              </motion.div>
+              </Box>
             }
             tooltipTitle="Bulk Upload Invoice Images"
             onClick={() => {
@@ -1390,7 +1290,7 @@ const InvoiceManagement = () => {
           />
           <SpeedDialAction
             icon={
-              <motion.div
+              <Box
                 animate={{ 
                   scale: [1, 1.2, 1]
                 }}
@@ -1406,7 +1306,7 @@ const InvoiceManagement = () => {
                 }}
               >
                 <PhotoCameraIcon sx={{ fontSize: '1.5rem' }} />
-              </motion.div>
+              </Box>
             }
             tooltipTitle="Quick Camera Capture"
             onClick={() => {
@@ -1414,8 +1314,35 @@ const InvoiceManagement = () => {
               setSpeedDialOpen(false);
             }}
           />
+          <SpeedDialAction
+            icon={
+              <Box
+                animate={{ 
+                  x: [0, 3, -3, 0],
+                  scale: [1, 1.1, 1]
+                }}
+                transition={{ 
+                  duration: 2,
+                  repeat: Infinity,
+                  repeatDelay: 2
+                }}
+                whileHover={{ 
+                  scale: 1.3,
+                  rotate: 5,
+                  transition: { duration: 0.3 }
+                }}
+              >
+                <TableChartIcon sx={{ fontSize: '1.5rem' }} />
+              </Box>
+            }
+            tooltipTitle="Bulk CSV Upload"
+            onClick={() => {
+              setBulkCSVDialogOpen(true);
+              setSpeedDialOpen(false);
+            }}
+          />
         </SpeedDial>
-      </motion.div>
+      </Box>
 
       {/* Snackbar for messages */}
       <Snackbar 
@@ -1438,6 +1365,42 @@ const InvoiceManagement = () => {
         </Alert>
       </Snackbar>
 
+      {/* Create Invoice Dialog */}
+      <CreateInvoiceDialog
+        open={createInvoiceDialogOpen}
+        onClose={() => setCreateInvoiceDialogOpen(false)}
+        onSuccess={(result) => {
+          setSuccess(`Invoice created successfully! Invoice number: ${result.invoice_number}`);
+          setCreateInvoiceDialogOpen(false);
+          fetchInvoices();
+          fetchSummary();
+        }}
+      />
+
+      {/* OCR Invoice Upload Dialog */}
+      <OCRInvoiceUploadDialog
+        open={ocrInvoiceDialogOpen}
+        onClose={() => setOcrInvoiceDialogOpen(false)}
+        onSuccess={(result) => {
+          setSuccess(`OCR invoice uploaded successfully! Invoice number: ${result.invoice_number}`);
+          setOcrInvoiceDialogOpen(false);
+          fetchInvoices();
+          fetchSummary();
+        }}
+      />
+
+      {/* Camera Upload Dialog */}
+      <CameraUploadDialog
+        open={cameraDialogOpen}
+        onClose={() => setCameraDialogOpen(false)}
+        onSuccess={(result) => {
+          setSuccess(`Camera capture successful! Invoice processed.`);
+          setCameraDialogOpen(false);
+          fetchInvoices();
+          fetchSummary();
+        }}
+      />
+
       {/* Bulk Upload Dialog */}
       <BulkInvoiceUploadDialog
         open={bulkUploadDialogOpen}
@@ -1445,6 +1408,42 @@ const InvoiceManagement = () => {
         onSuccess={(result) => {
           setSuccess(`Bulk upload completed! ${result.successful} invoices created successfully, ${result.failed} failed.`);
           setBulkUploadDialogOpen(false);
+          fetchInvoices();
+          fetchSummary();
+        }}
+      />
+
+      {/* Bulk CSV Upload Dialog */}
+      <BulkInvoiceCSVDialog
+        open={bulkCSVDialogOpen}
+        onClose={() => setBulkCSVDialogOpen(false)}
+        onSuccess={(result) => {
+          setSuccess(`Bulk CSV upload completed! ${result.successful} invoices created successfully, ${result.failed} failed.`);
+          setBulkCSVDialogOpen(false);
+          fetchInvoices();
+          fetchSummary();
+        }}
+      />
+
+      {/* Manual Invoice Creation Dialog */}
+      <ManualInvoiceCreationDialog
+        open={manualInvoiceDialogOpen}
+        onClose={() => setManualInvoiceDialogOpen(false)}
+        onSuccess={(message) => {
+          setSuccess(message);
+          setManualInvoiceDialogOpen(false);
+          fetchInvoices();
+          fetchSummary();
+        }}
+      />
+
+      {/* Bulk Manual Invoice Dialog */}
+      <BulkManualInvoiceDialog
+        open={bulkManualDialogOpen}
+        onClose={() => setBulkManualDialogOpen(false)}
+        onSuccess={(message) => {
+          setSuccess(message);
+          setBulkManualDialogOpen(false);
           fetchInvoices();
           fetchSummary();
         }}

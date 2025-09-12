@@ -24,7 +24,6 @@ import {
   Button,
   Alert
 } from '@mui/material';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
@@ -62,16 +61,17 @@ import Orders from './components/Orders';
 import InvoiceManagement from './components/InvoiceManagement';
 import InvoiceDashboard from './components/InvoiceDashboard';
 import SettingsManagement from './components/SettingsManagement';
-import LoginPage from './components/LoginPage';
+import LoginPage from './components/MinimalLoginPage';
 import UserManagement from './components/UserManagement';
+import NotificationSystem from './components/NotificationSystem';
 
 // Import theme and components
-import { darkMatteTheme, animationVariants } from './theme/darkTheme';
+import { lightMinimalTheme } from './theme/lightTheme';
 import LoadingAnimation from './components/LoadingAnimation';
-import { AnimatedBadge, GlowEffect } from './components/AnimatedComponents';
+import { SimpleBadge, SimpleLoading } from './components/SimpleComponents';
 
-// Import enhanced scrollbar styles
-import './styles/scrollbar.css';
+// Import minimal styles
+import './styles/minimal.css';
 
 const drawerWidth = 280;
 const API_BASE_URL = 'http://localhost:8000';
@@ -336,7 +336,7 @@ function App() {
     { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, badge: 0, roles: ['main_admin', 'sub_admin', 'viewer'] },
     { id: 'products', label: 'Products Management', icon: <InventoryIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
     { id: 'students', label: 'Student Management', icon: <PeopleIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
-    { id: 'orders', label: 'Order Management', icon: <StoreIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
+    { id: 'orders', label: 'Lending Management', icon: <StoreIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
     { id: 'invoicing', label: 'Invoicing & Billing', icon: <ReceiptIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
     { id: 'reports', label: 'Reports & Analytics', icon: <BarChartIcon />, badge: 0, roles: ['main_admin', 'sub_admin', 'viewer'] },
     { id: 'users', label: 'User Management', icon: <ManageAccountsIcon />, badge: 0, roles: ['main_admin'] },
@@ -362,13 +362,6 @@ function App() {
   };
 
   const renderContent = () => {
-    const contentVariants = {
-      initial: { opacity: 0, x: 20 },
-      animate: { opacity: 1, x: 0 },
-      exit: { opacity: 0, x: -20 },
-      transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] },
-    };
-
     const getContent = () => {
       switch (selectedModule) {
         case 'orders':
@@ -391,49 +384,34 @@ function App() {
           return <SettingsManagement />;
         default:
           return (
-            <Box>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-              >
-                <Typography variant="h4" gutterBottom>
-                  {getAccessibleMenuItems().find(item => item.id === selectedModule)?.label || 'Module'}
-                </Typography>
-                <Typography variant="body1" sx={{ color: 'text.secondary' }}>
-                  This module is coming soon! Currently working on the Product Management and Order Management system.
-                </Typography>
-              </motion.div>
+            <Box sx={{ p: 3 }}>
+              <Typography variant="h4" gutterBottom>
+                {getAccessibleMenuItems().find(item => item.id === selectedModule)?.label || 'Module'}
+              </Typography>
+              <Typography variant="body1" sx={{ color: 'text.secondary' }}>
+                This module is coming soon! Currently working on the Product Management and Order Management system.
+              </Typography>
             </Box>
           );
       }
     };
 
     return (
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={selectedModule}
-          variants={contentVariants}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          style={{ height: '100%' }}
-        >
-          {getContent()}
-        </motion.div>
-      </AnimatePresence>
+      <Box key={selectedModule} sx={{ height: '100%' }}>
+        {getContent()}
+      </Box>
     );
   };
 
   // Show login page if not authenticated
   if (authLoading) {
     return (
-      <ThemeProvider theme={darkMatteTheme}>
+      <ThemeProvider theme={lightMinimalTheme}>
         <CssBaseline />
-        <LoadingAnimation 
-          isLoading={true} 
-          progress={50}
+        <SimpleLoading 
+          size={50}
           message="Checking authentication..."
+          sx={{ height: '100vh' }}
         />
       </ThemeProvider>
     );
@@ -441,7 +419,7 @@ function App() {
 
   if (!isAuthenticated) {
     return (
-      <ThemeProvider theme={darkMatteTheme}>
+      <ThemeProvider theme={lightMinimalTheme}>
         <CssBaseline />
         <LoginPage onLoginSuccess={handleLoginSuccess} />
       </ThemeProvider>
@@ -450,118 +428,93 @@ function App() {
 
   if (isLoading) {
     return (
-      <ThemeProvider theme={darkMatteTheme}>
+      <ThemeProvider theme={lightMinimalTheme}>
         <CssBaseline />
-        <LoadingAnimation 
-          isLoading={isLoading} 
-          progress={loadingProgress}
+        <SimpleLoading 
+          size={50}
           message="Loading Inventory System..."
+          sx={{ height: '100vh' }}
         />
       </ThemeProvider>
     );
   }
 
   return (
-    <ThemeProvider theme={darkMatteTheme}>
+    <ThemeProvider theme={lightMinimalTheme}>
       <CssBaseline />
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-          {/* Header */}
-          <AppBar 
-            position="fixed" 
-            sx={{ 
-              zIndex: (theme) => theme.zIndex.drawer + 1,
-              width: '100%',
-              left: 0,
-            }}
-          >
-            <Toolbar sx={{ justifyContent: 'space-between' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <motion.div
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  <IconButton
-                    color="inherit"
-                    aria-label="open drawer"
-                    onClick={handleToggleSidebar}
-                    edge="start"
-                    sx={{ mr: 2 }}
-                  >
-                    <motion.div
-                      animate={{ rotate: sidebarOpen ? 0 : 180 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      {sidebarOpen ? <CloseIcon /> : <MenuIcon />}
-                    </motion.div>
-                  </IconButton>
-                </motion.div>
-                
-                <GlowEffect color="0, 212, 170" intensity={0.4}>
-                  <Typography 
-                    variant="h6" 
-                    noWrap 
-                    component="div"
-                    sx={{
-                      background: `linear-gradient(135deg, ${darkMatteTheme.palette.primary.main} 0%, ${darkMatteTheme.palette.secondary.main} 100%)`,
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text',
-                      fontWeight: 700,
-                    }}
-                  >
-                    College Incubation Inventory System
-                  </Typography>
-                </GlowEffect>
-              </Box>
+      <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+        {/* Header */}
+        <AppBar 
+          position="fixed" 
+          sx={{ 
+            zIndex: (theme) => theme.zIndex.drawer + 1,
+            width: '100%',
+            left: 0,
+          }}
+        >
+          <Toolbar sx={{ justifyContent: 'space-between', minHeight: '48px !important', py: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <IconButton
+                color="inherit"
+                aria-label="open drawer"
+                onClick={handleToggleSidebar}
+                edge="start"
+                size="small"
+                sx={{ mr: 1 }}
+              >
+                {sidebarOpen ? <CloseIcon fontSize="small" /> : <MenuIcon fontSize="small" />}
+              </IconButton>
+              
+              <Typography 
+                variant="subtitle1" 
+                noWrap 
+                component="div"
+                sx={{
+                  color: 'primary.main',
+                  fontWeight: 600,
+                  fontSize: '1rem',
+                }}
+              >
+                College Incubation Inventory System
+              </Typography>
+            </Box>
 
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <motion.div
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <IconButton 
+                color="inherit"
+                onClick={handleNotificationClick}
+                size="small"
+                sx={{ position: 'relative' }}
+              >
+                <Badge 
+                  badgeContent={unreadCount} 
+                  color="error"
+                  sx={{
+                    '& .MuiBadge-badge': {
+                      backgroundColor: '#EF4444',
+                      color: '#FFFFFF',
+                      fontWeight: 'bold',
+                      fontSize: '0.65rem',
+                      height: '16px',
+                      minWidth: '16px'
+                    }
+                  }}
                 >
-                  <IconButton 
-                    color="inherit"
-                    onClick={handleNotificationClick}
-                    sx={{ position: 'relative' }}
-                  >
-                    <Badge 
-                      badgeContent={unreadCount} 
-                      color="error"
-                      sx={{
-                        '& .MuiBadge-badge': {
-                          backgroundColor: '#FF4444',
-                          color: '#FFFFFF',
-                          fontWeight: 'bold',
-                          fontSize: '0.75rem'
-                        }
-                      }}
-                    >
-                      <NotificationsIcon />
-                    </Badge>
-                  </IconButton>
-                </motion.div>
-                
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <IconButton 
-                    color="inherit"
-                    onClick={(e) => setUserMenuAnchor(e.currentTarget)}
-                  >
-                    <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
-                      {currentUser?.full_name?.charAt(0) || 'U'}
-                    </Avatar>
-                  </IconButton>
-                </motion.div>
-              </Box>
+                  <NotificationsIcon fontSize="small" />
+                </Badge>
+              </IconButton>
+              
+              <IconButton 
+                color="inherit"
+                onClick={(e) => setUserMenuAnchor(e.currentTarget)}
+                size="small"
+              >
+                <Avatar sx={{ width: 28, height: 28, bgcolor: 'primary.main', fontSize: '0.9rem' }}>
+                  {currentUser?.full_name?.charAt(0) || 'U'}
+                </Avatar>
+              </IconButton>
+            </Box>
 
-              {/* Notification Menu */}
               <Menu
                 anchorEl={notificationAnchor}
                 open={Boolean(notificationAnchor)}
@@ -570,8 +523,8 @@ function App() {
                   sx: {
                     width: '400px',
                     maxHeight: '500px',
-                    backgroundColor: '#1A1A1A',
-                    border: '1px solid #2A2A2A',
+                    backgroundColor: '#FFFFFF',
+                    border: '1px solid #E2E8F0',
                     borderRadius: '12px',
                     mt: 1
                   }
@@ -582,12 +535,12 @@ function App() {
                 {/* Notification Header */}
                 <Box sx={{ 
                   p: 2, 
-                  borderBottom: '1px solid #2A2A2A',
+                  borderBottom: '1px solid #E2E8F0',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center'
                 }}>
-                  <Typography variant="h6" sx={{ color: '#FFFFFF', fontWeight: 600 }}>
+                  <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 600 }}>
                     Notifications
                   </Typography>
                   {unreadCount > 0 && (
@@ -595,10 +548,10 @@ function App() {
                       size="small"
                       onClick={markAllAsRead}
                       sx={{
-                        color: '#00D4AA',
+                        color: '#3B82F6',
                         fontSize: '0.75rem',
                         '&:hover': {
-                          backgroundColor: 'rgba(0, 212, 170, 0.08)'
+                          backgroundColor: 'rgba(59, 130, 246, 0.04)'
                         }
                       }}
                     >
@@ -611,7 +564,7 @@ function App() {
                 <Box sx={{ maxHeight: '400px', overflow: 'auto' }}>
                   {notifications.length === 0 ? (
                     <Box sx={{ p: 3, textAlign: 'center' }}>
-                      <Typography sx={{ color: '#888888' }}>
+                      <Typography sx={{ color: '#64748B' }}>
                         No notifications
                       </Typography>
                     </Box>
@@ -629,12 +582,12 @@ function App() {
                           handleNotificationClose();
                         }}
                         sx={{
-                          backgroundColor: notification.read ? 'transparent' : 'rgba(0, 212, 170, 0.05)',
-                          borderBottom: '1px solid #2A2A2A',
+                          backgroundColor: notification.read ? 'transparent' : 'rgba(59, 130, 246, 0.04)',
+                          borderBottom: '1px solid #F1F5F9',
                           p: 2,
                           display: 'block',
                           '&:hover': {
-                            backgroundColor: 'rgba(0, 212, 170, 0.08)'
+                            backgroundColor: 'rgba(59, 130, 246, 0.08)'
                           }
                         }}
                       >
@@ -647,7 +600,7 @@ function App() {
                               <Typography 
                                 variant="subtitle2" 
                                 sx={{ 
-                                  color: '#FFFFFF',
+                                  color: '#1E293B',
                                   fontWeight: notification.read ? 400 : 600,
                                   lineHeight: 1.3
                                 }}
@@ -661,7 +614,7 @@ function App() {
                                       width: 8,
                                       height: 8,
                                       borderRadius: '50%',
-                                      backgroundColor: '#00D4AA',
+                                      backgroundColor: '#3B82F6',
                                       flexShrink: 0
                                     }}
                                   />
@@ -673,10 +626,10 @@ function App() {
                                     deleteNotification(notification.id);
                                   }}
                                   sx={{
-                                    color: '#888888',
+                                    color: '#64748B',
                                     '&:hover': {
-                                      color: '#FF4444',
-                                      backgroundColor: 'rgba(255, 68, 68, 0.1)'
+                                      color: '#EF4444',
+                                      backgroundColor: 'rgba(239, 68, 68, 0.04)'
                                     }
                                   }}
                                 >
@@ -687,7 +640,7 @@ function App() {
                             <Typography 
                               variant="body2" 
                               sx={{ 
-                                color: '#CCCCCC',
+                                color: '#64748B',
                                 mt: 0.5,
                                 lineHeight: 1.4
                               }}
@@ -697,7 +650,7 @@ function App() {
                             <Typography 
                               variant="caption" 
                               sx={{ 
-                                color: '#888888',
+                                color: '#94A3B8',
                                 mt: 1,
                                 display: 'flex',
                                 alignItems: 'center',
@@ -723,8 +676,8 @@ function App() {
                 PaperProps={{
                   sx: {
                     width: '250px',
-                    backgroundColor: '#1A1A1A',
-                    border: '1px solid #2A2A2A',
+                    backgroundColor: '#FFFFFF',
+                    border: '1px solid #E2E8F0',
                     borderRadius: '12px',
                     mt: 1
                   }
@@ -733,25 +686,25 @@ function App() {
                 anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
               >
                 {/* User Info */}
-                <Box sx={{ p: 2, borderBottom: '1px solid #2A2A2A' }}>
+                <Box sx={{ p: 2, borderBottom: '1px solid #E2E8F0' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Avatar sx={{ bgcolor: 'primary.main' }}>
                       {currentUser?.full_name?.charAt(0)}
                     </Avatar>
                     <Box>
-                      <Typography variant="subtitle2" sx={{ color: '#FFFFFF', fontWeight: 600 }}>
+                      <Typography variant="subtitle2" sx={{ color: '#1E293B', fontWeight: 600 }}>
                         {currentUser?.full_name}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: '#888888' }}>
+                      <Typography variant="caption" sx={{ color: '#64748B' }}>
                         {currentUser?.email}
                       </Typography>
                       <Box sx={{ mt: 0.5 }}>
-                        <Chip 
-                          label={currentUser?.role?.replace('_', ' ').toUpperCase()} 
-                          size="small"
+                        <SimpleBadge 
                           color={currentUser?.role === 'main_admin' ? 'error' : 'primary'}
-                          sx={{ fontSize: '0.7rem' }}
-                        />
+                          size="small"
+                        >
+                          {currentUser?.role?.replace('_', ' ').toUpperCase()}
+                        </SimpleBadge>
                       </Box>
                     </Box>
                   </Box>
@@ -759,23 +712,23 @@ function App() {
 
                 {/* Menu Items */}
                 <MenuItem onClick={() => setUserMenuAnchor(null)}>
-                  <AccountIcon sx={{ mr: 2, color: '#888888' }} />
+                  <AccountIcon sx={{ mr: 2, color: '#64748B' }} />
                   <Typography>Profile Settings</Typography>
                 </MenuItem>
                 
                 <MenuItem onClick={() => setUserMenuAnchor(null)}>
-                  <SettingsIcon sx={{ mr: 2, color: '#888888' }} />
+                  <SettingsIcon sx={{ mr: 2, color: '#64748B' }} />
                   <Typography>Preferences</Typography>
                 </MenuItem>
                 
-                <Divider sx={{ my: 1, borderColor: '#2A2A2A' }} />
+                <Divider sx={{ my: 1, borderColor: '#E2E8F0' }} />
                 
                 <MenuItem 
                   onClick={handleLogout}
                   sx={{ 
-                    color: '#FF4444',
+                    color: '#EF4444',
                     '&:hover': { 
-                      backgroundColor: 'rgba(255, 68, 68, 0.1)' 
+                      backgroundColor: 'rgba(239, 68, 68, 0.04)' 
                     }
                   }}
                 >
@@ -810,107 +763,46 @@ function App() {
           >
             <Toolbar />
             
-            {/* User Profile Section */}
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-            >
-              <Box sx={{ p: 1.5, textAlign: 'center', borderBottom: '1px solid', borderColor: 'divider' }}>
-                <Avatar 
-                  sx={{ 
-                    width: 40, 
-                    height: 40, 
-                    mx: 'auto', 
-                    mb: 0.5,
-                    background: `linear-gradient(135deg, ${darkMatteTheme.palette.primary.main} 0%, ${darkMatteTheme.palette.secondary.main} 100%)`,
-                  }}
-                >
-                  {currentUser?.full_name?.charAt(0) || 'U'}
-                </Avatar>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
-                  {currentUser?.full_name || 'User'}
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
-                  {currentUser?.role?.replace('_', ' ').toUpperCase() || 'USER'}
-                </Typography>
-                <Box sx={{ mt: 0.5 }}>
-                  <Chip 
-                    label="Online" 
-                    color="success" 
-                    size="small" 
-                    sx={{ fontSize: '0.65rem', height: '18px' }}
-                  />
-                </Box>
-              </Box>
-            </motion.div>
-
-            <Box sx={{ overflow: 'auto', flex: 1 }} className="sidebar-scrollbar">
+            <Box sx={{ overflow: 'auto', flex: 1 }} className="scrollbar-thin">
               <List sx={{ px: 1, py: 2 }}>
                 {getAccessibleMenuItems().map((item, index) => (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.1 }}
-                  >
-                    <ListItem disablePadding sx={{ mb: 0.5 }}>
-                      <ListItemButton
-                        selected={selectedModule === item.id}
-                        onClick={() => handleModuleChange(item.id)}
-                        sx={{
-                          borderRadius: 2,
-                          mx: 1,
-                          '&.Mui-selected': {
-                            background: `linear-gradient(135deg, rgba(0, 212, 170, 0.15) 0%, rgba(108, 99, 255, 0.1) 100%)`,
-                            borderLeft: '3px solid',
-                            borderColor: 'primary.main',
-                          },
+                  <ListItem key={item.id} disablePadding sx={{ mb: 0.5 }}>
+                    <ListItemButton
+                      selected={selectedModule === item.id}
+                      onClick={() => handleModuleChange(item.id)}
+                      sx={{
+                        borderRadius: 2,
+                        mx: 1,
+                        '&.Mui-selected': {
+                          backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                          borderLeft: '3px solid',
+                          borderColor: 'primary.main',
+                        },
+                      }}
+                    >
+                      <ListItemIcon
+                        sx={{ 
+                          color: selectedModule === item.id ? 'primary.main' : 'text.secondary',
+                          minWidth: 40,
                         }}
                       >
-                        <ListItemIcon
-                          sx={{ 
-                            color: selectedModule === item.id ? 'primary.main' : 'text.secondary',
-                            minWidth: 40,
-                          }}
-                        >
-                          <motion.div
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                          >
-                            {item.icon}
-                          </motion.div>
-                        </ListItemIcon>
-                        <ListItemText 
-                          primary={item.label}
-                          primaryTypographyProps={{
-                            fontSize: '0.875rem',
-                            fontWeight: selectedModule === item.id ? 600 : 400,
-                            color: selectedModule === item.id ? 'primary.main' : 'text.primary',
-                          }}
-                        />
-                        {item.badge > 0 && (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{ delay: index * 0.1 + 0.3 }}
-                          >
-                            <Chip
-                              label={item.badge}
-                              size="small"
-                              sx={{
-                                height: '20px',
-                                fontSize: '0.7rem',
-                                minWidth: '20px',
-                                bgcolor: 'error.main',
-                                color: 'white',
-                              }}
-                            />
-                          </motion.div>
-                        )}
-                      </ListItemButton>
-                    </ListItem>
-                  </motion.div>
+                        {item.icon}
+                      </ListItemIcon>
+                      <ListItemText 
+                        primary={item.label}
+                        primaryTypographyProps={{
+                          fontSize: '0.875rem',
+                          fontWeight: selectedModule === item.id ? 600 : 400,
+                          color: selectedModule === item.id ? 'primary.main' : 'text.primary',
+                        }}
+                      />
+                      {item.badge > 0 && (
+                        <SimpleBadge color="error" size="small">
+                          {item.badge}
+                        </SimpleBadge>
+                      )}
+                    </ListItemButton>
+                  </ListItem>
                 ))}
               </List>
             </Box>
@@ -927,37 +819,22 @@ function App() {
           {/* Main Content */}
           <Box
             component="main"
-            className="content-scrollbar"
+            className="scrollbar-thin"
             sx={{
               flexGrow: 1,
-              background: darkMatteTheme.palette.background.gradient,
+              background: '#F8FAFC',
               height: '100vh',
               overflow: 'auto',
               paddingTop: '64px',
               position: 'relative',
             }}
           >
-            {/* Background pattern */}
-            <Box
-              sx={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                opacity: 0.02,
-                backgroundImage: `
-                  radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0);
-                `,
-                backgroundSize: '20px 20px',
-                pointerEvents: 'none',
-              }}
-            />
-            
             {renderContent()}
           </Box>
         </Box>
-      </motion.div>
+        
+        {/* Notification System */}
+        <NotificationSystem />
     </ThemeProvider>
   );
 }

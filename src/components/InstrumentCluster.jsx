@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Card, CardContent, Grid, IconButton, Tooltip, Switch, 
-  FormControlLabel, LinearProgress, Chip
+  FormControlLabel, Chip
 } from '@mui/material';
 import {
   Inventory as ProductsIcon,
@@ -167,9 +167,9 @@ function InstrumentCluster() {
           'Available Quantity': item.quantity_available || 0,
           'Quantity Issued': (item.quantity_total || 0) - (item.quantity_available || 0),
           'Returnable': item.is_returnable ? 'Yes' : 'No',
-          'Unit Price ($)': item.unit_price ? `$${parseFloat(item.unit_price).toFixed(2)}` : '$0.00',
-          'Total Value ($)': item.quantity_available && item.unit_price ? 
-            `$${(item.quantity_available * parseFloat(item.unit_price)).toFixed(2)}` : '$0.00',
+          'Unit Price (₹)': item.unit_price ? `₹${parseFloat(item.unit_price).toFixed(2)}` : '₹0.00',
+          'Total Value (₹)': item.quantity_available && item.unit_price ? 
+            `₹${(item.quantity_available * parseFloat(item.unit_price)).toFixed(2)}` : '₹0.00',
           'Storage Location': item.location || '',
           'Minimum Stock Level': item.minimum_stock_level || 0,
           'Stock Status': (item.quantity_available || 0) <= (item.minimum_stock_level || 0) ? 'Low Stock' : 'In Stock',
@@ -210,7 +210,7 @@ function InstrumentCluster() {
             'Order Type': order.order_type || '',
             'Order Status': order.status || '',
             'Total Items Count': order.total_items || 0,
-            'Total Order Value ($)': order.total_value ? `$${parseFloat(order.total_value).toFixed(2)}` : '$0.00',
+            'Total Order Value (₹)': order.total_value ? `₹${parseFloat(order.total_value).toFixed(2)}` : '₹0.00',
             'Order Notes': order.notes || '',
             'Requested Date': order.requested_date ? new Date(order.requested_date).toLocaleString() : '',
             'Approved Date': order.approved_date ? new Date(order.approved_date).toLocaleString() : '',
@@ -230,8 +230,8 @@ function InstrumentCluster() {
                 'Quantity Requested': item.quantity_requested || 0,
                 'Quantity Approved': item.quantity_approved || 0,
                 'Quantity Returned': item.quantity_returned || 0,
-                'Unit Price ($)': item.unit_price ? `$${parseFloat(item.unit_price).toFixed(2)}` : '$0.00',
-                'Total Item Price ($)': item.total_price ? `$${parseFloat(item.total_price).toFixed(2)}` : '$0.00',
+                'Unit Price (₹)': item.unit_price ? `₹${parseFloat(item.unit_price).toFixed(2)}` : '₹0.00',
+                'Total Item Price (₹)': item.total_price ? `₹${parseFloat(item.total_price).toFixed(2)}` : '₹0.00',
                 'Item Returnable': item.is_returnable ? 'Yes' : 'No',
                 'Item Expected Return': item.expected_return_date ? new Date(item.expected_return_date).toLocaleDateString() : '',
                 'Item Actual Return': item.actual_return_date ? new Date(item.actual_return_date).toLocaleDateString() : '',
@@ -249,8 +249,8 @@ function InstrumentCluster() {
               'Quantity Requested': '',
               'Quantity Approved': '',
               'Quantity Returned': '',
-              'Unit Price ($)': '',
-              'Total Item Price ($)': '',
+              'Unit Price (₹)': '',
+              'Total Item Price (₹)': '',
               'Item Returnable': '',
               'Item Expected Return': '',
               'Item Actual Return': '',
@@ -270,7 +270,7 @@ function InstrumentCluster() {
           'Student ID': item.student_id_number || item.student_id || '',
           'Status': item.status || '',
           'Total Items': item.total_items || 0,
-          'Total Value ($)': item.total_value ? parseFloat(item.total_value).toFixed(2) : '0.00',
+          'Total Value (₹)': item.total_value ? parseFloat(item.total_value).toFixed(2) : '0.00',
           'Issue Date': item.issue_date ? item.issue_date.split('T')[0] : '',
           'Physical Copy': item.has_physical_copy ? 'Yes' : 'No',
           'Student Acknowledged': item.acknowledged_by_student ? 'Yes' : 'No',
@@ -521,7 +521,7 @@ function InstrumentCluster() {
   const getStatusColor = (status) => {
     switch (status) {
       case 'good': 
-      case 'operational': return '#00D4AA';
+      case 'operational': return '#3B82F6';
       case 'warning': 
       case 'degraded': return '#FF8F00';
       case 'error': return '#FF6B6B';
@@ -585,8 +585,8 @@ function InstrumentCluster() {
     <Box sx={{ 
       p: 3, 
       minHeight: '100vh', 
-      backgroundColor: '#0A0A0A',
-      color: '#FFFFFF'
+      backgroundColor: '#FFFFFF',
+      color: '#1F2937'
     }}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -602,15 +602,15 @@ function InstrumentCluster() {
         }}>
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-              <BarChartIcon sx={{ fontSize: '2rem', color: '#FFFFFF' }} />
+              <BarChartIcon sx={{ fontSize: '2rem', color: '#1F2937' }} />
               <Typography variant="h4" sx={{ 
                 fontWeight: 700, 
-                color: '#FFFFFF' 
+                color: '#1F2937' 
               }}>
                 System Instrument Cluster
               </Typography>
             </Box>
-            <Typography variant="body1" sx={{ color: '#B0B0B0' }}>
+            <Typography variant="body1" sx={{ color: '#6B7280' }}>
               Live monitoring of all system modules • Real-time status updates
             </Typography>
           </Box>
@@ -623,10 +623,10 @@ function InstrumentCluster() {
                   onChange={(e) => setLiveUpdates(e.target.checked)}
                   sx={{
                     '& .MuiSwitch-switchBase.Mui-checked': {
-                      color: '#00D4AA',
+                      color: '#3B82F6',
                     },
                     '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                      backgroundColor: '#00D4AA',
+                      backgroundColor: '#3B82F6',
                     },
                   }}
                 />
@@ -642,7 +642,7 @@ function InstrumentCluster() {
               <IconButton 
                 onClick={fetchModuleData}
                 sx={{ 
-                  color: '#00D4AA',
+                  color: '#3B82F6',
                   '&:hover': { backgroundColor: 'rgba(0, 212, 170, 0.1)' }
                 }}
               >
@@ -655,7 +655,7 @@ function InstrumentCluster() {
                 onClick={() => handleExport('all')}
                 disabled={isExporting || loading}
                 sx={{ 
-                  color: '#00D4AA',
+                  color: '#3B82F6',
                   '&:hover': { backgroundColor: 'rgba(0, 212, 170, 0.1)' },
                   '&:disabled': { color: '#666666' },
                   fontSize: '2rem',
@@ -674,8 +674,8 @@ function InstrumentCluster() {
         {/* Status Bar */}
         <Card sx={{
           mb: 3,
-          backgroundColor: '#1A1A1A',
-          border: '1px solid #2A2A2A',
+          backgroundColor: '#FFFFFF',
+          border: '1px solid #E5E7EB',
           borderRadius: '12px'
         }}>
           <CardContent>
@@ -685,7 +685,7 @@ function InstrumentCluster() {
               alignItems: 'center' 
             }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Typography variant="h6" sx={{ color: '#00D4AA' }}>
+                <Typography variant="h6" sx={{ color: '#3B82F6' }}>
                   System Status
                 </Typography>
                 <Chip 
@@ -698,7 +698,7 @@ function InstrumentCluster() {
                   }
                   sx={{ 
                     backgroundColor: error ? '#FF6B6B' : loading ? '#888888' : getStatusColor(systemMetrics.system.status),
-                    color: '#0A0A0A',
+                    color: '#1F2937',
                     fontWeight: 600
                   }} 
                 />
@@ -726,14 +726,14 @@ function InstrumentCluster() {
                 transition={{ delay: index * 0.1 }}
               >
                 <Card sx={{
-                  backgroundColor: '#1A1A1A',
-                  border: '1px solid #2A2A2A',
+                  backgroundColor: '#FFFFFF',
+                  border: '1px solid #E5E7EB',
                   borderRadius: '12px',
                   height: '200px',
                   position: 'relative',
                   overflow: 'hidden',
                   '&:hover': {
-                    borderColor: '#00D4AA',
+                    borderColor: '#3B82F6',
                     transform: 'translateY(-2px)',
                     transition: 'all 0.3s ease'
                   }
@@ -747,11 +747,11 @@ function InstrumentCluster() {
                       mb: 2
                     }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box sx={{ color: '#00D4AA' }}>
+                        <Box sx={{ color: '#3B82F6' }}>
                           {module.icon}
                         </Box>
                         <Typography variant="subtitle2" sx={{ 
-                          color: '#FFFFFF',
+                          color: '#374151',
                           fontWeight: 600
                         }}>
                           {module.label}
@@ -775,7 +775,7 @@ function InstrumentCluster() {
                             onClick={() => handleExport(module.id)}
                             disabled={isExporting || loading}
                             sx={{ 
-                              color: '#00D4AA',
+                              color: '#3B82F6',
                               padding: '6px',
                               '&:hover': { backgroundColor: 'rgba(0, 212, 170, 0.1)' },
                               '&:disabled': { color: '#666666' }
@@ -790,7 +790,7 @@ function InstrumentCluster() {
                     {/* Main Metric */}
                     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                       <Typography variant="h3" sx={{ 
-                        color: '#FFFFFF',
+                        color: '#1F2937',
                         fontWeight: 700,
                         textAlign: 'center',
                         mb: 1
@@ -800,8 +800,8 @@ function InstrumentCluster() {
                       
                       {module.data.trend && (
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                          <TrendIcon sx={{ color: '#00D4AA', fontSize: '1rem' }} />
-                          <Typography variant="body2" sx={{ color: '#00D4AA' }}>
+                          <TrendIcon sx={{ color: '#3B82F6', fontSize: '1rem' }} />
+                          <Typography variant="body2" sx={{ color: '#3B82F6' }}>
                             {module.data.trend}
                           </Typography>
                         </Box>
@@ -810,25 +810,12 @@ function InstrumentCluster() {
 
                     {/* Activity Status */}
                     <Typography variant="caption" sx={{ 
-                      color: '#B0B0B0',
+                      color: '#6B7280',
                       textAlign: 'center',
                       mt: 1
                     }}>
                       {module.data.activity}
                     </Typography>
-
-                    {/* Progress Bar */}
-                    <LinearProgress 
-                      variant="indeterminate" 
-                      sx={{ 
-                        mt: 1,
-                        height: 2,
-                        backgroundColor: '#2A2A2A',
-                        '& .MuiLinearProgress-bar': {
-                          backgroundColor: getStatusColor(module.data.status)
-                        }
-                      }} 
-                    />
                   </CardContent>
                 </Card>
               </motion.div>

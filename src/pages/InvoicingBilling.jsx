@@ -59,7 +59,7 @@ function InvoicingBilling() {
             <CardContent sx={{ textAlign: 'center' }}>
               <MonetizationOn sx={{ fontSize: 40, color: 'success.main', mb: 1 }} />
               <Typography variant="h5" sx={{ fontWeight: 600, color: 'success.main' }}>
-                $1,250.45
+                ₹1,250.45
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Total Revenue
@@ -72,7 +72,7 @@ function InvoicingBilling() {
             <CardContent sx={{ textAlign: 'center' }}>
               <AccountBalance sx={{ fontSize: 40, color: 'warning.main', mb: 1 }} />
               <Typography variant="h5" sx={{ fontWeight: 600, color: 'warning.main' }}>
-                $125.50
+                ₹125.50
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Pending Payments

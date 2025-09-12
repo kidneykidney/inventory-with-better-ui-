@@ -7,7 +7,7 @@ import {
 } from '@mui/material';
 import {
   Person, School, Phone, Email, Add, Edit, Delete, Search,
-  Assignment, CalendarToday, LocationOn
+  Assignment, CalendarToday, LocationOn, Refresh
 } from '@mui/icons-material';
 
 const sampleStudents = [
@@ -190,7 +190,7 @@ function StudentManagement() {
 
   return (
     <Box>
-      {/* Header */}
+      {/* Header - Updated with consistent button styling */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" gutterBottom sx={{ fontWeight: 600, color: '#2c3e50' }}>
           👥 Student Management
@@ -203,7 +203,7 @@ function StudentManagement() {
       {/* Search and Filter Section */}
       <Card sx={{ mb: 3, p: 2 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={5}>
             <TextField
               fullWidth
               placeholder="Search by name, ID, email, or project..."
@@ -231,12 +231,50 @@ function StudentManagement() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={2}>
+            <Button
+              variant="outlined"
+              startIcon={<Refresh />}
+              fullWidth
+              sx={{ 
+                minHeight: '48px',
+                height: '48px',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                borderRadius: '12px',
+                borderColor: '#3B82F6',
+                color: '#3B82F6',
+                '&:hover': {
+                  borderColor: '#2563EB',
+                  backgroundColor: 'rgba(59, 130, 246, 0.08)'
+                }
+              }}
+              onClick={() => {
+                // Refresh functionality - reset filters or reload data
+                setSearchTerm('');
+                setSelectedDepartment('All');
+              }}
+            >
+              Refresh
+            </Button>
+          </Grid>
+          <Grid item xs={12} md={2}>
             <Button
               variant="contained"
               startIcon={<Add />}
               fullWidth
-              sx={{ height: 56 }}
+              sx={{ 
+                minHeight: '48px',
+                height: '48px',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                borderRadius: '12px',
+                backgroundColor: '#3B82F6',
+                color: '#FFFFFF',
+                '&:hover': {
+                  backgroundColor: '#2563EB'
+                }
+              }}
               onClick={() => handleOpenDialog()}
             >
               Add Student
@@ -394,8 +432,15 @@ function StudentManagement() {
       <Dialog
         open={isDialogOpen}
         onClose={handleCloseDialog}
-        maxWidth="md"
+        maxWidth="xl"
         fullWidth
+        PaperProps={{
+          sx: {
+            minWidth: '1200px',
+            width: '90vw',
+            maxWidth: '90vw'
+          }
+        }}
       >
         <DialogTitle>
           {editingStudent ? 'Edit Student' : 'Add New Student'}

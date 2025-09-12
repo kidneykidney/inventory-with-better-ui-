@@ -27,7 +27,15 @@ import {
   Fab,
   Snackbar,
   Badge,
-  Stack
+  Stack,
+  Tabs,
+  Tab,
+  TableContainer,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -71,6 +79,29 @@ const Products = () => {
   
   // Notifications
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  
+  // Tab management
+  const [dialogTab, setDialogTab] = useState(0);
+  
+  // Bulk products state
+  const [bulkProducts, setBulkProducts] = useState([
+    {
+      id: 1,
+      name: '',
+      description: '',
+      category_id: '',
+      sku: '',
+      quantity_total: 0,
+      quantity_available: 0,
+      is_returnable: true,
+      unit_price: 0,
+      location: '',
+      minimum_stock_level: 0,
+      image_url: '',
+      specifications: {},
+      tags: []
+    }
+  ]);
   
   // Form states
   const [productForm, setProductForm] = useState({
@@ -159,6 +190,57 @@ const Products = () => {
     } catch (error) {
       console.error('Create product error:', error);
       showSnackbar(`Failed to create product: ${error.message}`, 'error');
+    }
+  };
+
+  const createBulkProducts = async () => {
+    try {
+      setLoading(true);
+      const validProducts = bulkProducts.filter(product => 
+        product.name.trim() && product.sku.trim()
+      );
+
+      if (validProducts.length === 0) {
+        showSnackbar('Please add at least one valid product with name and SKU', 'warning');
+        return;
+      }
+
+      const promises = validProducts.map(product => {
+        const productData = {
+          ...product,
+          category_id: product.category_id || null,
+          quantity_total: Number(product.quantity_total) || 0,
+          quantity_available: Number(product.quantity_available) || 0,
+          unit_price: Number(product.unit_price) || 0,
+          minimum_stock_level: Number(product.minimum_stock_level) || 0,
+          specifications: product.specifications || {},
+          tags: product.tags || []
+        };
+        
+        return fetch(`${API_BASE}/api/products`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(productData)
+        });
+      });
+
+      const results = await Promise.allSettled(promises);
+      const successful = results.filter(result => result.status === 'fulfilled' && result.value.ok).length;
+      const failed = results.length - successful;
+
+      if (successful > 0) {
+        showSnackbar(`Successfully created ${successful} product${successful > 1 ? 's' : ''}${failed > 0 ? `, ${failed} failed` : ''}`, 'success');
+        setOpenProductDialog(false);
+        resetBulkForm();
+        fetchProducts();
+      } else {
+        showSnackbar('Failed to create any products', 'error');
+      }
+    } catch (error) {
+      console.error('Bulk create error:', error);
+      showSnackbar('Failed to create bulk products', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -282,6 +364,59 @@ const Products = () => {
     setEditingProduct(null);
   };
 
+  const resetBulkForm = () => {
+    setBulkProducts([
+      {
+        id: 1,
+        name: '',
+        description: '',
+        category_id: '',
+        sku: '',
+        quantity_total: 0,
+        quantity_available: 0,
+        is_returnable: true,
+        unit_price: 0,
+        location: '',
+        minimum_stock_level: 0,
+        image_url: '',
+        specifications: {},
+        tags: []
+      }
+    ]);
+  };
+
+  const addBulkProduct = () => {
+    const newId = Math.max(...bulkProducts.map(p => p.id)) + 1;
+    setBulkProducts([...bulkProducts, {
+      id: newId,
+      name: '',
+      description: '',
+      category_id: '',
+      sku: '',
+      quantity_total: 0,
+      quantity_available: 0,
+      is_returnable: true,
+      unit_price: 0,
+      location: '',
+      minimum_stock_level: 0,
+      image_url: '',
+      specifications: {},
+      tags: []
+    }]);
+  };
+
+  const removeBulkProduct = (id) => {
+    if (bulkProducts.length > 1) {
+      setBulkProducts(bulkProducts.filter(p => p.id !== id));
+    }
+  };
+
+  const updateBulkProduct = (id, field, value) => {
+    setBulkProducts(bulkProducts.map(product =>
+      product.id === id ? { ...product, [field]: value } : product
+    ));
+  };
+
   const handleEditProduct = (product) => {
     setEditingProduct(product);
     setProductForm({
@@ -299,6 +434,12 @@ const Products = () => {
       specifications: product.specifications || {},
       tags: product.tags || []
     });
+    setDialogTab(0); // Always open edit in single product tab
+    setOpenProductDialog(true);
+  };
+
+  const handleOpenProductDialog = () => {
+    setDialogTab(0); // Default to single product tab
     setOpenProductDialog(true);
   };
 
@@ -341,7 +482,7 @@ const Products = () => {
               Products Management
             </Typography>
             <Typography variant="subtitle1">
-              Manage your inventory, track stock levels, and create orders
+              Manage your inventory, track stock levels, and create lending records
             </Typography>
           </Box>
           <Box>
@@ -349,7 +490,7 @@ const Products = () => {
               <Fab 
                 color="secondary" 
                 sx={{ mr: 1, bgcolor: '#66bb6a', '&:hover': { bgcolor: '#5cb660' } }}
-                onClick={() => setOpenProductDialog(true)}
+                onClick={handleOpenProductDialog}
               >
                 <AddIcon />
               </Fab>
@@ -363,7 +504,7 @@ const Products = () => {
                 <CategoryIcon />
               </Fab>
             </Tooltip>
-            <Tooltip title="Create Order">
+            <Tooltip title="Create Lending">
               <Badge badgeContent={selectedProducts.length} color="error">
                 <Fab 
                   color="secondary" 
@@ -565,136 +706,317 @@ const Products = () => {
       <Dialog 
         open={openProductDialog} 
         onClose={() => setOpenProductDialog(false)}
-        maxWidth="md"
+        maxWidth="lg"
         fullWidth
       >
-        <DialogTitle>
-          {editingProduct ? 'Edit Product' : 'Add New Product'}
+        <DialogTitle sx={{ pb: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="h6">
+              {editingProduct ? 'Edit Product' : 'Add New Product'}
+            </Typography>
+            {!editingProduct && (
+              <Tabs value={dialogTab} onChange={(e, newValue) => setDialogTab(newValue)}>
+                <Tab label="📦 Add Product" />
+                <Tab label="📋 Bulk Add Products" />
+              </Tabs>
+            )}
+          </Box>
         </DialogTitle>
         <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Product Name"
-                value={productForm.name}
-                onChange={(e) => setProductForm({...productForm, name: e.target.value})}
-                required
-              />
+          {/* Single Product Tab */}
+          {(dialogTab === 0 || editingProduct) && (
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Product Name *"
+                  value={productForm.name}
+                  onChange={(e) => setProductForm({...productForm, name: e.target.value})}
+                  required
+                  error={!productForm.name.trim()}
+                  helperText={!productForm.name.trim() ? "This field is required" : ""}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="SKU *"
+                  value={productForm.sku}
+                  onChange={(e) => setProductForm({...productForm, sku: e.target.value})}
+                  required
+                  error={!productForm.sku.trim()}
+                  helperText={!productForm.sku.trim() ? "This field is required" : ""}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Price *"
+                  type="number"
+                  step="0.01"
+                  value={productForm.unit_price}
+                  onChange={(e) => setProductForm({...productForm, unit_price: parseFloat(e.target.value) || 0})}
+                  error={productForm.unit_price < 0}
+                  helperText={productForm.unit_price < 0 ? "This field is required" : ""}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Category *</InputLabel>
+                  <Select
+                    value={productForm.category_id}
+                    onChange={(e) => setProductForm({...productForm, category_id: e.target.value})}
+                    label="Category *"
+                  >
+                    <MenuItem value="">Select Category</MenuItem>
+                    {categories.map(category => (
+                      <MenuItem key={category.id} value={category.id}>
+                        {category.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Total Stock *"
+                  type="number"
+                  value={productForm.quantity_total}
+                  onChange={(e) => setProductForm({...productForm, quantity_total: parseInt(e.target.value) || 0})}
+                  required
+                  error={productForm.quantity_total < 0}
+                  helperText={productForm.quantity_total < 0 ? "This field is required" : ""}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Available Quantity"
+                  type="number"
+                  value={productForm.quantity_available}
+                  onChange={(e) => setProductForm({...productForm, quantity_available: parseInt(e.target.value) || 0})}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Description"
+                  value={productForm.description}
+                  onChange={(e) => setProductForm({...productForm, description: e.target.value})}
+                  multiline
+                  rows={2}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Location"
+                  value={productForm.location}
+                  onChange={(e) => setProductForm({...productForm, location: e.target.value})}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Minimum Stock Level"
+                  type="number"
+                  value={productForm.minimum_stock_level}
+                  onChange={(e) => setProductForm({...productForm, minimum_stock_level: parseInt(e.target.value) || 0})}
+                />
+              </Grid>
+              <Grid item xs={12} md={8}>
+                <TextField
+                  fullWidth
+                  label="Image URL"
+                  value={productForm.image_url}
+                  onChange={(e) => setProductForm({...productForm, image_url: e.target.value})}
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={productForm.is_returnable}
+                      onChange={(e) => setProductForm({...productForm, is_returnable: e.target.checked})}
+                      color="primary"
+                    />
+                  }
+                  label="Is Returnable"
+                />
+              </Grid>
             </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="SKU"
-                value={productForm.sku}
-                onChange={(e) => setProductForm({...productForm, sku: e.target.value})}
-                required
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Description"
-                value={productForm.description}
-                onChange={(e) => setProductForm({...productForm, description: e.target.value})}
-                multiline
-                rows={3}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Category</InputLabel>
-                <Select
-                  value={productForm.category_id}
-                  onChange={(e) => setProductForm({...productForm, category_id: e.target.value})}
-                  label="Category"
+          )}
+
+          {/* Bulk Products Tab */}
+          {dialogTab === 1 && !editingProduct && (
+            <Box sx={{ mt: 2 }}>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                💡 Add multiple products at once. Fill in the required fields (marked with *) for each product. Click "➕ Add More Products" to add additional rows.
+              </Alert>
+              
+              <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
+                <Table stickyHeader size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ minWidth: 150, fontWeight: 'bold' }}>PRODUCT NAME*</TableCell>
+                      <TableCell sx={{ minWidth: 120, fontWeight: 'bold' }}>SKU*</TableCell>
+                      <TableCell sx={{ minWidth: 100, fontWeight: 'bold' }}>PRICE*</TableCell>
+                      <TableCell sx={{ minWidth: 120, fontWeight: 'bold' }}>CATEGORY*</TableCell>
+                      <TableCell sx={{ minWidth: 100, fontWeight: 'bold' }}>TOTAL STOCK*</TableCell>
+                      <TableCell sx={{ minWidth: 100, fontWeight: 'bold' }}>AVAILABLE</TableCell>
+                      <TableCell sx={{ minWidth: 150, fontWeight: 'bold' }}>DESCRIPTION</TableCell>
+                      <TableCell sx={{ minWidth: 100, fontWeight: 'bold' }}>LOCATION</TableCell>
+                      <TableCell sx={{ minWidth: 80, fontWeight: 'bold' }}>RETURNABLE</TableCell>
+                      <TableCell sx={{ minWidth: 50, fontWeight: 'bold' }}>ACTIONS</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {bulkProducts.map((product, index) => (
+                      <TableRow key={product.id}>
+                        <TableCell>
+                          <TextField
+                            size="small"
+                            fullWidth
+                            placeholder="Enter product name"
+                            value={product.name}
+                            onChange={(e) => updateBulkProduct(product.id, 'name', e.target.value)}
+                            error={!product.name.trim()}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            size="small"
+                            fullWidth
+                            placeholder="Enter SKU"
+                            value={product.sku}
+                            onChange={(e) => updateBulkProduct(product.id, 'sku', e.target.value)}
+                            error={!product.sku.trim()}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            size="small"
+                            fullWidth
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={product.unit_price}
+                            onChange={(e) => updateBulkProduct(product.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            size="small"
+                            fullWidth
+                            value={product.category_id}
+                            onChange={(e) => updateBulkProduct(product.id, 'category_id', e.target.value)}
+                            displayEmpty
+                          >
+                            <MenuItem value="">Select Category</MenuItem>
+                            {categories.map(category => (
+                              <MenuItem key={category.id} value={category.id}>
+                                {category.name}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            size="small"
+                            fullWidth
+                            type="number"
+                            placeholder="0"
+                            value={product.quantity_total}
+                            onChange={(e) => updateBulkProduct(product.id, 'quantity_total', parseInt(e.target.value) || 0)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            size="small"
+                            fullWidth
+                            type="number"
+                            placeholder="0"
+                            value={product.quantity_available}
+                            onChange={(e) => updateBulkProduct(product.id, 'quantity_available', parseInt(e.target.value) || 0)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            size="small"
+                            fullWidth
+                            placeholder="Description"
+                            value={product.description}
+                            onChange={(e) => updateBulkProduct(product.id, 'description', e.target.value)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            size="small"
+                            fullWidth
+                            placeholder="Location"
+                            value={product.location}
+                            onChange={(e) => updateBulkProduct(product.id, 'location', e.target.value)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            size="small"
+                            checked={product.is_returnable}
+                            onChange={(e) => updateBulkProduct(product.id, 'is_returnable', e.target.checked)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {bulkProducts.length > 1 && (
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => removeBulkProduct(product.id)}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              <Box sx={{ mt: 2 }}>
+                <Button
+                  startIcon={<AddIcon />}
+                  onClick={addBulkProduct}
+                  variant="outlined"
+                  sx={{ color: '#4caf50', borderColor: '#4caf50', '&:hover': { bgcolor: '#e8f5e8' } }}
                 >
-                  <MenuItem value="">No Category</MenuItem>
-                  {categories.map(category => (
-                    <MenuItem key={category.id} value={category.id}>
-                      {category.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Location"
-                value={productForm.location}
-                onChange={(e) => setProductForm({...productForm, location: e.target.value})}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Total Quantity"
-                type="number"
-                value={productForm.quantity_total}
-                onChange={(e) => setProductForm({...productForm, quantity_total: parseInt(e.target.value)})}
-                required
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Available Quantity"
-                type="number"
-                value={productForm.quantity_available}
-                onChange={(e) => setProductForm({...productForm, quantity_available: parseInt(e.target.value)})}
-                required
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Unit Price"
-                type="number"
-                step="0.01"
-                value={productForm.unit_price}
-                onChange={(e) => setProductForm({...productForm, unit_price: parseFloat(e.target.value)})}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Minimum Stock Level"
-                type="number"
-                value={productForm.minimum_stock_level}
-                onChange={(e) => setProductForm({...productForm, minimum_stock_level: parseInt(e.target.value)})}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={productForm.is_returnable}
-                    onChange={(e) => setProductForm({...productForm, is_returnable: e.target.checked})}
-                    color="primary"
-                  />
-                }
-                label="Is Returnable"
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Image URL"
-                value={productForm.image_url}
-                onChange={(e) => setProductForm({...productForm, image_url: e.target.value})}
-              />
-            </Grid>
-          </Grid>
+                  ➕ Add More Products
+                </Button>
+              </Box>
+            </Box>
+          )}
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setOpenProductDialog(false)}>Cancel</Button>
           <Button 
-            onClick={editingProduct ? updateProduct : createProduct}
+            onClick={
+              editingProduct 
+                ? updateProduct 
+                : dialogTab === 0 
+                  ? createProduct 
+                  : createBulkProducts
+            }
             variant="contained"
+            disabled={loading}
             sx={{ bgcolor: '#4caf50', '&:hover': { bgcolor: '#2e7d32' } }}
           >
-            {editingProduct ? 'Update' : 'Create'}
+            {loading ? 'Creating...' : (
+              editingProduct 
+                ? 'Update' 
+                : dialogTab === 0 
+                  ? 'Create' 
+                  : `🚀 Create ${bulkProducts.filter(p => p.name.trim() && p.sku.trim()).length} Products`
+            )}
           </Button>
         </DialogActions>
       </Dialog>
@@ -845,7 +1167,7 @@ const Products = () => {
             disabled={!selectedStudent || selectedProducts.length === 0}
             sx={{ bgcolor: '#4caf50', '&:hover': { bgcolor: '#2e7d32' } }}
           >
-            Create Order
+            Create Lending
           </Button>
         </DialogActions>
       </Dialog>

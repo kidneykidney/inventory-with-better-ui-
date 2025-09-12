@@ -468,7 +468,7 @@ const SettingsManagement = () => {
   }
 
   return (
-    <Box sx={{ p: 3, backgroundColor: '#0a0a0a', minHeight: '100vh', color: '#fff' }}>
+    <Box sx={{ p: 3, backgroundColor: '#F8FAFC', minHeight: '100vh', color: '#1F2937' }}>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
@@ -492,6 +492,15 @@ const SettingsManagement = () => {
             startIcon={<RefreshIcon />}
             onClick={loadAllSettings}
             disabled={loading}
+            sx={{
+              minHeight: '48px',
+              height: '48px',
+              px: 3,
+              py: 1.5,
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              borderRadius: '12px',
+            }}
           >
             Reload Settings
           </Button>
@@ -513,7 +522,7 @@ const SettingsManagement = () => {
       </Box>
 
       {/* Settings Tabs */}
-      <Paper sx={{ backgroundColor: '#1a1a1a' }}>
+      <Paper sx={{ backgroundColor: '#FFFFFF' }}>
         <Tabs
           value={currentTab}
           onChange={(e, newValue) => setCurrentTab(newValue)}

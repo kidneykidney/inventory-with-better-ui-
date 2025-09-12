@@ -337,8 +337,15 @@ const Students = () => {
       <Dialog 
         open={openDialog} 
         onClose={() => setOpenDialog(false)}
-        maxWidth="md"
+        maxWidth="xl"
         fullWidth
+        PaperProps={{
+          sx: {
+            minWidth: '1200px',
+            width: '90vw',
+            maxWidth: '90vw'
+          }
+        }}
       >
         <DialogTitle>
           {editingStudent ? 'Edit Student' : 'Add New Student'}

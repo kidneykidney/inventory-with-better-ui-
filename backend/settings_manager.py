@@ -88,7 +88,7 @@ class ApplicationSettings:
     company_name: str = "University Equipment Center"
     company_email: str = "equipment@university.edu"
     company_phone: str = "(555) 123-4567"
-    default_currency: str = "USD"
+    default_currency: str = "INR"
     date_format: str = "%Y-%m-%d"
     time_format: str = "%H:%M:%S"
     timezone: str = "UTC"

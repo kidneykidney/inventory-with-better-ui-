@@ -27,35 +27,35 @@ import {
 import { motion } from 'framer-motion';
 import { dashboardAPI } from '../api/dashboard';
 
-// Enhanced color scheme matching the login page
+// Enhanced color scheme matching the app theme
 const DASHBOARD_COLORS = {
-  primary: '#00D4AA',
-  secondary: '#00B894',
-  accent: '#00F5FF',
-  success: '#4CAF50',
-  warning: '#FF9800',
-  error: '#FF6B6B',
-  info: '#2196F3',
-  background: '#0A0A0A',
-  surface: '#1A1A1A',
-  surfaceElevated: '#2A2A2A',
-  text: '#FFFFFF',
-  textSecondary: '#B0B0B0',
-  border: '#333333',
-  glow: 'rgba(0, 212, 170, 0.3)'
+  primary: '#3B82F6',
+  secondary: '#6B7280',
+  accent: '#10B981',
+  success: '#10B981',
+  warning: '#F59E0B',
+  error: '#EF4444',
+  info: '#3B82F6',
+  background: '#F8FAFC',
+  surface: '#FFFFFF',
+  surfaceElevated: '#FFFFFF',
+  text: '#1E293B',
+  textSecondary: '#64748B',
+  border: '#E2E8F0',
+  glow: 'rgba(59, 130, 246, 0.1)'
 };
 
 // Enhanced StatCard component with cleaner, more professional styling
 const StatCard = ({ title, value, icon, color = 'primary', subtitle, loading = false }) => {
   const getCardColors = () => {
     switch (color) {
-      case 'primary': return { main: DASHBOARD_COLORS.primary, bg: 'rgba(0, 212, 170, 0.1)' };
-      case 'secondary': return { main: DASHBOARD_COLORS.secondary, bg: 'rgba(0, 184, 148, 0.1)' };
-      case 'success': return { main: DASHBOARD_COLORS.success, bg: 'rgba(76, 175, 80, 0.1)' };
-      case 'warning': return { main: DASHBOARD_COLORS.warning, bg: 'rgba(255, 152, 0, 0.1)' };
-      case 'error': return { main: DASHBOARD_COLORS.error, bg: 'rgba(255, 107, 107, 0.1)' };
-      case 'info': return { main: DASHBOARD_COLORS.info, bg: 'rgba(33, 150, 243, 0.1)' };
-      default: return { main: DASHBOARD_COLORS.primary, bg: 'rgba(0, 212, 170, 0.1)' };
+      case 'primary': return { main: DASHBOARD_COLORS.primary, bg: 'rgba(59, 130, 246, 0.1)' };
+      case 'secondary': return { main: DASHBOARD_COLORS.secondary, bg: 'rgba(107, 114, 128, 0.1)' };
+      case 'success': return { main: DASHBOARD_COLORS.success, bg: 'rgba(16, 185, 129, 0.1)' };
+      case 'warning': return { main: DASHBOARD_COLORS.warning, bg: 'rgba(245, 158, 11, 0.1)' };
+      case 'error': return { main: DASHBOARD_COLORS.error, bg: 'rgba(239, 68, 68, 0.1)' };
+      case 'info': return { main: DASHBOARD_COLORS.info, bg: 'rgba(59, 130, 246, 0.1)' };
+      default: return { main: DASHBOARD_COLORS.primary, bg: 'rgba(59, 130, 246, 0.1)' };
     }
   };
 
@@ -63,20 +63,25 @@ const StatCard = ({ title, value, icon, color = 'primary', subtitle, loading = f
 
   return (
     <motion.div
-      whileHover={{ y: -4 }}
+      whileHover={{ y: -2 }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
     >
       <Card sx={{ 
-        height: '160px',
-        background: 'rgba(26, 26, 26, 0.8)',
-        backdropFilter: 'blur(10px)',
-        border: `1px solid rgba(255, 255, 255, 0.1)`,
+        height: '110px',
+        background: '#FFFFFF',
+        border: `1px solid ${DASHBOARD_COLORS.border}`,
         borderRadius: 2,
         position: 'relative',
         overflow: 'hidden',
+        transition: 'all 0.2s ease-in-out',
         '&:hover': {
-          border: `1px solid ${cardColors.main}`,
-          boxShadow: `0 8px 25px ${cardColors.main}20`
+          borderColor: '#CBD5E1',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        },
+        overflow: 'hidden',
+        '&:hover': {
+          borderColor: cardColors.main,
+          boxShadow: `0 4px 15px ${cardColors.main}20`
         }
       }}>
         {/* Simple top accent line */}
@@ -91,18 +96,18 @@ const StatCard = ({ title, value, icon, color = 'primary', subtitle, loading = f
           }}
         />
         
-        <CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-            <Typography variant="subtitle1" sx={{ 
+        <CardContent sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+            <Typography variant="subtitle2" sx={{ 
               color: DASHBOARD_COLORS.textSecondary,
               fontWeight: 500,
-              fontSize: '0.9rem'
+              fontSize: '0.8rem'
             }}>
               {title}
             </Typography>
             <Box sx={{ 
-              width: 40,
-              height: 40,
+              width: 32,
+              height: 32,
               borderRadius: '50%',
               background: cardColors.bg,
               display: 'flex',
@@ -110,20 +115,21 @@ const StatCard = ({ title, value, icon, color = 'primary', subtitle, loading = f
               justifyContent: 'center'
             }}>
               {React.cloneElement(icon, { 
-                sx: { fontSize: 20, color: cardColors.main } 
+                sx: { fontSize: 16, color: cardColors.main } 
               })}
             </Box>
           </Box>
           
           <Box>
-            <Typography variant="h3" sx={{ 
+            <Typography variant="h4" sx={{ 
               fontWeight: 700,
               color: DASHBOARD_COLORS.text,
-              fontSize: '2rem',
-              mb: 0.5
+              fontSize: '1.6rem',
+              mb: 0.5,
+              lineHeight: 1
             }}>
               {loading ? (
-                <CircularProgress size={28} sx={{ color: cardColors.main }} />
+                <CircularProgress size={20} sx={{ color: cardColors.main }} />
               ) : (
                 typeof value === 'object' ? JSON.stringify(value) : (value || 0)
               )}
@@ -132,7 +138,7 @@ const StatCard = ({ title, value, icon, color = 'primary', subtitle, loading = f
             {subtitle && (
               <Typography variant="caption" sx={{ 
                 color: DASHBOARD_COLORS.textSecondary,
-                fontSize: '0.8rem'
+                fontSize: '0.7rem'
               }}>
                 {subtitle}
               </Typography>
@@ -148,21 +154,22 @@ const StatCard = ({ title, value, icon, color = 'primary', subtitle, loading = f
 const RecentActivities = ({ activities, loading = false }) => (
   <Card sx={{ 
     height: '100%',
-    background: 'rgba(26, 26, 26, 0.8)',
-    backdropFilter: 'blur(10px)',
-    border: `1px solid rgba(255, 255, 255, 0.1)`,
-    borderRadius: 2
+    background: DASHBOARD_COLORS.surface,
+    border: `1px solid ${DASHBOARD_COLORS.border}`,
+    borderRadius: 2,
+    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
   }}>
-    <CardContent sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+    <CardContent sx={{ p: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6" sx={{ 
           color: DASHBOARD_COLORS.text,
           fontWeight: 600,
           display: 'flex',
           alignItems: 'center',
-          gap: 1
+          gap: 1,
+          fontSize: '1rem'
         }}>
-          <Assessment sx={{ color: DASHBOARD_COLORS.primary, fontSize: 20 }} />
+          <Assessment sx={{ color: DASHBOARD_COLORS.primary, fontSize: 18 }} />
           Recent Activities
         </Typography>
         <Chip 
@@ -172,40 +179,41 @@ const RecentActivities = ({ activities, loading = false }) => (
             backgroundColor: `${DASHBOARD_COLORS.primary}20`,
             color: DASHBOARD_COLORS.primary,
             fontWeight: 600,
-            fontSize: '0.75rem'
+            fontSize: '0.7rem',
+            height: 22
           }}
         />
       </Box>
       
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress sx={{ color: DASHBOARD_COLORS.primary }} />
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+          <CircularProgress sx={{ color: DASHBOARD_COLORS.primary }} size={24} />
         </Box>
       ) : activities && activities.length > 0 ? (
-        <Box sx={{ maxHeight: '280px', overflowY: 'auto' }}>
-          {activities.map((activity, index) => (
+        <Box sx={{ maxHeight: '200px', overflowY: 'auto' }}>
+          {activities.slice(0, 6).map((activity, index) => (
             <Box
               key={index}
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                py: 2,
+                py: 1.5,
                 px: 1,
                 borderRadius: 1,
-                borderBottom: index < activities.length - 1 ? `1px solid rgba(255, 255, 255, 0.05)` : 'none',
+                borderBottom: index < Math.min(activities.length, 6) - 1 ? `1px solid ${DASHBOARD_COLORS.border}` : 'none',
                 '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.02)'
+                  backgroundColor: 'rgba(59, 130, 246, 0.04)'
                 }
               }}
             >
               <Box sx={{
-                width: 8,
-                height: 8,
+                width: 6,
+                height: 6,
                 borderRadius: '50%',
                 backgroundColor: activity.status === 'approved' ? DASHBOARD_COLORS.success : 
                                 activity.status === 'pending' ? DASHBOARD_COLORS.warning :
                                 activity.status === 'rejected' ? DASHBOARD_COLORS.error : DASHBOARD_COLORS.primary,
-                mr: 2,
+                mr: 1.5,
                 flexShrink: 0
               }} />
               
@@ -213,16 +221,17 @@ const RecentActivities = ({ activities, loading = false }) => (
                 <Typography variant="body2" sx={{ 
                   color: DASHBOARD_COLORS.text,
                   fontWeight: 500,
-                  mb: 0.5,
+                  mb: 0.3,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
+                  whiteSpace: 'nowrap',
+                  fontSize: '0.85rem'
                 }}>
                   {activity.description || activity.title || activity.action || 'Unknown activity'}
                 </Typography>
                 <Typography variant="caption" sx={{ 
                   color: DASHBOARD_COLORS.textSecondary,
-                  fontSize: '0.75rem'
+                  fontSize: '0.7rem'
                 }}>
                   {activity.date ? new Date(activity.date).toLocaleDateString() : 
                    activity.timestamp || 'Unknown time'}
@@ -233,9 +242,9 @@ const RecentActivities = ({ activities, loading = false }) => (
                 label={activity.status || 'active'}
                 size="small"
                 sx={{
-                  fontSize: '0.7rem',
-                  height: 20,
-                  minWidth: 60,
+                  fontSize: '0.65rem',
+                  height: 18,
+                  minWidth: 50,
                   backgroundColor: activity.status === 'approved' || activity.status === 'completed' ? `${DASHBOARD_COLORS.success}15` :
                                   activity.status === 'pending' ? `${DASHBOARD_COLORS.warning}15` :
                                   activity.status === 'rejected' ? `${DASHBOARD_COLORS.error}15` : `${DASHBOARD_COLORS.primary}15`,
@@ -250,11 +259,11 @@ const RecentActivities = ({ activities, loading = false }) => (
       ) : (
         <Box sx={{ 
           textAlign: 'center', 
-          py: 4,
+          py: 3,
           color: DASHBOARD_COLORS.textSecondary 
         }}>
-          <Assessment sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} />
-          <Typography variant="body2">
+          <Assessment sx={{ fontSize: 36, mb: 1, opacity: 0.5 }} />
+          <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
             No recent activities
           </Typography>
         </Box>
@@ -268,10 +277,10 @@ const LowStockAlert = ({ lowStockItems, loading }) => {
   return (
     <Card sx={{
       height: '100%',
-      background: 'rgba(26, 26, 26, 0.8)',
-      backdropFilter: 'blur(10px)',
-      border: `1px solid rgba(255, 152, 0, 0.3)`,
-      borderRadius: 2
+      background: DASHBOARD_COLORS.surface,
+      border: `1px solid ${DASHBOARD_COLORS.warning}`,
+      borderRadius: 2,
+      boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
     }}>
       <CardContent sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -312,9 +321,9 @@ const LowStockAlert = ({ lowStockItems, loading }) => {
                   py: 2,
                   px: 1,
                   borderRadius: 1,
-                  borderBottom: index < lowStockItems.length - 1 ? `1px solid rgba(255, 255, 255, 0.05)` : 'none',
+                  borderBottom: index < lowStockItems.length - 1 ? `1px solid ${DASHBOARD_COLORS.border}` : 'none',
                   '&:hover': {
-                    backgroundColor: 'rgba(255, 152, 0, 0.05)'
+                    backgroundColor: 'rgba(245, 158, 11, 0.05)'
                   }
                 }}
               >
@@ -423,7 +432,7 @@ const Dashboard = () => {
   return (
     <Box sx={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
+      background: DASHBOARD_COLORS.background,
       p: 3
     }}>
       <Container maxWidth="xl">
@@ -439,10 +448,10 @@ const Dashboard = () => {
             alignItems: 'center', 
             mb: 4,
             p: 3,
-            background: 'rgba(26, 26, 26, 0.8)',
-            backdropFilter: 'blur(10px)',
+            background: DASHBOARD_COLORS.surface,
             borderRadius: 2,
-            border: `1px solid rgba(0, 212, 170, 0.2)`
+            border: `1px solid ${DASHBOARD_COLORS.border}`,
+            boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
           }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <DashboardIcon sx={{ fontSize: 32, color: DASHBOARD_COLORS.primary }} />
@@ -502,7 +511,7 @@ const Dashboard = () => {
             <Grid item xs={12} sm={6} md={3}>
               <StatCard
                 title="Inventory Value"
-                value={stats.total_value ? `$${stats.total_value.toFixed(2)}` : '$0.00'}
+                value={stats.total_value ? `₹${stats.total_value.toFixed(2)}` : '₹0.00'}
                 icon={<MonetizationOnIcon />}
                 color="success"
                 subtitle="Total asset value"
@@ -521,7 +530,7 @@ const Dashboard = () => {
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <StatCard
-                title="Pending Orders"
+                title="Pending Lending"
                 value={stats.pending_orders}
                 icon={<LocalShippingIcon />}
                 color="warning"
@@ -561,7 +570,7 @@ const Dashboard = () => {
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <StatCard
-                title="Recent Orders"
+                title="Recent Lending"
                 value={stats.recent_orders || 0}
                 icon={<TimelineIcon />}
                 color="info"

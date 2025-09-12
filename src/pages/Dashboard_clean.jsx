@@ -502,7 +502,7 @@ const Dashboard = () => {
             <Grid item xs={12} sm={6} md={3}>
               <StatCard
                 title="Inventory Value"
-                value={stats.total_value ? `$${stats.total_value.toFixed(2)}` : '$0.00'}
+                value={stats.total_value ? `₹${stats.total_value.toFixed(2)}` : '₹0.00'}
                 icon={<MonetizationOnIcon />}
                 color="success"
                 subtitle="Total asset value"
@@ -521,7 +521,7 @@ const Dashboard = () => {
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <StatCard
-                title="Pending Orders"
+                title="Pending Lending"
                 value={stats.pending_orders}
                 icon={<LocalShippingIcon />}
                 color="warning"
@@ -561,7 +561,7 @@ const Dashboard = () => {
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <StatCard
-                title="Recent Orders"
+                title="Recent Lending"
                 value={stats.recent_orders || 0}
                 icon={<TimelineIcon />}
                 color="info"

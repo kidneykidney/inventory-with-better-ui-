@@ -266,10 +266,10 @@ const OrderManagement = () => {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box>
               <Typography variant="h3" className="text-3xl font-bold text-gray-900">
-                Order Management
+                Lending Management
               </Typography>
               <Typography variant="body2" className="mt-1 text-sm text-gray-500">
-                Manage student orders and inventory requests
+                Manage student lending and inventory requests
               </Typography>
             </Box>
             <Button
@@ -367,7 +367,7 @@ const OrderManagement = () => {
               />
               <Tab 
                 icon={<AddIcon />} 
-                label="Create Order" 
+                label="Create Lending" 
                 iconPosition="start"
                 onClick={() => setShowCreateOrder(true)}
                 sx={{ flex: 1 }}
@@ -572,14 +572,19 @@ const OrderManagement = () => {
         </Card>
       </Box>
 
-      {/* Create Order Modal */}
+      {/* Create Lending Modal */}
       <Dialog 
         open={showCreateOrder} 
         onClose={() => setShowCreateOrder(false)}
-        maxWidth="lg"
+        maxWidth="xl"
         fullWidth
         PaperProps={{
-          sx: { minHeight: '80vh' }
+          sx: { 
+            minHeight: '80vh',
+            minWidth: '1400px',
+            width: '95vw',
+            maxWidth: '95vw'
+          }
         }}
       >
         <DialogTitle sx={{ 

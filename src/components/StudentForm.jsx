@@ -139,20 +139,21 @@ const StudentForm = ({ open, onClose, onSuccess }) => {
       fullWidth
       PaperProps={{
         sx: {
-          backgroundColor: '#1A1A1A',
-          border: '1px solid #2A2A2A',
-          borderRadius: '12px'
+          backgroundColor: '#FFFFFF',
+          border: '1px solid #E5E7EB',
+          borderRadius: '12px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)'
         }
       }}
     >
-      <DialogTitle sx={{ color: '#FFFFFF', fontWeight: 700 }}>
+      <DialogTitle sx={{ color: '#1F2937', fontWeight: 700, borderBottom: '1px solid #E5E7EB' }}>
         Add New Student
       </DialogTitle>
       
-      <DialogContent>
+      <DialogContent sx={{ backgroundColor: '#FFFFFF' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           {error && (
-            <Alert severity="error" sx={{ backgroundColor: '#2A1A1A', color: '#FF5252' }}>
+            <Alert severity="error" sx={{ backgroundColor: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>
               {error}
             </Alert>
           )}
@@ -163,10 +164,11 @@ const StudentForm = ({ open, onClose, onSuccess }) => {
             onChange={(e) => handleChange('student_id', e.target.value)}
             fullWidth
             sx={{
-              '& .MuiInputLabel-root': { color: '#888888' },
-              '& .MuiInputBase-input': { color: '#FFFFFF' },
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#2A2A2A' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#00D4AA' }
+              '& .MuiInputLabel-root': { color: '#6B7280' },
+              '& .MuiInputBase-input': { color: '#1F2937' },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#D1D5DB' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#3B82F6' },
+              '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3B82F6' }
             }}
           />
 
@@ -179,10 +181,11 @@ const StudentForm = ({ open, onClose, onSuccess }) => {
             error={!formData.name.trim()}
             helperText={!formData.name.trim() ? 'This field is required' : ''}
             sx={{
-              '& .MuiInputLabel-root': { color: '#888888' },
-              '& .MuiInputBase-input': { color: '#FFFFFF' },
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: !formData.name.trim() ? '#f44336' : '#2A2A2A' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#00D4AA' }
+              '& .MuiInputLabel-root': { color: '#6B7280' },
+              '& .MuiInputBase-input': { color: '#1F2937' },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: !formData.name.trim() ? '#EF4444' : '#D1D5DB' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#3B82F6' },
+              '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3B82F6' }
             }}
           />
 
@@ -193,10 +196,11 @@ const StudentForm = ({ open, onClose, onSuccess }) => {
             onChange={(e) => handleChange('email', e.target.value)}
             fullWidth
             sx={{
-              '& .MuiInputLabel-root': { color: '#888888' },
-              '& .MuiInputBase-input': { color: '#FFFFFF' },
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#2A2A2A' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#00D4AA' }
+              '& .MuiInputLabel-root': { color: '#6B7280' },
+              '& .MuiInputBase-input': { color: '#1F2937' },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#D1D5DB' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#3B82F6' },
+              '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3B82F6' }
             }}
           />
 
@@ -206,10 +210,11 @@ const StudentForm = ({ open, onClose, onSuccess }) => {
             onChange={(e) => handleChange('phone', e.target.value)}
             fullWidth
             sx={{
-              '& .MuiInputLabel-root': { color: '#888888' },
-              '& .MuiInputBase-input': { color: '#FFFFFF' },
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#2A2A2A' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#00D4AA' }
+              '& .MuiInputLabel-root': { color: '#6B7280' },
+              '& .MuiInputBase-input': { color: '#1F2937' },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#D1D5DB' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#3B82F6' },
+              '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3B82F6' }
             }}
           />
 
@@ -222,29 +227,31 @@ const StudentForm = ({ open, onClose, onSuccess }) => {
             error={!formData.department.trim()}
             helperText={!formData.department.trim() ? 'This field is required' : ''}
             sx={{
-              '& .MuiInputLabel-root': { color: '#888888' },
-              '& .MuiInputBase-input': { color: '#FFFFFF' },
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: !formData.department.trim() ? '#f44336' : '#2A2A2A' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#00D4AA' }
+              '& .MuiInputLabel-root': { color: '#6B7280' },
+              '& .MuiInputBase-input': { color: '#1F2937' },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: !formData.department.trim() ? '#EF4444' : '#D1D5DB' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#3B82F6' },
+              '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3B82F6' }
             }}
           />
 
           <FormControl fullWidth>
-            <InputLabel sx={{ color: '#888888' }}>Year of Study</InputLabel>
+            <InputLabel sx={{ color: '#6B7280' }}>Year of Study</InputLabel>
             <Select
               value={formData.year_of_study}
               onChange={(e) => handleChange('year_of_study', e.target.value)}
               sx={{
-                color: '#FFFFFF',
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#2A2A2A' },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#00D4AA' }
+                color: '#1F2937',
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#D1D5DB' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#3B82F6' },
+                '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3B82F6' }
               }}
             >
-              <MenuItem value="" sx={{ color: '#FFFFFF' }}>Select Year</MenuItem>
-              <MenuItem value={1} sx={{ color: '#FFFFFF' }}>Year 1</MenuItem>
-              <MenuItem value={2} sx={{ color: '#FFFFFF' }}>Year 2</MenuItem>
-              <MenuItem value={3} sx={{ color: '#FFFFFF' }}>Year 3</MenuItem>
-              <MenuItem value={4} sx={{ color: '#FFFFFF' }}>Year 4</MenuItem>
+              <MenuItem value="" sx={{ color: '#6B7280' }}>Select Year</MenuItem>
+              <MenuItem value={1} sx={{ color: '#1F2937' }}>Year 1</MenuItem>
+              <MenuItem value={2} sx={{ color: '#1F2937' }}>Year 2</MenuItem>
+              <MenuItem value={3} sx={{ color: '#1F2937' }}>Year 3</MenuItem>
+              <MenuItem value={4} sx={{ color: '#1F2937' }}>Year 4</MenuItem>
             </Select>
           </FormControl>
 
@@ -254,10 +261,11 @@ const StudentForm = ({ open, onClose, onSuccess }) => {
             onChange={(e) => handleChange('course', e.target.value)}
             fullWidth
             sx={{
-              '& .MuiInputLabel-root': { color: '#888888' },
-              '& .MuiInputBase-input': { color: '#FFFFFF' },
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#2A2A2A' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#00D4AA' }
+              '& .MuiInputLabel-root': { color: '#6B7280' },
+              '& .MuiInputBase-input': { color: '#1F2937' },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#D1D5DB' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#3B82F6' },
+              '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3B82F6' }
             }}
           />
         </Box>
@@ -269,10 +277,11 @@ const StudentForm = ({ open, onClose, onSuccess }) => {
           variant="outlined"
           disabled={submitting}
           sx={{ 
-            color: '#FFFFFF', 
-            borderColor: '#2A2A2A',
+            color: '#6B7280', 
+            borderColor: '#D1D5DB',
             '&:hover': {
-              borderColor: '#00D4AA'
+              borderColor: '#3B82F6',
+              backgroundColor: 'rgba(59, 130, 246, 0.08)'
             }
           }}
         >
@@ -283,14 +292,14 @@ const StudentForm = ({ open, onClose, onSuccess }) => {
           variant="contained"
           disabled={submitting || !formData.name.trim() || !formData.department.trim()}
           sx={{
-            backgroundColor: '#00D4AA',
-            color: '#0A0A0A',
+            backgroundColor: '#3B82F6',
+            color: '#FFFFFF',
             '&:hover': {
-              backgroundColor: '#00B899',
+              backgroundColor: '#2563EB',
             },
             '&:disabled': {
-              backgroundColor: '#666666',
-              color: '#CCCCCC'
+              backgroundColor: '#9CA3AF',
+              color: '#F3F4F6'
             }
           }}
         >

@@ -345,7 +345,7 @@ const Orders = () => {
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Box>
             <Typography variant="h4" component="h1" gutterBottom>
-              Orders Management
+              Lending Management
             </Typography>
             <Typography variant="subtitle1">
               Manage student orders, approvals, and returns
@@ -377,7 +377,7 @@ const Orders = () => {
                     {getTabCount('pending')}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Pending Orders
+                    Pending Lending
                   </Typography>
                 </Box>
               </Box>
@@ -505,7 +505,7 @@ const Orders = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Order #</TableCell>
+                <TableCell>Lending #</TableCell>
                 <TableCell>Student</TableCell>
                 <TableCell>Items</TableCell>
                 <TableCell>Status</TableCell>
@@ -673,14 +673,21 @@ const Orders = () => {
         />
       </Paper>
 
-      {/* Create Order Dialog */}
+      {/* Create Lending Dialog */}
       <Dialog 
         open={openOrderDialog} 
         onClose={() => setOpenOrderDialog(false)}
-        maxWidth="lg"
+        maxWidth="xl"
         fullWidth
+        PaperProps={{
+          sx: {
+            minWidth: '1400px',
+            width: '95vw',
+            maxWidth: '95vw'
+          }
+        }}
       >
-        <DialogTitle>Create New Order</DialogTitle>
+        <DialogTitle>Create New Lending</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12} md={6}>
@@ -813,7 +820,7 @@ const Orders = () => {
             disabled={!orderForm.student_id || selectedItems.length === 0}
             sx={{ bgcolor: '#4caf50', '&:hover': { bgcolor: '#2e7d32' } }}
           >
-            Create Order
+            Create Lending
           </Button>
         </DialogActions>
       </Dialog>
@@ -822,16 +829,23 @@ const Orders = () => {
       <Dialog 
         open={openViewDialog} 
         onClose={() => setOpenViewDialog(false)}
-        maxWidth="md"
+        maxWidth="xl"
         fullWidth
+        PaperProps={{
+          sx: {
+            minWidth: '1200px',
+            width: '90vw',
+            maxWidth: '90vw'
+          }
+        }}
       >
-        <DialogTitle>Order Details</DialogTitle>
+        <DialogTitle>Lending Details</DialogTitle>
         <DialogContent>
           {selectedOrder && (
             <Grid container spacing={2}>
               <Grid item xs={12}>
                 <Typography variant="h6" gutterBottom>
-                  Order #{selectedOrder.order_number}
+                  Lending #{selectedOrder.order_number}
                 </Typography>
                 <Chip
                   label={selectedOrder.status.toUpperCase()}

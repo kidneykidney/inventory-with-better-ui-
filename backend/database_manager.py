@@ -7,6 +7,10 @@ from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -14,14 +18,20 @@ logger = logging.getLogger(__name__)
 
 class DatabaseManager:
     def __init__(self):
+        # Get database configuration from environment variables with fallbacks
         self.connection_params = {
-            'host': 'localhost',
-            'database': 'inventory_management',
-            'user': 'postgres',
-            'password': 'gugan@2022',
-            'port': 5432
+            'host': os.getenv('DATABASE_HOST', 'localhost'),
+            'database': os.getenv('DATABASE_NAME', 'inventory_management'),
+            'user': os.getenv('DATABASE_USER', 'postgres'),
+            'password': os.getenv('DATABASE_PASSWORD', 'gugan@2022'),  # fallback to current password
+            'port': int(os.getenv('DATABASE_PORT', 5432))
         }
         self.connection = None
+        
+        # Log which configuration is being used (without password)
+        safe_params = self.connection_params.copy()
+        safe_params['password'] = '*' * len(safe_params['password'])
+        logger.info(f"Database config: {safe_params}")
     
     def connect(self):
         """Establish database connection"""

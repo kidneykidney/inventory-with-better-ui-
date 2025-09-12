@@ -298,8 +298,8 @@ const BulkInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
           component="label"
           sx={{
             mt: 2,
-            bgcolor: '#4CAF50',
-            '&:hover': { bgcolor: '#45a049' }
+            bgcolor: '#10B981',
+            '&:hover': { bgcolor: '#059669' }
           }}
         >
           Choose Files
@@ -582,7 +582,7 @@ const BulkInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
       fullWidth
       PaperProps={{
         sx: {
-          bgcolor: '#1a1a1a',
+          bgcolor: '#FFFFFF',
           color: '#fff',
           borderRadius: 2
         }
@@ -665,8 +665,8 @@ const BulkInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
             disabled={selectedFiles.length === 0 || processing}
             variant="contained"
             sx={{
-              bgcolor: '#4CAF50',
-              '&:hover': { bgcolor: '#45a049' }
+              bgcolor: '#10B981',
+              '&:hover': { bgcolor: '#059669' }
             }}
           >
             Extract Data from {selectedFiles.length} Files
@@ -686,8 +686,8 @@ const BulkInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
               disabled={!canProceedFromReview || processing}
               variant="contained"
               sx={{
-                bgcolor: '#4CAF50',
-                '&:hover': { bgcolor: '#45a049' }
+                bgcolor: '#10B981',
+                '&:hover': { bgcolor: '#059669' }
               }}
             >
               Create {extractedData.filter(item => item.success && item.data.student_name).length} Invoices

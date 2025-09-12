@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database with Authentication Tables
+  # PostgreSQL Database with Complete Unified Schema
   postgres:
     image: postgres:15-alpine
     container_name: inventory_postgres
@@ -12,7 +12,8 @@ services:
       POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init_database.sql:/docker-entrypoint-initdb.d/02-init-data.sql
+      - ./unified_database_schema.sql:/docker-entrypoint-initdb.d/01-unified-schema.sql
+      - ./database/sample_data.sql:/docker-entrypoint-initdb.d/02-sample-data.sql
     ports:
       - "5432:5432"
     restart: unless-stopped
@@ -23,10 +24,14 @@ services:
       retries: 5
     command: >
       postgres 
-      -c max_connections=100
-      -c shared_buffers=256MB
-      -c effective_cache_size=1GB
-      -c work_mem=8MB
+      -c max_connections=200
+      -c shared_buffers=512MB
+      -c effective_cache_size=2GB
+      -c work_mem=16MB
+      -c maintenance_work_mem=256MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
 
   # FastAPI Backend with Secure Authentication
   backend:

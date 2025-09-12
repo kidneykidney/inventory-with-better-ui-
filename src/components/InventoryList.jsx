@@ -56,7 +56,7 @@ function InventoryList({ items = [], loading = false, onEdit, onDelete, onAdd })
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'INR'
     }).format(amount);
   };
 

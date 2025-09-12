@@ -39,7 +39,7 @@ function SystemSettings() {
     theme: 'light',
     language: 'English',
     dateFormat: 'MM/DD/YYYY',
-    currency: 'USD'
+    currency: 'INR'
   });
 
   const [savedMessage, setSavedMessage] = useState(false);
@@ -369,6 +369,7 @@ function SystemSettings() {
                       label="Currency"
                       onChange={(e) => handleSettingChange('currency', e.target.value)}
                     >
+                      <MenuItem value="INR">INR (₹)</MenuItem>
                       <MenuItem value="USD">USD ($)</MenuItem>
                       <MenuItem value="EUR">EUR (€)</MenuItem>
                       <MenuItem value="GBP">GBP (£)</MenuItem>
