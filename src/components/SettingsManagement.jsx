@@ -78,14 +78,12 @@ const SettingsManagement = () => {
 
   // Categories configuration
   const categories = [
-    { id: 'database', name: 'Database', icon: <DatabaseIcon />, color: '#2196F3' },
-    { id: 'ocr', name: 'OCR', icon: <ScannerIcon />, color: '#4CAF50' },
-    { id: 'file_upload', name: 'File Upload', icon: <UploadIcon />, color: '#FF9800' },
-    { id: 'security', name: 'Security', icon: <ShieldIcon />, color: '#F44336' },
-    { id: 'application', name: 'Application', icon: <AppIcon />, color: '#9C27B0' },
-    { id: 'notifications', name: 'Notifications', icon: <NotificationsIcon />, color: '#00BCD4' },
-    { id: 'business', name: 'Business', icon: <BusinessIcon />, color: '#8BC34A' },
-    { id: 'performance', name: 'Performance', icon: <SpeedIcon />, color: '#607D8B' },
+    { id: 'organization', name: 'Organization', icon: <BusinessIcon />, color: '#2196F3' },
+    { id: 'users_control', name: 'Users & Control', icon: <ShieldIcon />, color: '#4CAF50' },
+    { id: 'customization', name: 'Customization', icon: <AppIcon />, color: '#FF9800' },
+    { id: 'automation', name: 'Automation', icon: <SpeedIcon />, color: '#F44336' },
+    { id: 'data_admin', name: 'Data Administration', icon: <DatabaseIcon />, color: '#9C27B0' },
+    { id: 'integrations', name: 'Integrations', icon: <UploadIcon />, color: '#00BCD4' },
   ];
 
   // Load settings on component mount
@@ -100,7 +98,7 @@ const SettingsManagement = () => {
       const result = await response.json();
       
       if (result.success) {
-        setSettings(result.data);
+        setSettings(result.settings);
       } else {
         throw new Error('Failed to load settings');
       }
@@ -414,7 +412,7 @@ const SettingsManagement = () => {
                 {categoryInfo?.name || categoryId} Settings
               </Typography>
               <Box sx={{ display: 'flex', gap: 1 }}>
-                {(categoryId === 'database' || categoryId === 'ocr') && (
+                {(categoryId === 'data_admin' || categoryId === 'integrations') && (
                   <Tooltip title={`Test ${categoryInfo?.name} Configuration`}>
                     <IconButton
                       onClick={() => testConfiguration(categoryId)}

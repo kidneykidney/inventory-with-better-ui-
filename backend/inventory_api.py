@@ -54,14 +54,16 @@ app.add_middleware(
         "http://localhost:3002", 
         "http://localhost:3003", 
         "http://localhost:3004",
+        "http://localhost:5173",  # Vite default port
         "http://127.0.0.1:3000",
         "http://127.0.0.1:3001", 
         "http://127.0.0.1:3002", 
         "http://127.0.0.1:3003", 
-        "http://127.0.0.1:3004"
+        "http://127.0.0.1:3004",
+        "http://127.0.0.1:5173"
     ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
 )
 
@@ -248,6 +250,11 @@ class Order(BaseModel):
     items: List[OrderItem] = []
 
 # API Endpoints
+
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    return {"message": "Inventory Management API", "status": "running", "version": "1.0.0"}
 
 @app.get("/health")
 async def health_check():
@@ -1200,9 +1207,41 @@ async def update_order_status(order_id: str, status_update: OrderStatusUpdate, d
         """
         db.execute_command(items_query, (order_id,))
         
-        # 🆕 NEW FEATURE: Auto-create invoice when transitioning from pending to approved
-        if current_status == 'pending':
-            api_logger.info(f"🎯 Order {order_id} approved! Creating invoice automatically...")
+        # 🆕 IMPROVED: Smart invoice management for approved orders
+        api_logger.info(f"🎯 Order {order_id} approved! Managing invoice...")
+        
+        # Check if invoice already exists for this order
+        existing_invoice_query = """
+        SELECT invoice_number, id FROM invoices 
+        WHERE order_id = %s 
+        ORDER BY created_at DESC 
+        LIMIT 1
+        """
+        existing_invoice = db.execute_query(existing_invoice_query, (order_id,))
+        api_logger.info(f"🔍 DEBUG STATUS ENDPOINT: Found {len(existing_invoice) if existing_invoice else 0} existing invoices for order {order_id}")
+        
+        if existing_invoice:
+            # Update existing invoice instead of creating new one
+            invoice_id = existing_invoice[0]['id']
+            invoice_number = existing_invoice[0]['invoice_number']
+            
+            api_logger.info(f"📝 Updating existing invoice {invoice_number} for order {order_id}")
+            
+            # Update invoice status and sync with current order data
+            update_invoice_query = """
+            UPDATE invoices SET 
+                status = 'approved',
+                updated_at = CURRENT_TIMESTAMP,
+                notes = CONCAT(COALESCE(notes, ''), '\n', 'Order re-approved on ', NOW())
+            WHERE id = %s
+            """
+            db.execute_command(update_invoice_query, (invoice_id,))
+            
+            invoice_message = f" Updated existing invoice {invoice_number}."
+            
+        else:
+            # Create new invoice only if none exists
+            api_logger.info(f"� Creating new invoice for order {order_id}")
             created_invoice = await create_invoice_for_approved_order(order_id, db, "System")
             
             if created_invoice:
@@ -1211,6 +1250,25 @@ async def update_order_status(order_id: str, status_update: OrderStatusUpdate, d
             else:
                 api_logger.warning(f"⚠️ Failed to create invoice for order {order_id}")
                 invoice_message = " Note: Invoice creation failed - please create manually."
+    
+    # If status is changed from approved to pending, update invoice status
+    elif status_update.status == 'pending' and current_status == 'approved':
+        api_logger.info(f"🔄 Order {order_id} changed from approved to pending. Updating invoice status...")
+        
+        # Update any existing invoices to pending status
+        update_invoice_query = """
+        UPDATE invoices SET 
+            status = 'pending',
+            updated_at = CURRENT_TIMESTAMP,
+            notes = CONCAT(COALESCE(notes, ''), '\n', 'Order changed to pending on ', NOW())
+        WHERE order_id = %s
+        """
+        updated_invoices = db.execute_command(update_invoice_query, (order_id,))
+        
+        if updated_invoices:
+            invoice_message = " Related invoices updated to pending status."
+        else:
+            invoice_message = ""
     
     # If status is completed, mark all items as returned
     elif status_update.status == 'completed':
@@ -1462,9 +1520,41 @@ async def update_order(order_id: str, order_update: OrderUpdate, db: DatabaseMan
                 """
                 db.execute_command(items_query, (order_id,))
                 
-                # 🆕 NEW FEATURE: Auto-create invoice when order is approved
-                if current_status == 'pending':  # Only create invoice if transitioning from pending to approved
-                    api_logger.info(f"🎯 Order {order_id} approved! Creating invoice automatically...")
+                # 🆕 IMPROVED: Smart invoice management for approved orders
+                api_logger.info(f"🎯 Order {order_id} approved! Managing invoice...")
+                
+                # Check if invoice already exists for this order
+                existing_invoice_query = """
+                SELECT invoice_number, id FROM invoices 
+                WHERE order_id = %s 
+                ORDER BY created_at DESC 
+                LIMIT 1
+                """
+                existing_invoice = db.execute_query(existing_invoice_query, (order_id,))
+                api_logger.info(f"🔍 DEBUG: Found {len(existing_invoice) if existing_invoice else 0} existing invoices for order {order_id}")
+                
+                if existing_invoice:
+                    # Update existing invoice instead of creating new one
+                    invoice_id = existing_invoice[0]['id']
+                    invoice_number = existing_invoice[0]['invoice_number']
+                    
+                    api_logger.info(f"📝 Updating existing invoice {invoice_number} for order {order_id}")
+                    
+                    # Update invoice status and sync with current order data
+                    update_invoice_query = """
+                    UPDATE invoices SET 
+                        status = 'approved',
+                        updated_at = CURRENT_TIMESTAMP,
+                        notes = CONCAT(COALESCE(notes, ''), '\n', 'Order re-approved on ', NOW())
+                    WHERE id = %s
+                    """
+                    db.execute_command(update_invoice_query, (invoice_id,))
+                    
+                    invoice_message = f" Updated existing invoice {invoice_number}."
+                    
+                else:
+                    # Create new invoice only if none exists
+                    api_logger.info(f"🆕 Creating new invoice for order {order_id}")
                     created_invoice = await create_invoice_for_approved_order(
                         order_id, 
                         db, 
@@ -1477,8 +1567,6 @@ async def update_order(order_id: str, order_update: OrderUpdate, db: DatabaseMan
                     else:
                         api_logger.warning(f"⚠️ Failed to create invoice for order {order_id}")
                         invoice_message = " Note: Invoice creation failed - please create manually."
-                else:
-                    invoice_message = ""
             
             # If status is completed, mark all items as returned
             elif order_update.status == 'completed':

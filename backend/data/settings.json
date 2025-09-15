@@ -1,0 +1,64 @@
+{
+  "organization": {
+    "company_name": "College Incubation Center",
+    "company_address": "123 College Street, Education City",
+    "contact_email": "admin@college.edu",
+    "contact_phone": "+1-234-567-8900",
+    "website": "https://college.edu",
+    "enable_branches": false,
+    "default_branch": "Main Branch",
+    "base_currency": "INR",
+    "currency_symbol": "\u20b9",
+    "decimal_places": 2,
+    "enable_tax": true,
+    "default_tax_rate": 18,
+    "tax_inclusive": false
+  },
+  "users_control": {
+    "max_users": 100,
+    "user_registration": true,
+    "email_verification": true,
+    "custom_roles": true,
+    "role_hierarchy": false,
+    "default_department": "General",
+    "department_codes": false
+  },
+  "customization": {
+    "enable_orders": true,
+    "enable_invoicing": true,
+    "enable_analytics": true,
+    "enable_reports": true,
+    "email_header": "Welcome to our system",
+    "email_footer": "Best regards, Team",
+    "invoice_email_template": "Your invoice is ready",
+    "enable_sms": false,
+    "sms_provider": "Twilio"
+  },
+  "automation": {
+    "auto_approve_orders": 1000,
+    "require_manager_approval": false,
+    "approval_timeout_days": 7,
+    "daily_reports": true,
+    "weekly_summary": true,
+    "low_stock_alerts": true,
+    "auto_return_reminder": true,
+    "overdue_escalation": true,
+    "auto_invoice_generation": false,
+    "backup_schedule": "Daily",
+    "report_schedule": "Weekly"
+  },
+  "data_admin": {
+    "auto_backup": true,
+    "backup_retention_days": 30,
+    "backup_location": "./backups",
+    "default_export_format": "Excel",
+    "include_images": true
+  },
+  "integrations": {
+    "accounting_integration": false,
+    "erp_system": "Custom",
+    "sync_frequency": "Daily",
+    "api_rate_limit": 100,
+    "webhook_notifications": false
+  }
+}

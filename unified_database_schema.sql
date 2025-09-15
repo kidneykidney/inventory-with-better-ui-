@@ -431,24 +431,68 @@ CREATE TABLE invoices (
     student_id UUID REFERENCES students(id) ON DELETE CASCADE,
     invoice_type VARCHAR(50) DEFAULT 'lending',
     status VARCHAR(50) DEFAULT 'draft',
+    
+    -- Enhanced lending information
+    lending_purpose TEXT, -- Why is this equipment being lent?
+    lending_location VARCHAR(200), -- Where will the equipment be used?
+    project_name VARCHAR(200), -- What project/assignment is this for?
+    supervisor_name VARCHAR(200), -- Who is supervising the project?
+    supervisor_email VARCHAR(200), -- Supervisor contact
+    lending_terms TEXT, -- Specific terms and conditions
+    
+    -- Enhanced borrower verification
+    borrower_phone VARCHAR(20), -- Phone number for contact
+    borrower_address TEXT, -- Physical address
+    emergency_contact_name VARCHAR(200), -- Emergency contact
+    emergency_contact_phone VARCHAR(20), -- Emergency contact phone
+    
+    -- Enhanced timing information  
+    requested_start_date TIMESTAMP, -- When borrower wants to start using
+    actual_lending_date TIMESTAMP, -- When actually lent out
+    expected_return_date TIMESTAMP, -- Expected return date
+    grace_period_days INTEGER DEFAULT 7, -- Grace period for returns
+    
+    -- Financial information
     total_items INTEGER DEFAULT 0,
     total_value DECIMAL(10,2) DEFAULT 0.00,
+    security_deposit DECIMAL(10,2) DEFAULT 0.00, -- Security deposit amount
     lending_fee DECIMAL(10,2) DEFAULT 0.00,
     damage_fee DECIMAL(10,2) DEFAULT 0.00,
     replacement_fee DECIMAL(10,2) DEFAULT 0.00,
+    late_return_fee DECIMAL(10,2) DEFAULT 0.00, -- Fee for late returns
+    
+    -- Dates and timeline
     issue_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     due_date TIMESTAMP,
     acknowledgment_date TIMESTAMP,
+    
+    -- Physical documentation  
     has_physical_copy BOOLEAN DEFAULT false,
     physical_invoice_captured BOOLEAN DEFAULT false,
     physical_invoice_image_url TEXT,
     physical_invoice_notes TEXT,
-    issued_by VARCHAR(200),
+    
+    -- Authority and approval
+    issued_by VARCHAR(200), -- Who is lending the equipment
+    issuer_designation VARCHAR(100), -- Lender's role/position
+    approved_by VARCHAR(200), -- Who approved the lending
+    approval_date TIMESTAMP, -- When it was approved
+    
+    -- Student acknowledgment
     acknowledged_by_student BOOLEAN DEFAULT false,
     student_signature_url TEXT,
+    acknowledgment_method VARCHAR(50), -- How they acknowledged (digital, physical, etc.)
+    
+    -- Additional information
     notes TEXT,
+    special_instructions TEXT, -- Special handling instructions
+    risk_assessment VARCHAR(50), -- Low, Medium, High risk
+    
+    -- System fields
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Override fields for manual creation
     student_name_override VARCHAR(200),
     student_email_override VARCHAR(200),
     student_department_override VARCHAR(200),
@@ -460,19 +504,64 @@ CREATE TABLE invoice_items (
     invoice_id UUID REFERENCES invoices(id) ON DELETE CASCADE,
     product_id UUID REFERENCES products(id) ON DELETE CASCADE,
     order_item_id UUID REFERENCES order_items(id) ON DELETE SET NULL,
+    
+    -- Enhanced component information
     product_name VARCHAR(200) NOT NULL,
     product_sku VARCHAR(100) NOT NULL,
+    product_category VARCHAR(100), -- Component category (e.g., Electronics, Mechanical)
+    product_description TEXT, -- Detailed description
+    serial_number VARCHAR(100), -- Individual serial number if applicable
+    manufacturer VARCHAR(100), -- Who made this component
+    model_number VARCHAR(100), -- Model/part number
+    
+    -- Quantity and availability
     quantity INTEGER NOT NULL,
+    available_quantity INTEGER, -- How many are available in inventory
+    
+    -- Financial details
     unit_value DECIMAL(10,2) DEFAULT 0.00,
     total_value DECIMAL(10,2) DEFAULT 0.00,
+    replacement_cost DECIMAL(10,2) DEFAULT 0.00, -- Cost to replace if lost/damaged
+    
+    -- Lending terms for this specific item
     lending_duration_days INTEGER,
+    max_lending_duration INTEGER, -- Maximum allowed lending period
+    special_handling_required BOOLEAN DEFAULT false,
+    handling_instructions TEXT, -- Special instructions for this component
+    
+    -- Timeline tracking
     expected_return_date TIMESTAMP,
     actual_return_date TIMESTAMP,
-    return_condition VARCHAR(100),
+    grace_period_end_date TIMESTAMP, -- When grace period expires
+    
+    -- Condition tracking
+    condition_at_lending VARCHAR(100) DEFAULT 'good', -- Condition when lent out
+    return_condition VARCHAR(100), -- Condition when returned
+    condition_notes TEXT, -- Notes about condition
+    pre_lending_photos TEXT[], -- URLs to photos before lending
+    post_return_photos TEXT[], -- URLs to photos after return
+    
+    -- Damage and replacement tracking
     damage_assessment TEXT,
+    damage_severity VARCHAR(50), -- Minor, Major, Total Loss
     damage_fee DECIMAL(10,2) DEFAULT 0.00,
     replacement_needed BOOLEAN DEFAULT false,
     replacement_fee DECIMAL(10,2) DEFAULT 0.00,
+    repair_required BOOLEAN DEFAULT false,
+    repair_cost DECIMAL(10,2) DEFAULT 0.00,
+    
+    -- Risk and safety
+    risk_level VARCHAR(50) DEFAULT 'low', -- Low, Medium, High
+    safety_requirements TEXT, -- Safety precautions needed
+    training_required BOOLEAN DEFAULT false, -- Does borrower need training?
+    certification_required BOOLEAN DEFAULT false, -- Does borrower need certification?
+    
+    -- Usage tracking
+    usage_purpose VARCHAR(200), -- What will this component be used for?
+    usage_location VARCHAR(200), -- Where will it be used?
+    co_users TEXT[], -- Other people who might use this component
+    
+    -- Additional information
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

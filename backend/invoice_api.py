@@ -12,6 +12,7 @@ import json
 import os
 import re
 import random
+import io
 from pathlib import Path
 import shutil
 
@@ -76,24 +77,6 @@ else:
 
 # Create router for invoice endpoints
 invoice_router = APIRouter(tags=["invoices"])
-
-def clean_extracted_text(text: str) -> str:
-    """Clean and normalize extracted OCR text"""
-    if not text:
-        return ""
-    
-    # Remove extra whitespace and newlines
-    text = ' '.join(text.split())
-    
-    # Remove common OCR artifacts and redundant words
-    text = re.sub(r'\b(Student|Name|ID|Department)\b', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'\s+', ' ', text)  # Collapse multiple spaces
-    
-    # Capitalize names properly if it looks like a name
-    if re.match(r'^[a-zA-Z\s]+$', text):
-        text = ' '.join(word.capitalize() for word in text.split())
-    
-    return text.strip()
 
 # Configuration for file uploads
 UPLOAD_DIR = Path("uploads/invoices")
@@ -286,7 +269,212 @@ async def create_invoice_with_student(
         
         api_logger.info(f"Successfully created invoice {created_invoice['id']} for student {request.student_name}")
         
-        # Return both invoice and student information
+        return {
+            "success": True,
+            "message": "Invoice created successfully with student auto-creation",
+            "invoice": created_invoice,
+            "student": student_info[0] if student_info else None
+        }
+        
+    except Exception as e:
+        api_logger.error(f"Error creating invoice with student: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create invoice: {str(e)}")
+
+# New endpoint for creating invoice with automatic student creation and image storage
+@invoice_router.post("/create-with-student-and-image")
+async def create_invoice_with_student_and_image(
+    student_name: str = Form(...),
+    student_id: str = Form(None),
+    student_email: str = Form(None),
+    department: str = Form(None),
+    year_of_study: int = Form(1),
+    invoice_type: str = Form("lending"),
+    due_date: str = Form(None),
+    issued_by: str = Form("OCR System"),
+    notes: str = Form(None),
+    ocr_confidence: float = Form(None),
+    ocr_text: str = Form(None),
+    file: UploadFile = File(None),
+    db: DatabaseManager = Depends(get_db)
+):
+    """Create invoice with student auto-creation AND store the uploaded image"""
+    import uuid
+    import time
+    from datetime import datetime
+    from pathlib import Path
+    
+    try:
+        api_logger.info(f"=== Starting create_invoice_with_student_and_image for: {student_name} ===")
+        api_logger.info(f"File received: {file.filename if file else 'No file'}")
+        
+        api_logger.info(f"Creating invoice with student auto-creation and image storage for: {student_name}")
+        
+        # Step 1: Check if student exists
+        existing_student = None
+        if student_id:
+            existing_student = db.execute_query("SELECT * FROM students WHERE student_id = %s", (student_id,))
+        
+        if not existing_student and student_email:
+            existing_student = db.execute_query("SELECT * FROM students WHERE email = %s", (student_email,))
+        
+        if not existing_student:
+            existing_student = db.execute_query("SELECT * FROM students WHERE LOWER(name) = LOWER(%s)", (student_name,))
+        
+        # Step 2: Create student if doesn't exist
+        if existing_student:
+            api_logger.info(f"Found existing student: {existing_student[0]['student_id']}")
+            actual_student_id = existing_student[0]['id']
+        else:
+            api_logger.info(f"Creating new student: {student_name}")
+            
+            # Generate student_id if not provided
+            if not student_id:
+                timestamp = str(int(time.time()))[-6:]
+                student_id = f"STUD{timestamp}"
+            
+            # Generate email if not provided
+            if not student_email:
+                student_email = f"{student_id.lower()}@student.local"
+            
+            # Create new student
+            student_uuid = str(uuid.uuid4())
+            student_query = """
+            INSERT INTO students (id, student_id, name, email, department, year_of_study)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING *
+            """
+            
+            created_student = db.execute_query(
+                student_query,
+                (student_uuid, student_id, student_name, student_email, department or "General", year_of_study)
+            )
+            
+            if not created_student:
+                raise HTTPException(status_code=500, detail="Failed to create student")
+            
+            actual_student_id = student_uuid
+            api_logger.info(f"Created new student with ID: {student_id}")
+        
+        # Step 3: Create the invoice
+        invoice_uuid = str(uuid.uuid4())
+        invoice_query = """
+        INSERT INTO invoices (
+            id, student_id, invoice_type, status, due_date, issued_by, notes
+        ) VALUES (%s, %s, %s, 'issued', %s, %s, %s)
+        RETURNING *
+        """
+        
+        # Parse due_date if provided
+        parsed_due_date = None
+        if due_date:
+            try:
+                from datetime import datetime
+                parsed_due_date = datetime.strptime(due_date, '%Y-%m-%d').date()
+            except:
+                parsed_due_date = None
+        
+        invoice_result = db.execute_query(
+            invoice_query, 
+            (invoice_uuid, actual_student_id, invoice_type, parsed_due_date, issued_by, notes)
+        )
+        
+        if not invoice_result:
+            raise HTTPException(status_code=500, detail="Failed to create invoice")
+        
+        created_invoice = invoice_result[0]
+        
+        # Step 4: Store the image if provided
+        image_stored = False
+        image_info = None
+        
+        api_logger.info(f"Image storage check - file: {file}, filename: {file.filename if file else 'None'}")
+        
+        if file and file.filename:
+            try:
+                # Create permanent storage directory
+                upload_dir = Path("uploads/invoices")
+                upload_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Generate unique filename
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                file_extension = Path(file.filename).suffix.lower() or '.jpg'
+                permanent_filename = f"bulk_{timestamp}_{uuid.uuid4().hex[:8]}{file_extension}"
+                permanent_file_path = upload_dir / permanent_filename
+                
+                # Save the file
+                file_content = await file.read()
+                api_logger.info(f"File content length: {len(file_content)} bytes")
+                with open(permanent_file_path, "wb") as f:
+                    f.write(file_content)
+                
+                # Store in database
+                image_id = str(uuid.uuid4())
+                insert_query = """
+                INSERT INTO invoice_images (
+                    id, invoice_id, image_type, image_url, image_filename, 
+                    image_size, image_format, uploaded_by, upload_method,
+                    capture_timestamp, processing_status, ocr_text, notes
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                
+                confidence_note = f"Bulk upload with OCR confidence: {ocr_confidence*100:.1f}%" if ocr_confidence else "Bulk upload"
+                
+                db.execute_command(
+                    insert_query,
+                    (
+                        image_id,
+                        invoice_uuid,
+                        'bulk_upload',
+                        f"uploads/invoices/{permanent_filename}",
+                        file.filename,
+                        len(file_content),
+                        file_extension.lstrip('.'),
+                        'Bulk Upload System',
+                        'bulk_upload',
+                        datetime.now(),
+                        'completed',
+                        ocr_text[:2000] if ocr_text else None,
+                        confidence_note
+                    )
+                )
+                
+                image_stored = True
+                image_info = {
+                    "id": image_id,
+                    "filename": file.filename,
+                    "url": f"uploads/invoices/{permanent_filename}"
+                }
+                api_logger.info(f"Successfully stored image {image_id} for invoice {invoice_uuid}")
+                
+            except Exception as e:
+                api_logger.error(f"Failed to store image: {e}")
+                import traceback
+                api_logger.error(f"Stack trace: {traceback.format_exc()}")
+                # Continue without failing the invoice creation
+        
+        # Log the transaction
+        log_invoice_transaction(
+            db, created_invoice['id'], 'created', None, 'issued', 
+            issued_by, f"Invoice created via bulk upload for {student_name}"
+        )
+        
+        # Get student info for response
+        student_info = db.execute_query("SELECT * FROM students WHERE id = %s", (actual_student_id,))
+        
+        api_logger.info(f"Successfully created invoice {created_invoice['id']} for student {student_name}")
+        
+        # Return comprehensive response
+        return {
+            "invoice": created_invoice,
+            "student": student_info[0] if student_info else None,
+            "image_stored": image_stored,
+            "image_info": image_info,
+            "message": "Invoice created successfully with bulk upload"
+        }
+        
+    except Exception as e:
+        api_logger.error(f"Error creating invoice with student and image: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create invoice: {str(e)}")
         return {
             "invoice": created_invoice,
             "student": student_info[0] if student_info else None,
@@ -358,7 +546,7 @@ async def get_invoices(
     """
     
     params.extend([skip, limit])
-    return db.execute_query(query, params)
+    return db.execute_query(query, tuple(params))
 
 # Fix the route to match frontend expectations
 @invoice_router.get("/{invoice_id}", response_model=InvoiceDetail)
@@ -493,7 +681,7 @@ async def update_invoice(invoice_id: str, invoice_update: InvoiceUpdate, db: Dat
         api_logger.debug(f"Update query: {query}")
         api_logger.debug(f"Update params: {params}")
         
-        result = db.execute_query(query, params)
+        result = db.execute_query(query, tuple(params))
         
         if not result:
             api_logger.error("Update query returned no results")
@@ -853,6 +1041,9 @@ async def upload_invoice_file(
             raise HTTPException(status_code=404, detail="Invoice not found")
         
         # Check file extension
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="Invalid filename")
+        
         file_extension = Path(file.filename).suffix.lower()
         if file_extension not in ALLOWED_IMAGE_EXTENSIONS:
             raise HTTPException(status_code=400, detail="Invalid file type")
@@ -903,11 +1094,52 @@ async def upload_invoice_file(
         api_logger.error(f"Error uploading file: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@invoice_router.get("/{invoice_id}/images", response_model=List[InvoiceImage])
+@invoice_router.get("/{invoice_id}/images")
 async def get_invoice_images(invoice_id: str, db: DatabaseManager = Depends(get_db)):
-    """Get all images for an invoice"""
-    query = "SELECT * FROM invoice_images WHERE invoice_id = %s ORDER BY created_at"
-    return db.execute_query(query, (invoice_id,))
+    """Get all images for an invoice - returns real data from database"""
+    try:
+        api_logger.info(f"Fetching images for invoice: {invoice_id}")
+        
+        # Query the database for real images
+        query = """
+        SELECT 
+            id, invoice_id, image_type, image_url, image_filename, 
+            image_size, image_format, uploaded_by, upload_method,
+            device_info, capture_timestamp, processing_status, 
+            ocr_text, notes, created_at
+        FROM invoice_images 
+        WHERE invoice_id = %s 
+        ORDER BY created_at DESC
+        """
+        
+        result = db.execute_query(query, (invoice_id,))
+        api_logger.info(f"Found {len(result) if result else 0} images for invoice {invoice_id}")
+        
+        if result:
+            # Convert result to list of dictionaries
+            images = []
+            for row in result:
+                image_dict = dict(row)
+                # Convert datetime objects to strings for JSON serialization
+                if image_dict.get('capture_timestamp'):
+                    image_dict['capture_timestamp'] = image_dict['capture_timestamp'].isoformat()
+                if image_dict.get('created_at'):
+                    image_dict['created_at'] = image_dict['created_at'].isoformat()
+                images.append(image_dict)
+            
+            return {"success": True, "images": images, "count": len(images)}
+        else:
+            api_logger.info(f"No images found for invoice {invoice_id}")
+            return {"success": True, "images": [], "count": 0, "message": "No images found for this invoice"}
+        
+    except Exception as e:
+        api_logger.error(f"Error fetching images for invoice {invoice_id}: {str(e)}")
+        return {"success": False, "images": [], "error": str(e), "count": 0}
+
+@invoice_router.options("/{invoice_id}/images")
+async def options_invoice_images(invoice_id: str):
+    """Handle preflight requests for invoice images"""
+    return {"message": "OK"}
 
 @invoice_router.get("/images/{image_id}")
 async def get_image_file(image_id: str, db: DatabaseManager = Depends(get_db)):
@@ -975,16 +1207,34 @@ async def create_student_acknowledgment(
 @invoice_router.post("/ocr-upload")
 async def process_invoice_with_ocr(
     file: UploadFile = File(...),
+    invoice_id: str = Form(None),
+    auto_create_invoice: bool = Form(True),
     db: DatabaseManager = Depends(get_db)
 ):
-    """Process uploaded invoice image with OCR to extract data"""
+    """Process uploaded invoice image with OCR to extract data and store image"""
     try:
         # Validate file type
-        if not file.content_type.startswith(('image/', 'application/pdf')):
+        if not file.content_type or not file.content_type.startswith(('image/', 'application/pdf')):
             raise HTTPException(status_code=400, detail="Only image and PDF files are supported")
         
         # Read file content
         file_content = await file.read()
+        
+        # Create permanent storage directory
+        upload_dir = Path("uploads/invoices")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate unique filename for permanent storage
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_extension = Path(file.filename).suffix.lower() if file.filename else '.jpg'
+        permanent_filename = f"ocr_{timestamp}_{uuid.uuid4().hex[:8]}{file_extension}"
+        permanent_file_path = upload_dir / permanent_filename
+        
+        # Save permanent file
+        with open(permanent_file_path, "wb") as f:
+            f.write(file_content)
+        
+        api_logger.info(f"Saved permanent file: {permanent_file_path}")
         
         # Create temporary file for OCR processing
         import tempfile
@@ -996,112 +1246,140 @@ async def process_invoice_with_ocr(
             # Use the existing OCR system to extract text
             api_logger.info(f"OCR_AVAILABLE: {OCR_AVAILABLE}, CV2_AVAILABLE: {CV2_AVAILABLE}")
             
+            extracted_data = {}
+            ocr_text = ""
+            
             if OCR_AVAILABLE:
                 api_logger.info(f"Processing {file.filename} with OCR from path: {temp_file_path}")
                 ocr_text = extract_text_from_image(temp_file_path)
                 api_logger.info(f"OCR extracted text length: {len(ocr_text) if ocr_text else 0}")
                 
                 if ocr_text and len(ocr_text.strip()) > 10:
-                    # Extract structured information from OCR text
-                    extracted_info = extract_invoice_information(ocr_text)
-                    
-                    # Enhanced extraction for student information
-                    extracted_data = {}
-                    
-                    # Try to extract student name (look for name patterns)
-                    name_patterns = [
-                        r'Name:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
-                        r'Student\s+Name:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
-                        r'Name\s*:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
-                        r'(?:^|\n)([A-Z][a-z]+\s+[A-Z][a-z]+)(?:\s*\n|\s+ID)',
-                    ]
-                    
-                    for pattern in name_patterns:
-                        match = re.search(pattern, ocr_text, re.MULTILINE)
-                        if match:
-                            extracted_data['student_name'] = match.group(1).strip()
-                            break
-                    
-                    # Extract student ID with better patterns
-                    student_id_patterns = [
-                        r'Student\s+ID:\s*([A-Z0-9]+)',
-                        r'ID:\s*([A-Z0-9]+)',
-                        r'Student\s*ID\s*:\s*([A-Z0-9]+)',
-                        r'ID\s*Number:\s*([A-Z0-9]+)',
-                    ]
-                    
-                    for pattern in student_id_patterns:
-                        match = re.search(pattern, ocr_text, re.MULTILINE)
-                        if match:
-                            extracted_data['student_id'] = match.group(1).strip()
-                            break
-                    
-                    # Use existing student_id extraction as fallback
-                    if 'student_id' not in extracted_data and 'student_id' in extracted_info:
-                        extracted_data['student_id'] = extracted_info['student_id']
-                    
-                    # Try to extract department with better patterns
-                    dept_patterns = [
-                        r'Department:\s*([A-Z][a-zA-Z\s]+?)(?:\n|Year)',
-                        r'Dept:\s*([A-Z][a-zA-Z\s]+?)(?:\n|Year)',
-                        r'Department\s*:\s*([A-Z][a-zA-Z\s]+?)(?:\n|Year)',
-                        r'(Computer Science|Biology|Chemistry|Physics|Engineering|Mathematics|Business|Arts|Sciences)',
-                    ]
-                    
-                    for pattern in dept_patterns:
-                        match = re.search(pattern, ocr_text, re.MULTILINE)
-                        if match:
-                            extracted_data['department'] = match.group(1).strip()
-                            break
-                    
-                    # Extract items if available
-                    if 'items' in extracted_info:
-                        extracted_data['items'] = extracted_info['items']
-                    
-                    # Calculate confidence based on extracted fields
-                    confidence_score = 0.3  # Base confidence
-                    if extracted_data.get('student_name'):
-                        confidence_score += 0.3
-                    if extracted_data.get('student_id'):
-                        confidence_score += 0.2
-                    if extracted_data.get('department'):
-                        confidence_score += 0.1
-                    if extracted_data.get('items'):
-                        confidence_score += 0.1
-                    
-                    # Clean up extracted data
-                    for key, value in extracted_data.items():
-                        if isinstance(value, str):
-                            extracted_data[key] = clean_extracted_text(value)
-                    
-                    return {
-                        "success": True,
-                        "extracted_data": extracted_data,
-                        "confidence_score": min(confidence_score, 0.95),
-                        "raw_text": ocr_text[:500] + "..." if len(ocr_text) > 500 else ocr_text,
-                        "processing_method": "tesseract_ocr",
-                        "full_extraction": extracted_info
-                    }
+                    # Use our enhanced parse_text_simple function for comprehensive extraction
+                    extracted_data = parse_text_simple(ocr_text)
+                    confidence_score = min(extracted_data.get('confidence_score', 95), 95) / 100.0
                 else:
-                    # OCR found no meaningful text
-                    return {
-                        "success": False,
-                        "extracted_data": {},
-                        "confidence_score": 0.0,
-                        "raw_text": ocr_text if ocr_text else "",
-                        "processing_method": "tesseract_ocr",
-                        "error": "No readable text found in image"
-                    }
+                    confidence_score = 0.0
             else:
-                # OCR not available, return meaningful error
-                return {
+                confidence_score = 0.0
+            
+            # Determine invoice ID for image storage
+            target_invoice_id = invoice_id
+            
+            # Auto-create invoice if requested and student info is available
+            if auto_create_invoice and extracted_data.get('student_name'):
+                try:
+                    # Check if student exists
+                    student_query = """
+                    SELECT id FROM students 
+                    WHERE student_id = %s OR LOWER(name) = LOWER(%s) 
+                    LIMIT 1
+                    """
+                    student_result = db.execute_query(
+                        student_query,
+                        (extracted_data.get('student_id', ''), extracted_data.get('student_name', ''))
+                    )
+                    
+                    if student_result:
+                        student_id = student_result[0]['id']
+                        
+                        # Create invoice
+                        invoice_uuid = str(uuid.uuid4())
+                        invoice_query = """
+                        INSERT INTO invoices (
+                            id, student_id, invoice_type, status, due_date, issued_by, notes
+                        ) VALUES (%s, %s, %s, 'issued', %s, %s, %s)
+                        RETURNING id, invoice_number
+                        """
+                        
+                        invoice_result = db.execute_query(
+                            invoice_query,
+                            (
+                                invoice_uuid,
+                                student_id,
+                                'lending',
+                                extracted_data.get('due_date') or None,
+                                'OCR System',
+                                f"Auto-created from OCR processing. Original file: {file.filename}"
+                            )
+                        )
+                        
+                        if invoice_result:
+                            target_invoice_id = invoice_uuid
+                            api_logger.info(f"Auto-created invoice {invoice_uuid} for {extracted_data.get('student_name')}")
+                        
+                except Exception as e:
+                    api_logger.warning(f"Invoice auto-creation failed: {e}")
+            
+            # Store image in database if we have an invoice ID
+            image_stored = False
+            image_id = None
+            
+            if target_invoice_id:
+                try:
+                    image_id = str(uuid.uuid4())
+                    insert_query = """
+                    INSERT INTO invoice_images (
+                        id, invoice_id, image_type, image_url, image_filename, 
+                        image_size, image_format, uploaded_by, upload_method,
+                        capture_timestamp, processing_status, ocr_text, notes
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """
+                    
+                    # Get file size
+                    file_size = len(file_content)
+                    
+                    db.execute_command(
+                        insert_query,
+                        (
+                            image_id,
+                            target_invoice_id,
+                            'ocr_processed',
+                            f"uploads/invoices/{permanent_filename}",
+                            file.filename or permanent_filename,
+                            file_size,
+                            file_extension.lstrip('.'),
+                            'OCR System',
+                            'ocr_upload',
+                            datetime.now(),
+                            'completed',
+                            ocr_text[:2000] if ocr_text else None,  # Limit OCR text length
+                            f"OCR processed with confidence: {confidence_score*100:.1f}%"
+                        )
+                    )
+                    
+                    image_stored = True
+                    api_logger.info(f"Stored image {image_id} for invoice {target_invoice_id}")
+                    
+                except Exception as e:
+                    api_logger.error(f"Failed to store image in database: {e}")
+            
+            # Build result
+            result = {
+                "success": True,
+                "extracted_data": extracted_data,
+                "confidence_score": confidence_score,
+                "raw_text": ocr_text[:500] + "..." if len(ocr_text) > 500 else ocr_text,
+                "processing_method": "tesseract_ocr",
+                "parse_method": "enhanced_parse_text_simple",
+                "image_stored": image_stored,
+                "image_id": image_id,
+                "invoice_id": target_invoice_id,
+                "image_url": f"uploads/invoices/{permanent_filename}"
+            }
+            
+            if not OCR_AVAILABLE:
+                result.update({
                     "success": False,
-                    "extracted_data": {},
-                    "confidence_score": 0.0,
-                    "raw_text": "",
-                    "processing_method": "none",
                     "error": "OCR system not available. Please ensure Tesseract is installed."
-                }
+                })
+            elif not ocr_text or len(ocr_text.strip()) <= 10:
+                result.update({
+                    "success": False,
+                    "error": "No readable text found in image"
+                })
+            
+            return result
                 
         finally:
             # Clean up temporary file
@@ -1111,8 +1389,6 @@ async def process_invoice_with_ocr(
                 pass
         
     except Exception as e:
-        api_logger.error(f"Error processing OCR upload: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
         api_logger.error(f"Error processing OCR upload: {str(e)}")
         raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
 
@@ -1258,14 +1534,46 @@ def extract_text_from_image(image_path: str) -> str:
         
         # Load and resize image if too large (memory optimization)
         try:
-            image = Image.open(image_path)
+            # Check if file is a PDF and handle accordingly
+            if image_path.lower().endswith('.pdf'):
+                api_logger.info("Processing PDF file - converting to image")
+                try:
+                    import fitz  # PyMuPDF
+                    # Open PDF and convert first page to image
+                    doc = fitz.open(image_path)
+                    page = doc[0]
+                    
+                    # Convert to high-res image
+                    mat = fitz.Matrix(2.0, 2.0)  # 2x zoom for better OCR
+                    pix = page.get_pixmap(matrix=mat)
+                    
+                    # Convert to PIL Image
+                    img_data = pix.tobytes("ppm")
+                    image = Image.open(io.BytesIO(img_data))
+                    
+                    doc.close()
+                    api_logger.info(f"PDF converted to image: {image.size}")
+                    
+                except ImportError:
+                    api_logger.error("PyMuPDF not available for PDF processing")
+                    return ""
+                except Exception as pdf_error:
+                    api_logger.error(f"Failed to process PDF: {pdf_error}")
+                    return ""
+            else:
+                # Handle regular image files
+                image = Image.open(image_path)
             
             # Limit image size to reduce memory usage
             max_dimension = 2000
             if max(image.size) > max_dimension:
                 ratio = max_dimension / max(image.size)
                 new_size = tuple(int(dim * ratio) for dim in image.size)
-                image = image.resize(new_size, Image.LANCZOS)
+                # Use LANCZOS for newer PIL versions, fallback to ANTIALIAS for older
+                try:
+                    image = image.resize(new_size, Image.LANCZOS)
+                except AttributeError:
+                    image = image.resize(new_size, Image.ANTIALIAS)
                 api_logger.info(f"Resized image to: {image.size}")
                 
             # Convert to RGB if needed
@@ -1496,7 +1804,7 @@ async def update_invoice_from_ocr(db: DatabaseManager, invoice_id: str, invoice_
         if updates:
             params.append(invoice_id)
             query = f"UPDATE invoices SET {', '.join(updates)} WHERE id = %s"
-            db.execute_command(query, params)
+            db.execute_command(query, tuple(params))
             
             # Log the OCR update
             log_invoice_transaction(
@@ -1553,14 +1861,15 @@ async def extract_invoice_data_from_image(
             )
         
         # Validate file
-        if not file.content_type.startswith('image/') and file.content_type != 'application/pdf':
+        if file.content_type and not (file.content_type.startswith('image/') or file.content_type == 'application/pdf'):
             raise HTTPException(status_code=400, detail="Invalid file type. Please upload an image or PDF.")
         
         # Save temporary file with unique name to prevent caching
         temp_dir = Path("temp_uploads")
         temp_dir.mkdir(exist_ok=True)
         
-        temp_file_path = temp_dir / f"{processing_id}_{uuid.uuid4()}{Path(file.filename).suffix}"
+        file_suffix = Path(file.filename).suffix if file.filename else ".tmp"
+        temp_file_path = temp_dir / f"{processing_id}_{uuid.uuid4()}{file_suffix}"
         
         api_logger.info(f"Saving temp file: {temp_file_path}")
         
@@ -1724,17 +2033,60 @@ def clean_extracted_text(text: str, field_type: str = "general") -> str:
 
 def parse_text_simple(text: str) -> dict:
     """
-    Enhanced text parsing to extract common invoice fields
+    Enhanced text parsing to extract comprehensive lending invoice fields
     """
     lines = [line.strip() for line in text.split('\n') if line.strip()]
     extracted = {
+        # Basic student information
         "student_name": "",
         "student_id": "",
         "student_email": "",
         "department": "",
+        "borrower_phone": "",
+        "borrower_address": "",
+        
+        # Lending information (for frontend compatibility)
+        "lender_name": "",
+        "lending_date": "",
+        "lending_time": "",
+        "invoice_type": "lending",  # Default to lending type
+        
+        # Emergency contact
+        "emergency_contact_name": "",
+        "emergency_contact_phone": "",
+        
+        # Lending purpose and context
+        "lending_purpose": "",
+        "lending_location": "",
+        "project_name": "",
+        "supervisor_name": "",
+        "supervisor_email": "",
+        
+        # Timeline information
         "due_date": "",
+        "requested_start_date": "",
+        "expected_return_date": "",
+        "grace_period_days": 7,
+        
+        # Notes and additional info
+        "notes": "",
+        
+        # Authority information
+        "issued_by": "",
+        "issuer_designation": "",
+        "approved_by": "",
+        
+        # Financial information
+        "security_deposit": 0.0,
+        "late_return_fee": 0.0,
+        
+        # Additional information
         "invoice_number": "",
         "notes": "",
+        "special_instructions": "",
+        "risk_assessment": "low",
+        
+        # Items array
         "items": []
     }
     
@@ -1747,7 +2099,8 @@ def parse_text_simple(text: str) -> dict:
     invoice_patterns = [
         r'Invoice\s*[#:]?\s*([A-Z0-9-]+)',
         r'INV[#:-]?\s*([A-Z0-9-]+)',
-        r'Invoice\s+Number[#:]?\s*([A-Z0-9-]+)'
+        r'Invoice\s+Number[#:]?\s*([A-Z0-9-]+)',
+        r'Lending\s+Agreement[#:]?\s*([A-Z0-9-]+)'
     ]
     for pattern in invoice_patterns:
         match = re.search(pattern, full_text, re.IGNORECASE)
@@ -1760,41 +2113,72 @@ def parse_text_simple(text: str) -> dict:
         r'Student\s+ID[#:]?\s*([A-Z0-9]+)',
         r'STU\s*([0-9]{4,6})',
         r'ID[#:]?\s*([A-Z0-9]{5,10})',
-        r'STUD([0-9]{6,8})'
+        r'STUD([0-9]{6,8})',
+        r'Borrower\s+ID[#:]?\s*([A-Z0-9]+)'
     ]
     for pattern in student_id_patterns:
         match = re.search(pattern, full_text, re.IGNORECASE)
         if match and not extracted["student_id"]:
             student_id = clean_extracted_text(match.group(1), "student_id")
-            if len(student_id) >= 4:  # Valid student ID should be at least 4 characters
+            if len(student_id) >= 4:
                 extracted["student_id"] = student_id
                 break
     
     # Look for student name patterns
     name_patterns = [
-        r'Student\s+Name[#:]?\s*([A-Za-z\s]+?)(?:Department|Email|Student\s+ID|\n)',
-        r'Name[#:]?\s*([A-Za-z\s]+?)(?:Department|Email|Student\s+ID|\n)',
-        r'Name[#:]?\s*([A-Za-z\s]+?)$'
+        r'[@]?\s*Full\s+Name[#:]?\s*([A-Za-z\s]+?)(?:@|Student\s+ID|Email|Department|Phone|\n)',
+        r'[@]?\s*Student\s+Name[#:]?\s*([A-Za-z\s]+?)(?:@|Student\s+ID|Email|Department|Phone|\n)',
+        r'[@]?\s*Borrower\s+Name[#:]?\s*([A-Za-z\s]+?)(?:@|Student\s+ID|Email|Department|Phone|\n)',
+        r'[@]?\s*Name[#:]?\s*([A-Za-z\s]+?)(?:@|Student\s+ID|Email|Department|Phone|\n)',
+        # Handle cases where name continues on next line
+        r'[@]?\s*Full\s+Name[#:]?\s*([A-Za-z\s]+)',
     ]
-    for pattern in name_patterns:
+    for i, pattern in enumerate(name_patterns):
         match = re.search(pattern, full_text, re.IGNORECASE)
         if match and not extracted["student_name"]:
             name = clean_extracted_text(match.group(1), "name")
-            if len(name) > 2:  # Valid name should be more than 2 characters
+            if len(name) > 2:
                 extracted["student_name"] = name
+                api_logger.info(f"👤 Extracted student name with pattern {i+1}: {name}")
                 break
     
-    # Look for email patterns
-    email_match = re.search(r'\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b', full_text)
-    if email_match:
-        email = clean_extracted_text(email_match.group(1), "email")
-        if email:  # Only set if valid email
-            extracted["student_email"] = email
+    # Look for email patterns (enhanced for @ symbols)
+    email_patterns = [
+        r'Email[#:]?\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})',
+        r'@\s*Email[#:]?\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})',
+        r'[@]?\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})',
+        r'\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b'
+    ]
+    for i, pattern in enumerate(email_patterns):
+        match = re.search(pattern, full_text, re.IGNORECASE)
+        if match and not extracted["student_email"]:
+            email = match.group(1).strip()
+            if email and '@' in email and '.' in email:
+                extracted["student_email"] = email
+                api_logger.info(f"📧 Extracted email with pattern {i+1}: {email}")
+                break
+        elif match:
+            api_logger.info(f"📧 Pattern {i+1} found email but field already filled: {match.group(1)}")
+    
+    # Look for phone patterns
+    phone_patterns = [
+        r'Phone[#:]?\s*([+]?[\d\s\-\(\)]{10,15})',
+        r'Mobile[#:]?\s*([+]?[\d\s\-\(\)]{10,15})',
+        r'Contact[#:]?\s*([+]?[\d\s\-\(\)]{10,15})'
+    ]
+    for pattern in phone_patterns:
+        match = re.search(pattern, full_text, re.IGNORECASE)
+        if match and not extracted["borrower_phone"]:
+            phone = clean_extracted_text(match.group(1), "phone")
+            if len(phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')) >= 10:
+                extracted["borrower_phone"] = phone
+                break
     
     # Look for department
     dept_patterns = [
-        r'Department[#:]?\s*([A-Za-z\s&]+?)(?:Email|Year|Due|Student\s+ID|\n)',
-        r'Dept[#:]?\s*([A-Za-z\s&]+?)(?:Email|Year|Due|Student\s+ID|\n)'
+        r'Department[#:]?\s*([A-Za-z\s&]+?)(?:Email|Year|Due|Phone|Project|\n)',
+        r'Dept[#:]?\s*([A-Za-z\s&]+?)(?:Email|Year|Due|Phone|Project|\n)',
+        r'Faculty[#:]?\s*([A-Za-z\s&]+?)(?:Email|Year|Due|Phone|Project|\n)'
     ]
     for pattern in dept_patterns:
         match = re.search(pattern, full_text, re.IGNORECASE)
@@ -1804,10 +2188,121 @@ def parse_text_simple(text: str) -> dict:
                 extracted["department"] = dept
                 break
     
-    # Look for due date patterns
+    # Look for project information
+    project_patterns = [
+        r'Project[#:]?\s*([A-Za-z0-9\s]+?)(?:Supervisor|Due|Location|Purpose|\n)',
+        r'Assignment[#:]?\s*([A-Za-z0-9\s]+?)(?:Supervisor|Due|Location|Purpose|\n)',
+        r'Course[#:]?\s*([A-Za-z0-9\s]+?)(?:Supervisor|Due|Location|Purpose|\n)'
+    ]
+    for pattern in project_patterns:
+        match = re.search(pattern, full_text, re.IGNORECASE)
+        if match and not extracted["project_name"]:
+            project = clean_extracted_text(match.group(1), "project")
+            if len(project) > 2:
+                extracted["project_name"] = project
+                break
+    
+    # Look for supervisor information
+    supervisor_patterns = [
+        r'Supervisor[#:]?\s*([A-Za-z\s]+?)(?:Email|Department|Project|Due|\n)',
+        r'Instructor[#:]?\s*([A-Za-z\s]+?)(?:Email|Department|Project|Due|\n)',
+        r'Professor[#:]?\s*([A-Za-z\s]+?)(?:Email|Department|Project|Due|\n)'
+    ]
+    for pattern in supervisor_patterns:
+        match = re.search(pattern, full_text, re.IGNORECASE)
+        if match and not extracted["supervisor_name"]:
+            supervisor = clean_extracted_text(match.group(1), "name")
+            if len(supervisor) > 2:
+                extracted["supervisor_name"] = supervisor
+                break
+    
+    # Look for lending purpose
+    purpose_patterns = [
+        r'Purpose[#:]?\s*([A-Za-z0-9\s,.-]+?)(?:Location|Due|Project|Supervisor|\n)',
+        r'Reason[#:]?\s*([A-Za-z0-9\s,.-]+?)(?:Location|Due|Project|Supervisor|\n)',
+        r'Use\s+for[#:]?\s*([A-Za-z0-9\s,.-]+?)(?:Location|Due|Project|Supervisor|\n)'
+    ]
+    for pattern in purpose_patterns:
+        match = re.search(pattern, full_text, re.IGNORECASE)
+        if match and not extracted["lending_purpose"]:
+            purpose = clean_extracted_text(match.group(1), "purpose")
+            if len(purpose) > 5:
+                extracted["lending_purpose"] = purpose
+                break
+    
+    # Look for location information
+    location_patterns = [
+        r'Location[#:]?\s*([A-Za-z0-9\s,.-]+?)(?:Purpose|Due|Project|Supervisor|\n)',
+        r'Lab[#:]?\s*([A-Za-z0-9\s,.-]+?)(?:Purpose|Due|Project|Supervisor|\n)',
+        r'Room[#:]?\s*([A-Za-z0-9\s,.-]+?)(?:Purpose|Due|Project|Supervisor|\n)'
+    ]
+    for pattern in location_patterns:
+        match = re.search(pattern, full_text, re.IGNORECASE)
+        if match and not extracted["lending_location"]:
+            location = clean_extracted_text(match.group(1), "location")
+            if len(location) > 2:
+                extracted["lending_location"] = location
+                break
+    
+    # Look for emergency contact
+    emergency_patterns = [
+        r'Emergency\s+Contact[#:]?\s*([A-Za-z\s]+?)(?:Phone|Email|Department|\n)',
+        r'Emergency[#:]?\s*([A-Za-z\s]+?)(?:Phone|Email|Department|\n)'
+    ]
+    for pattern in emergency_patterns:
+        match = re.search(pattern, full_text, re.IGNORECASE)
+        if match and not extracted["emergency_contact_name"]:
+            emergency = clean_extracted_text(match.group(1), "name")
+            if len(emergency) > 2:
+                extracted["emergency_contact_name"] = emergency
+                break
+    
+    # Look for issued by / lender name
+    issued_patterns = [
+        r'Issued\s+by[#:]?\s*([A-Za-z\s\.]+?)(?:Designation|Department|Date|\n)',
+        r'Approved\s+By[#:]?\s*([A-Za-z\s\.]+?)(?:Designation|Department|Date|\n|Processing)',
+        r'Lender[#:]?\s*([A-Za-z\s\.]+?)(?:Designation|Department|Date|\n)',
+        r'Lab\s+Manager[#:]?\s*([A-Za-z\s\.]+?)(?:Designation|Department|Date|\n)'
+    ]
+    for i, pattern in enumerate(issued_patterns):
+        match = re.search(pattern, full_text, re.IGNORECASE)
+        if match and not extracted["issued_by"]:
+            issued = clean_extracted_text(match.group(1), "name")
+            if len(issued) > 2:
+                extracted["issued_by"] = issued
+                extracted["lender_name"] = issued  # Add for frontend compatibility
+                api_logger.info(f"👤 Extracted lender name with pattern {i+1}: {issued}")
+                break
+        elif match:
+            api_logger.info(f"👤 Pattern {i+1} found lender but field already filled: {match.group(1)}")
+    
+    # Extract issue date for lending_date
+    issue_date_patterns = [
+        r'Issue\s+Date[#:]?\s*([A-Za-z0-9,\s]+?)(?:\n|@|Due)',
+        r'@\s*Issue\s+Date[#:]?\s*([A-Za-z0-9,\s]+?)(?:\n|@|Due)',
+        r'Lending\s+Date[#:]?\s*([A-Za-z0-9,\s]+?)(?:\n|@|Due)',
+        r'Date[#:]?\s*([A-Za-z0-9,\s]+?)(?:\n|@|Due)',
+        r'(September|October|November|December|January|February|March|April|May|June|July|August)\s+\d{1,2},?\s+\d{4}'
+    ]
+    for i, pattern in enumerate(issue_date_patterns):
+        match = re.search(pattern, full_text, re.IGNORECASE)
+        if match:
+            date_str = match.group(1).strip()
+            converted_date = convert_date_to_iso_format(date_str)
+            if converted_date and not extracted.get("lending_date"):
+                extracted["lending_date"] = converted_date
+                api_logger.info(f"📅 Extracted lending date with pattern {i+1}: {converted_date} from '{date_str}'")
+                break
+            elif converted_date:
+                api_logger.info(f"📅 Pattern {i+1} found date but field already filled: {date_str}")
+        else:
+            api_logger.debug(f"📅 Issue date pattern {i+1} failed")
+    
+    # Look for due date patterns (enhanced)
     date_patterns = [
-        r'Due\s+Date[#:]?\s*([A-Za-z0-9,\s]+?)(?:\n|$)',
-        r'Return\s+Date[#:]?\s*([A-Za-z0-9,\s]+?)(?:\n|$)',
+        r'Due\s+Date[#:]?\s*([A-Za-z0-9,\s]+?)(?:\n|$|Signature)',
+        r'Return\s+Date[#:]?\s*([A-Za-z0-9,\s]+?)(?:\n|$|Signature)',
+        r'Expected\s+Return[#:]?\s*([A-Za-z0-9,\s]+?)(?:\n|$|Signature)',
         r'(September|October|November|December|January|February|March|April|May|June|July|August)\s+\d{1,2},?\s+\d{4}',
         r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})',
         r'Sept?\s*\d{1,2},?\s*\d{4}'
@@ -1816,23 +2311,23 @@ def parse_text_simple(text: str) -> dict:
         match = re.search(pattern, full_text, re.IGNORECASE)
         if match and not extracted["due_date"]:
             date_str = match.group(1).strip()
-            # Use the new date conversion function
             converted_date = convert_date_to_iso_format(date_str)
             if converted_date:
                 extracted["due_date"] = converted_date
+                extracted["expected_return_date"] = converted_date
                 break
     
-    # Extract equipment items with enhanced parsing
+    # Extract equipment items with enhanced parsing for lending context
     try:
-        # Look for equipment section
+        # Look for equipment section with more keywords
         equipment_section = ""
         in_equipment = False
         
         for line in lines:
-            if re.search(r'(BORROWED|EQUIPMENT|ITEMS?)', line, re.IGNORECASE):
+            if re.search(r'(BORROWED|EQUIPMENT|ITEMS?|COMPONENTS?|MATERIALS?)', line, re.IGNORECASE):
                 in_equipment = True
                 continue
-            elif re.search(r'(TERMS|TOTAL|SIGNATURE)', line, re.IGNORECASE):
+            elif re.search(r'(TERMS|TOTAL|SIGNATURE|CONDITIONS)', line, re.IGNORECASE):
                 in_equipment = False
                 break
             elif in_equipment:
@@ -1844,12 +2339,13 @@ def parse_text_simple(text: str) -> dict:
             
             for line in item_lines:
                 # Skip header lines
-                if re.search(r'(Item|SKU|Unit|Value|Return|Date)', line, re.IGNORECASE) and not re.search(r'^\w+\s+[A-Z0-9-]+', line):
+                if re.search(r'(Item|SKU|Unit|Value|Return|Date|Component|Serial)', line, re.IGNORECASE) and not re.search(r'^\w+\s+[A-Z0-9-]+', line):
                     continue
                 
-                # Try to extract item info: Name SKU Qty Value (handle various formats)
-                # Enhanced pattern to handle different formats and separators
+                # Enhanced item patterns for lending context
                 item_patterns = [
+                    # Enhanced format: Name SKU Serial Qty $Value Condition
+                    r'^([A-Za-z\s]+?)\s+([A-Z0-9-]+)\s+([A-Z0-9-]*)\s+(\d+)\s*[,]?\s*\$?([\d,]+\.?\d*)\s+([A-Za-z]+)',
                     # Standard format: Name SKU Qty $Value $Total
                     r'^([A-Za-z\s]+?)\s+([A-Z0-9-]+)\s+(\d+)\s*[,]?\s*\$?([\d,]+\.?\d*)\s+\$?([\d,]+\.?\d*)',
                     # Alternative format: Name SKU Qty, $Value $Total
@@ -1868,9 +2364,15 @@ def parse_text_simple(text: str) -> dict:
                         item = {
                             "name": groups[0].strip(),
                             "sku": groups[1],
-                            "quantity": int(groups[2]) if len(groups) > 2 else 1,
-                            "unit_value": float(groups[3].replace(',', '')) if len(groups) > 3 and groups[3] else 0.0,
-                            "total_value": float(groups[4].replace(',', '')) if len(groups) > 4 and groups[4] else (float(groups[3].replace(',', '')) if len(groups) > 3 and groups[3] else 0.0)
+                            "serial_number": groups[2] if len(groups) > 5 else "",
+                            "quantity": int(groups[3] if len(groups) > 3 else groups[2]) if len(groups) > 2 else 1,
+                            "unit_value": float(groups[4 if len(groups) > 5 else 3].replace(',', '')) if len(groups) > 3 and groups[3 if len(groups) <= 5 else 4] else 0.0,
+                            "total_value": float(groups[5 if len(groups) > 5 else 4].replace(',', '')) if len(groups) > 4 else 0.0,
+                            "condition_at_lending": groups[5] if len(groups) > 5 else "good",
+                            "risk_level": "low",
+                            "safety_requirements": "",
+                            "usage_purpose": extracted.get("lending_purpose", ""),
+                            "usage_location": extracted.get("lending_location", "")
                         }
                         break
                 
@@ -1879,8 +2381,74 @@ def parse_text_simple(text: str) -> dict:
     except Exception as e:
         api_logger.warning(f"Failed to parse equipment items: {e}")
     
-    # Calculate confidence score based on extracted fields
+    # Extract notes or comments
+    notes_patterns = [
+        r'Notes[#:]?\s*([A-Za-z0-9\s,.\-]+?)(?:\n\n|\n@|$)',
+        r'Comments[#:]?\s*([A-Za-z0-9\s,.\-]+?)(?:\n\n|\n@|$)',
+        r'Special\s+Instructions[#:]?\s*([A-Za-z0-9\s,.\-]+?)(?:\n\n|\n@|$)',
+        r'Purpose[#:]?\s*([A-Za-z0-9\s,.\-]+?)(?:\n\n|\n@|$)'
+    ]
+    for i, pattern in enumerate(notes_patterns):
+        match = re.search(pattern, full_text, re.IGNORECASE | re.DOTALL)
+        if match and not extracted["notes"]:
+            notes_text = clean_extracted_text(match.group(1), "text")
+            if len(notes_text) > 5:
+                extracted["notes"] = notes_text[:200]  # Limit notes length
+                api_logger.info(f"📝 Extracted notes with pattern {i+1}: {notes_text[:50]}...")
+                break
+    
+    # Set sensible defaults for missing but important fields
+    if not extracted["lending_time"]:
+        extracted["lending_time"] = "09:00"  # Default to 9 AM
+    
+    if not extracted["notes"] and extracted["lending_purpose"]:
+        extracted["notes"] = f"Lending for: {extracted['lending_purpose']}"
+    elif not extracted["notes"]:
+        extracted["notes"] = "Equipment lending - see attached invoice for details"
+    
+    # Calculate confidence score based on extracted fields (enhanced)
     confidence = 0
+    if extracted["student_name"]: confidence += 15
+    if extracted["student_id"]: confidence += 15
+    if extracted["student_email"]: confidence += 10
+    if extracted["department"]: confidence += 10
+    if extracted["due_date"]: confidence += 10
+    if extracted["invoice_number"]: confidence += 5
+    if extracted["project_name"]: confidence += 10
+    if extracted["supervisor_name"]: confidence += 10
+    if extracted["lending_purpose"]: confidence += 10
+    if extracted["lending_location"]: confidence += 5
+    if extracted["issued_by"]: confidence += 5
+    if extracted["borrower_phone"]: confidence += 5
+    if extracted["items"]: confidence += 5 * min(len(extracted["items"]), 4)  # Cap at 4 items
+    
+    extracted["confidence_score"] = min(confidence, 100)
+    
+    # Enhanced logging with comprehensive data validation
+    api_logger.info(f"✨ Enhanced lending invoice parsing completed. Confidence: {extracted['confidence_score']}%")
+    api_logger.info(f"📋 Extracted Lending Data Summary:")
+    api_logger.info(f"   👤 Borrower: '{extracted['student_name']}' (ID: {extracted['student_id']})")
+    api_logger.info(f"   📧 Contact: {extracted['student_email']} | {extracted['borrower_phone']}")
+    api_logger.info(f"   🏫 Department: '{extracted['department']}'")
+    api_logger.info(f"   📁 Project: '{extracted['project_name']}' (Supervisor: {extracted['supervisor_name']})")
+    api_logger.info(f"   🎯 Purpose: '{extracted['lending_purpose'][:50]}...' (Location: {extracted['lending_location']})")
+    api_logger.info(f"   📅 Due Date: {extracted['due_date']}")
+    api_logger.info(f"   👨‍💼 Issued By: '{extracted['issued_by']}'")
+    api_logger.info(f"   📦 Components: {len(extracted['items'])} extracted")
+    
+    # Enhanced validation warnings
+    if len(extracted['student_name']) < 3:
+        api_logger.warning("⚠️  Student name seems too short")
+    if len(extracted['student_id']) < 4:
+        api_logger.warning("⚠️  Student ID seems invalid")
+    if not extracted['student_email'] and extracted['confidence_score'] > 50:
+        api_logger.warning("⚠️  No valid email found despite good OCR")
+    if not extracted['lending_purpose'] and extracted['confidence_score'] > 60:
+        api_logger.warning("⚠️  No lending purpose found - manual entry may be needed")
+    if not extracted['project_name'] and extracted['confidence_score'] > 70:
+        api_logger.warning("⚠️  No project information found")
+    
+    return extracted
     if extracted["student_name"]: confidence += 20
     if extracted["student_id"]: confidence += 20
     if extracted["student_email"]: confidence += 15

@@ -323,65 +323,21 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
               Student Information
             </Typography>
             
-            <Alert 
-              severity="info" 
-              sx={{ mb: 3, backgroundColor: '#EBF8FF', border: '1px solid #3B82F6' }}
-            >
-              Add multiple invoices at once. Fill in the required fields for each invoice. 
-              Click "Add More Invoices" to add additional rows.
-            </Alert>
-
-            {/* Header Row */}
-            <Paper sx={{ p: 2, mb: 2, backgroundColor: '#F3F4F6' }}>
-              <Grid container spacing={2} alignItems="center">
-                <Grid item xs={2}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#374151' }}>
-                    STUDENT TYPE
-                  </Typography>
-                </Grid>
-                <Grid item xs={4}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#374151' }}>
-                    STUDENT SELECTION*
-                  </Typography>
-                </Grid>
-                <Grid item xs={2}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#374151' }}>
-                    EMAIL*
-                  </Typography>
-                </Grid>
-                <Grid item xs={2}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#374151' }}>
-                    DEPARTMENT*
-                  </Typography>
-                </Grid>
-
-                <Grid item xs={1}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#374151' }}>
-                    YEAR
-                  </Typography>
-                </Grid>
-
-                <Grid item xs={1}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#374151' }}>
-                    ACTIONS
-                  </Typography>
-                </Grid>
-              </Grid>
-            </Paper>
+            {/* Student Selection Rows */}
 
             {/* Invoice Rows */}
             {invoices.map((invoice, index) => (
               <Paper
                 key={index}
                 sx={{
-                  p: 2,
-                  mb: 2,
+                  p: 1,
+                  mb: 1,
                   border: '1px solid #E5E7EB',
-                  borderRadius: 2,
-                  '&:hover': { boxShadow: 2 }
+                  borderRadius: 1,
+                  '&:hover': { boxShadow: 1 }
                 }}
               >
-                <Grid container spacing={2} alignItems="center">
+                <Grid container spacing={1} alignItems="center">
                   <Grid item xs={2}>
                     <FormControlLabel
                       control={
@@ -392,7 +348,11 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                         />
                       }
                       label={invoice.useExistingStudent ? "Existing" : "New"}
-                      sx={{ fontSize: '0.75rem' }}
+                      sx={{ 
+                        fontSize: '0.75rem', 
+                        '& .MuiFormControlLabel-label': { fontSize: '0.75rem' },
+                        '& .MuiTypography-root': { fontSize: '0.75rem' }
+                      }}
                     />
                   </Grid>
 
@@ -413,7 +373,13 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                             placeholder="Search and select student..."
                             required
                             error={!invoice.selectedExistingStudent}
-                            sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.875rem' } }}
+                            sx={{ 
+                              '& .MuiOutlinedInput-root': { 
+                                fontSize: '0.8rem', 
+                                height: '32px',
+                                padding: '0 8px'
+                              }
+                            }}
                           />
                         )}
                         renderOption={(props, option) => (
@@ -439,7 +405,7 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                         }}
                       />
                     ) : (
-                      <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
                         <TextField
                           size="small"
                           fullWidth
@@ -448,7 +414,10 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                           onChange={(e) => handleInputChange(index, 'student_name', e.target.value)}
                           required
                           error={!invoice.student_name}
-                          sx={{ flex: 2 }}
+                          sx={{ 
+                            flex: 2,
+                            '& .MuiOutlinedInput-root': { fontSize: '0.8rem', height: '32px' }
+                          }}
                         />
                         <TextField
                           size="small"
@@ -459,16 +428,23 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                           onChange={(e) => handleInputChange(index, 'student_email', e.target.value)}
                           required
                           error={!invoice.student_email}
-                          sx={{ flex: 2 }}
+                          sx={{ 
+                            flex: 2,
+                            '& .MuiOutlinedInput-root': { fontSize: '0.8rem', height: '32px' }
+                          }}
                         />
                         <FormControl fullWidth size="small" sx={{ flex: 1 }}>
                           <Select
                             value={invoice.department}
                             onChange={(e) => handleInputChange(index, 'department', e.target.value)}
                             displayEmpty
-                            sx={{ fontSize: '0.875rem' }}
+                            sx={{ 
+                              fontSize: '0.8rem', 
+                              height: '32px',
+                              '& .MuiSelect-select': { fontSize: '0.8rem' }
+                            }}
                           >
-                            <MenuItem value="" disabled>Select Department...</MenuItem>
+                            <MenuItem value="" disabled>Dept...</MenuItem>
                             {departments.map((dept) => (
                               <MenuItem key={dept} value={dept}>{dept}</MenuItem>
                             ))}
@@ -485,7 +461,12 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                         fullWidth
                         value={invoice.selectedExistingStudent?.year_of_study || ''}
                         disabled
-                        sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.875rem' } }}
+                        sx={{ 
+                          '& .MuiOutlinedInput-root': { 
+                            fontSize: '0.8rem', 
+                            height: '32px' 
+                          } 
+                        }}
                       />
                     ) : (
                       <FormControl fullWidth size="small">
@@ -493,7 +474,11 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                           value={invoice.year_of_study}
                           onChange={(e) => handleInputChange(index, 'year_of_study', e.target.value)}
                           displayEmpty
-                          sx={{ fontSize: '0.875rem' }}
+                          sx={{ 
+                            fontSize: '0.8rem', 
+                            height: '32px',
+                            '& .MuiSelect-select': { fontSize: '0.8rem' }
+                          }}
                         >
                           <MenuItem value="">Year...</MenuItem>
                           {yearOfStudyOptions.map((year) => (
@@ -551,60 +536,33 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
               Invoice Details
             </Typography>
 
-            {/* Header Row */}
-            <Paper sx={{ p: 2, mb: 2, backgroundColor: '#F3F4F6' }}>
-              <Grid container spacing={2} alignItems="center">
-                <Grid item xs={3}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#374151' }}>
-                    INVOICE TYPE*
-                  </Typography>
-                </Grid>
-                <Grid item xs={3}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#374151' }}>
-                    DUE DATE*
-                  </Typography>
-                </Grid>
-                <Grid item xs={2}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#374151' }}>
-                    AMOUNT*
-                  </Typography>
-                </Grid>
-                <Grid item xs={3}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#374151' }}>
-                    ISSUED BY
-                  </Typography>
-                </Grid>
-                <Grid item xs={1}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#374151' }}>
-                    ACTIONS
-                  </Typography>
-                </Grid>
-              </Grid>
-            </Paper>
-
             {/* Invoice Rows */}
             {invoices.map((invoice, index) => (
               <Paper
                 key={index}
                 sx={{
-                  p: 2,
-                  mb: 2,
+                  p: 1,
+                  mb: 1,
                   border: '1px solid #E5E7EB',
-                  borderRadius: 2,
-                  '&:hover': { boxShadow: 2 }
+                  borderRadius: 1,
+                  '&:hover': { boxShadow: 1 }
                 }}
               >
-                <Grid container spacing={2} alignItems="center">
-                  <Grid item xs={3}>
+                <Grid container spacing={1} alignItems="center">
+                  <Grid item xs={2.5}>
                     <FormControl fullWidth size="small">
                       <Select
                         value={invoice.invoice_type}
                         onChange={(e) => handleInputChange(index, 'invoice_type', e.target.value)}
                         displayEmpty
                         error={!invoice.invoice_type}
-                        sx={{ fontSize: '0.875rem' }}
+                        sx={{ 
+                          fontSize: '0.8rem', 
+                          height: '32px',
+                          '& .MuiSelect-select': { fontSize: '0.8rem' }
+                        }}
                       >
-                        <MenuItem value="" disabled>Select invoice type...</MenuItem>
+                        <MenuItem value="" disabled>Select type...</MenuItem>
                         {invoiceTypes.map((type) => (
                           <MenuItem key={type.value} value={type.value}>{type.label}</MenuItem>
                         ))}
@@ -612,7 +570,7 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                     </FormControl>
                   </Grid>
 
-                  <Grid item xs={3}>
+                  <Grid item xs={2}>
                     <TextField
                       fullWidth
                       size="small"
@@ -623,16 +581,21 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                       required
                       error={!invoice.due_date}
                       InputLabelProps={{ shrink: true }}
-                      sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.875rem' } }}
+                      sx={{ 
+                        '& .MuiOutlinedInput-root': { 
+                          fontSize: '0.8rem', 
+                          height: '32px' 
+                        } 
+                      }}
                     />
                   </Grid>
 
-                  <Grid item xs={2}>
+                  <Grid item xs={1.5}>
                     <TextField
                       fullWidth
                       size="small"
                       type="number"
-                      placeholder="Enter amount"
+                      placeholder="Amount"
                       value={invoice.amount}
                       onChange={(e) => handleInputChange(index, 'amount', e.target.value)}
                       required
@@ -640,19 +603,48 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                       InputProps={{
                         startAdornment: <InputAdornment position="start">₹</InputAdornment>,
                       }}
-                      sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.875rem' } }}
+                      sx={{ 
+                        '& .MuiOutlinedInput-root': { 
+                          fontSize: '0.8rem', 
+                          height: '32px' 
+                        } 
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      placeholder="Issued by"
+                      value={invoice.issued_by}
+                      onChange={(e) => handleInputChange(index, 'issued_by', e.target.value)}
+                      sx={{ 
+                        '& .MuiOutlinedInput-root': { 
+                          fontSize: '0.8rem', 
+                          height: '32px' 
+                        } 
+                      }}
                     />
                   </Grid>
 
                   <Grid item xs={3}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      placeholder="Person/department issuing"
-                      value={invoice.issued_by}
-                      onChange={(e) => handleInputChange(index, 'issued_by', e.target.value)}
-                      sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.875rem' } }}
-                    />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <PersonIcon sx={{ color: '#6B7280', fontSize: '0.9rem' }} />
+                      <Typography variant="body2" sx={{ 
+                        color: '#374151', 
+                        fontSize: '0.75rem',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {invoice.selectedExistingStudent ? 
+                          invoice.selectedExistingStudent.name || 'Selected Student' : 
+                          invoice.useExistingStudent ? 'No student selected' : 
+                          invoice.student_name || 'New Student'
+                        }
+                      </Typography>
+                    </Box>
                   </Grid>
 
                   <Grid item xs={1}>
@@ -670,20 +662,6 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                     </IconButton>
                   </Grid>
                 </Grid>
-
-                {/* Notes Section for each invoice */}
-                <Box sx={{ mt: 2 }}>
-                  <TextField
-                    fullWidth
-                    label="Notes (Optional)"
-                    multiline
-                    rows={2}
-                    value={invoice.notes}
-                    onChange={(e) => handleInputChange(index, 'notes', e.target.value)}
-                    placeholder="Add any additional notes for this invoice (optional)..."
-                    size="small"
-                  />
-                </Box>
               </Paper>
             ))}
 

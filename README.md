@@ -303,7 +303,7 @@ inventory1/
 │   │   └── InventoryList.jsx    # Inventory display component
 │   ├── 📁 pages/               # Main page components
 │   │   ├── Dashboard.jsx        # Analytics dashboard
-│   │   ├── OrderManagement.jsx  # Order processing (main feature)
+│   │   ├── LendingManagement.jsx  # Lending processing (main feature)
 │   │   ├── InventoryManagement.jsx
 │   │   ├── StudentManagement.jsx
 │   │   ├── InvoicingBilling.jsx

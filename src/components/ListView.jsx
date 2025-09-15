@@ -826,9 +826,15 @@ const ListView = ({ type = 'products' }) => {
     setSearchQuery('');
   };
 
-  // Status update function
+  // Status update function with duplicate prevention
   const handleStatusUpdate = async (itemId, newStatus) => {
     if (type !== 'orders') return; // Only allow status updates for orders
+    
+    // Prevent duplicate calls
+    if (updatingStatus) {
+      console.log('Status update already in progress, ignoring duplicate call');
+      return;
+    }
     
     setUpdatingStatus(true);
     try {
@@ -1613,10 +1619,6 @@ const ListView = ({ type = 'products' }) => {
             {/* Bulk Items - For all modules in create mode */}
             {!editingItem && (
               <Box sx={{ mt: 2 }}>
-                <Alert severity="info" sx={{ mb: 2, backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE' }}>
-                  Add multiple {type} at once. Fill in the required fields (marked with *) for each {type.slice(0, -1)}. Click "Add More {type.charAt(0).toUpperCase() + type.slice(1)}" to add additional rows.
-                </Alert>
-                
                 <MuiTableContainer component={Paper} sx={{ maxHeight: 500, border: '1px solid #E5E7EB' }}>
                   <MuiTable stickyHeader size="small">
                     <MuiTableHead>
@@ -1725,6 +1727,7 @@ const ListView = ({ type = 'products' }) => {
           >
             <MenuItem 
               onClick={() => handleStatusUpdate(selectedItemForStatus?.id, 'pending')}
+              disabled={updatingStatus}
               sx={{ 
                 color: '#374151',
                 '&:hover': { backgroundColor: '#E5E7EB' }
@@ -1735,6 +1738,7 @@ const ListView = ({ type = 'products' }) => {
             </MenuItem>
             <MenuItem 
               onClick={() => handleStatusUpdate(selectedItemForStatus?.id, 'approved')}
+              disabled={updatingStatus}
               sx={{ 
                 color: '#374151',
                 '&:hover': { backgroundColor: '#E5E7EB' }
@@ -1745,6 +1749,7 @@ const ListView = ({ type = 'products' }) => {
             </MenuItem>
             <MenuItem 
               onClick={() => handleStatusUpdate(selectedItemForStatus?.id, 'completed')}
+              disabled={updatingStatus}
               sx={{ 
                 color: '#374151',
                 '&:hover': { backgroundColor: '#E5E7EB' }
@@ -1755,6 +1760,7 @@ const ListView = ({ type = 'products' }) => {
             </MenuItem>
             <MenuItem 
               onClick={() => handleStatusUpdate(selectedItemForStatus?.id, 'overdue')}
+              disabled={updatingStatus}
               sx={{ 
                 color: '#374151',
                 '&:hover': { backgroundColor: '#E5E7EB' }

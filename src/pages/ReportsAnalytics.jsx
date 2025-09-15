@@ -534,27 +534,27 @@ function ReportsAnalytics() {
   };
 
   return (
-    <Box>
+    <Box sx={{ px: 1 }}>
         {/* Header */}
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" gutterBottom sx={{ fontWeight: 600, color: '#2c3e50', display: 'flex', alignItems: 'center' }}>
-            <Analytics sx={{ mr: 2, fontSize: 40, color: '#1976d2' }} />
+        <Box sx={{ mb: 1 }}>
+          <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, color: '#2c3e50', display: 'flex', alignItems: 'center', fontSize: '1.2rem' }}>
+            <Analytics sx={{ mr: 1, fontSize: 24, color: '#1976d2' }} />
             📈 Real-Time Analytics Dashboard
           </Typography>
-          <Typography variant="body1" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
             Live data tracking, comprehensive reports, and intelligent insights
           </Typography>
         </Box>
 
         {/* Error Alert */}
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
             {error}
           </Alert>
         )}
 
         {/* Controls */}
-        <Card sx={{ mb: 3, p: 2 }}>
+        <Card sx={{ mb: 2, p: 1.5 }}>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} md={2}>
               <FormControl fullWidth>
@@ -910,15 +910,15 @@ function ReportsAnalytics() {
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.3 }}
           >
-            <Grid container spacing={3} sx={{ mb: 3 }}>
+            <Grid container spacing={1} sx={{ mb: 1.5 }}>
               <Grid item xs={12} sm={6} md={3}>
                 <Card sx={{ background: 'linear-gradient(135deg, #4fc3f7 0%, #29b6f6 100%)' }}>
-                  <CardContent sx={{ textAlign: 'center', color: 'white' }}>
-                    <Inventory sx={{ fontSize: 40, mb: 1, opacity: 0.9 }} />
-                    <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                  <CardContent sx={{ textAlign: 'center', color: 'white', py: 1, px: 1.5 }}>
+                    <Inventory sx={{ fontSize: 24, mb: 0.2, opacity: 0.9 }} />
+                    <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.25rem' }}>
                       {realTimeMetrics.total_products}
                     </Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.65rem' }}>
                       Total Products
                     </Typography>
                   </CardContent>
@@ -926,12 +926,12 @@ function ReportsAnalytics() {
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
                 <Card sx={{ background: 'linear-gradient(135deg, #81c784 0%, #66bb6a 100%)' }}>
-                  <CardContent sx={{ textAlign: 'center', color: 'white' }}>
-                    <Assessment sx={{ fontSize: 40, mb: 1, opacity: 0.9 }} />
-                    <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                  <CardContent sx={{ textAlign: 'center', color: 'white', py: 1, px: 1.5 }}>
+                    <Assessment sx={{ fontSize: 24, mb: 0.2, opacity: 0.9 }} />
+                    <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.25rem' }}>
                       {realTimeMetrics.total_students}
                     </Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.65rem' }}>
                       Total Students
                     </Typography>
                   </CardContent>
@@ -939,12 +939,12 @@ function ReportsAnalytics() {
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
                 <Card sx={{ background: 'linear-gradient(135deg, #ffb74d 0%, #ffa726 100%)' }}>
-                  <CardContent sx={{ textAlign: 'center', color: 'white' }}>
-                    <TrendingUp sx={{ fontSize: 40, mb: 1, opacity: 0.9 }} />
-                    <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                  <CardContent sx={{ textAlign: 'center', color: 'white', py: 1, px: 1.5 }}>
+                    <TrendingUp sx={{ fontSize: 24, mb: 0.2, opacity: 0.9 }} />
+                    <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.25rem' }}>
                       {realTimeMetrics.active_orders}
                     </Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.65rem' }}>
                       Active Orders
                     </Typography>
                   </CardContent>
@@ -952,12 +952,12 @@ function ReportsAnalytics() {
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
                 <Card sx={{ background: 'linear-gradient(135deg, #e57373 0%, #ef5350 100%)' }}>
-                  <CardContent sx={{ textAlign: 'center', color: 'white' }}>
-                    <Timeline sx={{ fontSize: 40, mb: 1, opacity: 0.9 }} />
-                    <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                  <CardContent sx={{ textAlign: 'center', color: 'white', py: 1, px: 1.5 }}>
+                    <Timeline sx={{ fontSize: 24, mb: 0.2, opacity: 0.9 }} />
+                    <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.25rem' }}>
                       {realTimeMetrics.return_rate.toFixed(1)}%
                     </Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.65rem' }}>
                       Return Rate
                     </Typography>
                   </CardContent>
@@ -969,21 +969,21 @@ function ReportsAnalytics() {
 
         {/* Enhanced Metrics Grid */}
         {realTimeMetrics && (
-          <Grid container spacing={3} sx={{ mb: 3 }}>
+          <Grid container spacing={1} sx={{ mb: 1.5 }}>
             <Grid item xs={12} sm={6} md={4}>
               <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <DataUsage sx={{ mr: 1, color: 'warning.main' }} />
-                    <Typography variant="h6">Revenue Insights</Typography>
+                <CardContent sx={{ py: 1, px: 1.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                    <DataUsage sx={{ mr: 1, color: 'warning.main', fontSize: 18 }} />
+                    <Typography variant="h6" sx={{ fontSize: '0.9rem' }}>Revenue Insights</Typography>
                   </Box>
-                  <Typography variant="h4" sx={{ fontWeight: 700, color: 'success.main' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: 'success.main', fontSize: '1.25rem' }}>
                     ${realTimeMetrics.total_revenue.toFixed(2)}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                     Total Revenue • Avg: ${realTimeMetrics.average_order_value.toFixed(2)}
                   </Typography>
-                  <Typography variant="body2" sx={{ mt: 1 }}>
+                  <Typography variant="body2" sx={{ mt: 0.2, fontSize: '0.65rem' }}>
                     📈 Most Popular: {realTimeMetrics.most_borrowed_category}
                   </Typography>
                 </CardContent>
@@ -991,18 +991,18 @@ function ReportsAnalytics() {
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
               <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Notifications sx={{ mr: 1, color: 'error.main' }} />
-                    <Typography variant="h6">Stock Alerts</Typography>
+                <CardContent sx={{ py: 1, px: 1.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                    <Notifications sx={{ mr: 1, color: 'error.main', fontSize: 18 }} />
+                    <Typography variant="h6" sx={{ fontSize: '0.9rem' }}>Stock Alerts</Typography>
                   </Box>
-                  <Typography variant="h4" sx={{ fontWeight: 700, color: 'error.main' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: 'error.main', fontSize: '1.25rem' }}>
                     {realTimeMetrics.low_stock_items}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                     Low Stock Items
                   </Typography>
-                  <Typography variant="body2" sx={{ mt: 1 }}>
+                  <Typography variant="body2" sx={{ mt: 0.2, fontSize: '0.65rem' }}>
                     ⚠️ Requires immediate attention
                   </Typography>
                 </CardContent>
@@ -1010,18 +1010,18 @@ function ReportsAnalytics() {
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
               <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Schedule sx={{ mr: 1, color: 'info.main' }} />
-                    <Typography variant="h6">Pending Returns</Typography>
+                <CardContent sx={{ py: 1, px: 1.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                    <Schedule sx={{ mr: 1, color: 'info.main', fontSize: 18 }} />
+                    <Typography variant="h6" sx={{ fontSize: '0.9rem' }}>Pending Returns</Typography>
                   </Box>
-                  <Typography variant="h4" sx={{ fontWeight: 700, color: 'info.main' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: 'info.main', fontSize: '1.25rem' }}>
                     {realTimeMetrics.pending_returns}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                     Items Out
                   </Typography>
-                  <Typography variant="body2" sx={{ mt: 1 }}>
+                  <Typography variant="body2" sx={{ mt: 0.2, fontSize: '0.65rem' }}>
                     📋 Awaiting return
                   </Typography>
                 </CardContent>
@@ -1032,16 +1032,16 @@ function ReportsAnalytics() {
 
         {/* Charts Section */}
         {overviewCharts && (
-          <Grid container spacing={3} sx={{ mb: 3 }}>
+          <Grid container spacing={0.5} sx={{ mb: 1 }}>
             {/* Daily Activity Chart */}
             <Grid item xs={12} lg={8}>
               <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <ShowChart sx={{ mr: 1, color: 'primary.main' }} />
-                    <Typography variant="h6">📊 Daily Activity Trends</Typography>
+                <CardContent sx={{ py: 0.5, px: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.25 }}>
+                    <ShowChart sx={{ mr: 0.5, color: 'primary.main', fontSize: 16 }} />
+                    <Typography variant="h6" sx={{ fontSize: '0.8rem' }}>📊 Daily Activity Trends</Typography>
                   </Box>
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ResponsiveContainer width="100%" height={160}>
                     <AreaChart data={overviewCharts.daily_activity}>
                       <defs>
                         <linearGradient id="colorActivities" x1="0" y1="0" x2="0" y2="1">
@@ -1069,18 +1069,18 @@ function ReportsAnalytics() {
             {/* Category Distribution */}
             <Grid item xs={12} lg={4}>
               <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <DonutLarge sx={{ mr: 1, color: 'secondary.main' }} />
-                    <Typography variant="h6">🥧 Category Distribution</Typography>
+                <CardContent sx={{ py: 0.5, px: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.25 }}>
+                    <DonutLarge sx={{ mr: 0.5, color: 'secondary.main', fontSize: 16 }} />
+                    <Typography variant="h6" sx={{ fontSize: '0.8rem' }}>🥧 Category Distribution</Typography>
                   </Box>
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ResponsiveContainer width="100%" height={160}>
                     <PieChart>
                       <Pie
                         data={overviewCharts.category_distribution}
                         cx="50%"
                         cy="50%"
-                        outerRadius={80}
+                        outerRadius={60}
                         fill="#8884d8"
                         dataKey="count"
                         label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`}
@@ -1099,12 +1099,12 @@ function ReportsAnalytics() {
             {/* Status Distribution */}
             <Grid item xs={12}>
               <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <InsertChart sx={{ mr: 1, color: 'success.main' }} />
-                    <Typography variant="h6">📈 Order Status Overview</Typography>
+                <CardContent sx={{ py: 0.5, px: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.25 }}>
+                    <InsertChart sx={{ mr: 0.5, color: 'success.main', fontSize: 16 }} />
+                    <Typography variant="h6" sx={{ fontSize: '0.8rem' }}>📈 Order Status Overview</Typography>
                   </Box>
-                  <ResponsiveContainer width="100%" height={250}>
+                  <ResponsiveContainer width="100%" height={160}>
                     <BarChart data={overviewCharts.status_distribution}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="status" />

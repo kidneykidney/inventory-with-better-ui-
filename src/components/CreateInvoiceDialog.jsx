@@ -385,6 +385,37 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
       case 1:
         return (
           <Grid container spacing={3}>
+            {/* Student Context Card */}
+            {selectedStudent && (
+              <Grid size={12}>
+                <Card variant="outlined" sx={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                  <CardContent sx={{ py: 1.5 }}>
+                    <Box display="flex" alignItems="center" gap={2}>
+                      <PersonIcon sx={{ color: '#3B82F6' }} />
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1F2937' }}>
+                          Creating invoice for: {selectedStudent.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {selectedStudent.student_id} • {selectedStudent.department} • {selectedStudent.email}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ ml: 'auto' }}>
+                        <Chip 
+                          label={invoiceData.invoice_type} 
+                          size="small" 
+                          sx={{ 
+                            backgroundColor: '#3B82F6', 
+                            color: 'white',
+                            fontWeight: 500
+                          }} 
+                        />
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            )}
             <Grid size={12}>
               <Box display="flex" justifyContent="space-between" alignItems="center">
                 <Typography variant="h6">

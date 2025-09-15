@@ -155,45 +155,77 @@ function InstrumentCluster() {
   const formatDataForCSV = (data, type) => {
     if (!data || data.length === 0) return [];
     
+    // Helper function to clean and format text for Excel
+    const cleanText = (value) => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      // Remove problematic characters that can break CSV
+      return str.replace(/[\r\n\t]/g, ' ').replace(/\s+/g, ' ').trim();
+    };
+    
+    // Helper function to format currency consistently
+    const formatCurrency = (value) => {
+      if (!value || value === 0) return '0.00';
+      return parseFloat(value).toFixed(2);
+    };
+    
+    // Helper function to format dates consistently for Excel
+    const formatDate = (dateString) => {
+      if (!dateString) return '';
+      try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return '';
+        // Use ISO format (YYYY-MM-DD) for date fields, full datetime for timestamps
+        return dateString.includes('T') ? 
+          date.toLocaleString('en-GB', { 
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit'
+          }) :
+          date.toLocaleDateString('en-GB');
+      } catch (e) {
+        return '';
+      }
+    };
+    
     switch (type) {
       case 'products':
         return data.map(item => ({
-          'Product ID': item.id || '',
-          'Product Name': item.name || '',
-          'Description': item.description || '',
-          'Category': item.category_name || 'Uncategorized',
-          'SKU': item.sku || '',
+          'Product ID': cleanText(item.id),
+          'Product Name': cleanText(item.name),
+          'Description': cleanText(item.description),
+          'Category': cleanText(item.category_name || 'Uncategorized'),
+          'SKU': cleanText(item.sku),
           'Total Quantity': item.quantity_total || 0,
           'Available Quantity': item.quantity_available || 0,
           'Quantity Issued': (item.quantity_total || 0) - (item.quantity_available || 0),
           'Returnable': item.is_returnable ? 'Yes' : 'No',
-          'Unit Price (₹)': item.unit_price ? `₹${parseFloat(item.unit_price).toFixed(2)}` : '₹0.00',
-          'Total Value (₹)': item.quantity_available && item.unit_price ? 
-            `₹${(item.quantity_available * parseFloat(item.unit_price)).toFixed(2)}` : '₹0.00',
-          'Storage Location': item.location || '',
+          'Unit Price (₹)': formatCurrency(item.unit_price),
+          'Total Value (₹)': formatCurrency(item.quantity_available && item.unit_price ? 
+            (item.quantity_available * parseFloat(item.unit_price)) : 0),
+          'Storage Location': cleanText(item.location),
           'Minimum Stock Level': item.minimum_stock_level || 0,
           'Stock Status': (item.quantity_available || 0) <= (item.minimum_stock_level || 0) ? 'Low Stock' : 'In Stock',
-          'Product Status': item.status || '',
-          'Image URL': item.image_url || '',
-          'Specifications': item.specifications ? JSON.stringify(item.specifications) : '',
-          'Tags': item.tags ? item.tags.join('; ') : '',
-          'Created Date': item.created_at ? new Date(item.created_at).toLocaleString() : '',
-          'Last Updated': item.updated_at ? new Date(item.updated_at).toLocaleString() : ''
+          'Product Status': cleanText(item.status),
+          'Image URL': cleanText(item.image_url),
+          'Specifications': item.specifications ? cleanText(JSON.stringify(item.specifications)) : '',
+          'Tags': item.tags ? cleanText(item.tags.join('; ')) : '',
+          'Created Date': formatDate(item.created_at),
+          'Last Updated': formatDate(item.updated_at)
         }));
       
       case 'students':
         return data.map(item => ({
-          'Database ID': item.id || '',
-          'Student ID': item.student_id || '',
-          'Full Name': item.name || '',
-          'Email Address': item.email || '',
-          'Phone Number': item.phone || '',
-          'Department': item.department || '',
-          'Year of Study': item.year_of_study || '',
-          'Course': item.course || '',
+          'Database ID': cleanText(item.id),
+          'Student ID': cleanText(item.student_id),
+          'Full Name': cleanText(item.name),
+          'Email Address': cleanText(item.email),
+          'Phone Number': cleanText(item.phone),
+          'Department': cleanText(item.department),
+          'Year of Study': cleanText(item.year_of_study),
+          'Course': cleanText(item.course),
           'Account Status': item.is_active ? 'Active' : 'Inactive',
-          'Registration Date': item.created_at ? new Date(item.created_at).toLocaleString() : '',
-          'Last Profile Update': item.updated_at ? new Date(item.updated_at).toLocaleString() : ''
+          'Registration Date': formatDate(item.created_at),
+          'Last Profile Update': formatDate(item.updated_at)
         }));
       
       case 'orders':
@@ -201,23 +233,23 @@ function InstrumentCluster() {
         const flattenedOrders = [];
         data.forEach(order => {
           const baseOrderInfo = {
-            'Order ID': order.id || '',
-            'Order Number': order.order_number || '',
-            'Student ID': order.student_id || '',
-            'Student Name': order.student_name || '',
-            'Student Email': order.student_email || '',
-            'Department': order.department || '',
-            'Order Type': order.order_type || '',
-            'Order Status': order.status || '',
+            'Order ID': cleanText(order.id),
+            'Order Number': cleanText(order.order_number),
+            'Student ID': cleanText(order.student_id),
+            'Student Name': cleanText(order.student_name),
+            'Student Email': cleanText(order.student_email),
+            'Department': cleanText(order.department),
+            'Order Type': cleanText(order.order_type),
+            'Order Status': cleanText(order.status),
             'Total Items Count': order.total_items || 0,
-            'Total Order Value (₹)': order.total_value ? `₹${parseFloat(order.total_value).toFixed(2)}` : '₹0.00',
-            'Order Notes': order.notes || '',
-            'Requested Date': order.requested_date ? new Date(order.requested_date).toLocaleString() : '',
-            'Approved Date': order.approved_date ? new Date(order.approved_date).toLocaleString() : '',
-            'Completed Date': order.completed_date ? new Date(order.completed_date).toLocaleString() : '',
-            'Expected Return Date': order.expected_return_date ? new Date(order.expected_return_date).toLocaleDateString() : '',
-            'Actual Return Date': order.actual_return_date ? new Date(order.actual_return_date).toLocaleDateString() : '',
-            'Approved By': order.approved_by || ''
+            'Total Order Value (₹)': formatCurrency(order.total_value),
+            'Order Notes': cleanText(order.notes),
+            'Requested Date': formatDate(order.requested_date),
+            'Approved Date': formatDate(order.approved_date),
+            'Completed Date': formatDate(order.completed_date),
+            'Expected Return Date': formatDate(order.expected_return_date),
+            'Actual Return Date': formatDate(order.actual_return_date),
+            'Approved By': cleanText(order.approved_by)
           };
           
           if (order.items && order.items.length > 0) {
@@ -225,19 +257,19 @@ function InstrumentCluster() {
               flattenedOrders.push({
                 ...baseOrderInfo,
                 'Item Number': index + 1,
-                'Product ID': item.product_id || '',
-                'Product Name': item.product_name || '',
+                'Product ID': cleanText(item.product_id),
+                'Product Name': cleanText(item.product_name),
                 'Quantity Requested': item.quantity_requested || 0,
                 'Quantity Approved': item.quantity_approved || 0,
                 'Quantity Returned': item.quantity_returned || 0,
-                'Unit Price (₹)': item.unit_price ? `₹${parseFloat(item.unit_price).toFixed(2)}` : '₹0.00',
-                'Total Item Price (₹)': item.total_price ? `₹${parseFloat(item.total_price).toFixed(2)}` : '₹0.00',
+                'Unit Price (₹)': formatCurrency(item.unit_price),
+                'Total Item Price (₹)': formatCurrency(item.total_price),
                 'Item Returnable': item.is_returnable ? 'Yes' : 'No',
-                'Item Expected Return': item.expected_return_date ? new Date(item.expected_return_date).toLocaleDateString() : '',
-                'Item Actual Return': item.actual_return_date ? new Date(item.actual_return_date).toLocaleDateString() : '',
-                'Return Condition': item.return_condition || '',
-                'Item Notes': item.notes || '',
-                'Item Status': item.status || ''
+                'Item Expected Return': formatDate(item.expected_return_date),
+                'Item Actual Return': formatDate(item.actual_return_date),
+                'Return Condition': cleanText(item.return_condition),
+                'Item Notes': cleanText(item.notes),
+                'Item Status': cleanText(item.status)
               });
             });
           } else {
@@ -264,32 +296,32 @@ function InstrumentCluster() {
       
       case 'invoices':
         return data.map(item => ({
-          'Invoice Number': item.invoice_number || '',
-          'Type': item.invoice_type || 'lending',
-          'Student Name': item.student_name || '',
-          'Student ID': item.student_id_number || item.student_id || '',
-          'Status': item.status || '',
+          'Invoice Number': cleanText(item.invoice_number),
+          'Type': cleanText(item.invoice_type || 'lending'),
+          'Student Name': cleanText(item.student_name),
+          'Student ID': cleanText(item.student_id_number || item.student_id),
+          'Status': cleanText(item.status),
           'Total Items': item.total_items || 0,
-          'Total Value (₹)': item.total_value ? parseFloat(item.total_value).toFixed(2) : '0.00',
-          'Issue Date': item.issue_date ? item.issue_date.split('T')[0] : '',
+          'Total Value (₹)': formatCurrency(item.total_value),
+          'Issue Date': formatDate(item.issue_date),
           'Physical Copy': item.has_physical_copy ? 'Yes' : 'No',
           'Student Acknowledged': item.acknowledged_by_student ? 'Yes' : 'No',
-          'Created Date': item.created_at ? item.created_at.split('T')[0] : '',
-          'Last Updated': item.updated_at ? item.updated_at.split('T')[0] : ''
+          'Created Date': formatDate(item.created_at),
+          'Last Updated': formatDate(item.updated_at)
         }));
       
       case 'users':
         return data.map(item => ({
-          'User ID': item.id || '',
-          'Username': item.username || '',
-          'Full Name': item.full_name || '',
-          'Email Address': item.email || '',
-          'User Role': item.role || '',
+          'User ID': cleanText(item.id),
+          'Username': cleanText(item.username),
+          'Full Name': cleanText(item.full_name),
+          'Email Address': cleanText(item.email),
+          'User Role': cleanText(item.role),
           'Account Status': item.is_active ? 'Active' : 'Inactive',
           'Email Verified': item.email_verified ? 'Yes' : 'No',
-          'Last Login': item.last_login ? new Date(item.last_login).toLocaleString() : 'Never',
-          'Account Created': item.created_at ? new Date(item.created_at).toLocaleString() : '',
-          'Last Updated': item.updated_at ? new Date(item.updated_at).toLocaleString() : ''
+          'Last Login': item.last_login ? formatDate(item.last_login) : 'Never',
+          'Account Created': formatDate(item.created_at),
+          'Last Updated': formatDate(item.updated_at)
         }));
 
       case 'categories':
@@ -320,13 +352,10 @@ function InstrumentCluster() {
     
     const headers = Object.keys(data[0]);
     
-    // Create a nice header row with proper formatting
+    // Enhanced CSV formatting for perfect Excel compatibility
     const csvHeaders = headers.map(header => {
-      // Ensure header is properly quoted if it contains spaces or special characters
-      if (header.includes(',') || header.includes('"') || header.includes('\n')) {
-        return `"${header.replace(/"/g, '""')}"`;
-      }
-      return header;
+      // Always quote headers to ensure proper display
+      return `"${header.replace(/"/g, '""')}"`;
     }).join(',');
     
     const csvRows = data.map(row => 
@@ -335,15 +364,15 @@ function InstrumentCluster() {
         
         // Handle null/undefined values
         if (value === null || value === undefined) {
-          return '';
+          return '""';
         }
         
-        // Convert to string
-        value = String(value);
+        // Convert to string and clean
+        value = String(value).trim();
         
         // Handle empty strings
         if (value === '') {
-          return '';
+          return '""';
         }
         
         // Handle arrays and objects
@@ -355,32 +384,49 @@ function InstrumentCluster() {
           }
         }
         
-        // Escape quotes and wrap in quotes if contains comma, quote, or newline
-        if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
-          return `"${value.replace(/"/g, '""')}"`;
-        }
+        // Clean up the value for Excel
+        value = value
+          .replace(/[\r\n\t]/g, ' ')  // Replace line breaks and tabs with spaces
+          .replace(/\s+/g, ' ')       // Replace multiple spaces with single space
+          .replace(/"/g, '""');       // Escape quotes
         
-        return value;
+        // Always quote values to prevent Excel interpretation issues
+        return `"${value}"`;
       }).join(',')
     );
     
-    // Add UTF-8 BOM for Excel compatibility
+    // Enhanced BOM and formatting for Excel compatibility
     const BOM = '\uFEFF';
-    return BOM + [csvHeaders, ...csvRows].join('\n');
+    const csvContent = [csvHeaders, ...csvRows].join('\r\n'); // Use Windows line endings
+    
+    return BOM + csvContent;
   };
 
   const downloadCSV = (csv, filename) => {
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    // Enhanced CSV download with better Excel compatibility
+    const blob = new Blob([csv], { 
+      type: 'text/csv;charset=utf-8;' 
+    });
     const link = document.createElement('a');
     
     if (link.download !== undefined) {
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', filename);
+      
+      // Ensure filename is Excel-friendly
+      const cleanFilename = filename
+        .replace(/[<>:"/\\|?*]/g, '_')  // Replace invalid characters
+        .replace(/\s+/g, '_')          // Replace spaces with underscores
+        .toLowerCase();
+      
+      link.setAttribute('download', cleanFilename);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      
+      // Clean up the URL object
+      setTimeout(() => URL.revokeObjectURL(url), 100);
     }
   };
 
@@ -566,18 +612,6 @@ function InstrumentCluster() {
       label: 'Invoice Management',
       icon: <InvoicesIcon />,
       data: systemMetrics.invoices
-    },
-    {
-      id: 'users',
-      label: 'User Management',
-      icon: <UsersIcon />,
-      data: systemMetrics.users
-    },
-    {
-      id: 'system',
-      label: 'System Status',
-      icon: <SettingsIcon />,
-      data: systemMetrics.system
     }
   ];
 
@@ -595,22 +629,23 @@ function InstrumentCluster() {
       >
         {/* Header */}
         <Box sx={{ 
-          mb: 4, 
+          mb: 2, 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center' 
         }}>
           <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-              <BarChartIcon sx={{ fontSize: '2rem', color: '#1F2937' }} />
-              <Typography variant="h4" sx={{ 
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+              <BarChartIcon sx={{ fontSize: '1.5rem', color: '#1F2937' }} />
+              <Typography variant="h5" sx={{ 
                 fontWeight: 700, 
-                color: '#1F2937' 
+                color: '#1F2937',
+                fontSize: '1.25rem'
               }}>
                 System Instrument Cluster
               </Typography>
             </Box>
-            <Typography variant="body1" sx={{ color: '#6B7280' }}>
+            <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '0.8rem' }}>
               Live monitoring of all system modules • Real-time status updates
             </Typography>
           </Box>
@@ -673,19 +708,19 @@ function InstrumentCluster() {
 
         {/* Status Bar */}
         <Card sx={{
-          mb: 3,
+          mb: 2,
           backgroundColor: '#FFFFFF',
           border: '1px solid #E5E7EB',
           borderRadius: '12px'
         }}>
-          <CardContent>
+          <CardContent sx={{ py: 1, px: 2 }}>
             <Box sx={{ 
               display: 'flex', 
               justifyContent: 'space-between', 
               alignItems: 'center' 
             }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Typography variant="h6" sx={{ color: '#3B82F6' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Typography variant="h6" sx={{ color: '#3B82F6', fontSize: '1rem' }}>
                   System Status
                 </Typography>
                 <Chip 
@@ -696,20 +731,22 @@ function InstrumentCluster() {
                     systemMetrics.system.status === 'degraded' ? 'Some Services Unavailable' :
                     'System Issues Detected'
                   }
+                  size="small"
                   sx={{ 
                     backgroundColor: error ? '#FF6B6B' : loading ? '#888888' : getStatusColor(systemMetrics.system.status),
                     color: '#1F2937',
-                    fontWeight: 600
+                    fontWeight: 600,
+                    fontSize: '0.75rem'
                   }} 
                 />
                 {error && (
-                  <Typography variant="caption" sx={{ color: '#FF6B6B' }}>
+                  <Typography variant="caption" sx={{ color: '#FF6B6B', fontSize: '0.7rem' }}>
                     {error}
                   </Typography>
                 )}
               </Box>
               
-              <Typography variant="body2" sx={{ color: '#B0B0B0' }}>
+              <Typography variant="body2" sx={{ color: '#B0B0B0', fontSize: '0.75rem' }}>
                 Last Update: {lastUpdate.toLocaleTimeString()}
               </Typography>
             </Box>
@@ -717,7 +754,7 @@ function InstrumentCluster() {
         </Card>
 
         {/* Module Instruments */}
-        <Grid container spacing={3}>
+        <Grid container spacing={2}>
           {modules.map((module, index) => (
             <Grid item xs={12} sm={6} md={4} key={module.id}>
               <motion.div
@@ -729,7 +766,7 @@ function InstrumentCluster() {
                   backgroundColor: '#FFFFFF',
                   border: '1px solid #E5E7EB',
                   borderRadius: '12px',
-                  height: '200px',
+                  height: '140px',
                   position: 'relative',
                   overflow: 'hidden',
                   '&:hover': {
@@ -738,32 +775,34 @@ function InstrumentCluster() {
                     transition: 'all 0.3s ease'
                   }
                 }}>
-                  <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column', py: 1, px: 1.5 }}>
                     {/* Module Header */}
                     <Box sx={{ 
                       display: 'flex', 
                       justifyContent: 'space-between', 
                       alignItems: 'center',
-                      mb: 2
+                      mb: 1
                     }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <Box sx={{ color: '#3B82F6' }}>
-                          {module.icon}
+                          {React.cloneElement(module.icon, { sx: { fontSize: '18px' } })}
                         </Box>
                         <Typography variant="subtitle2" sx={{ 
                           color: '#374151',
-                          fontWeight: 600
+                          fontWeight: 600,
+                          fontSize: '0.8rem'
                         }}>
                           {module.label}
                         </Typography>
                       </Box>
                       
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <Typography 
                           variant="caption" 
                           sx={{ 
                             color: getStatusColor(module.data.status),
-                            fontWeight: 700
+                            fontWeight: 700,
+                            fontSize: '0.65rem'
                           }}
                         >
                           {getStatusIcon(module.data.status)} {module.data.status?.toUpperCase()}
@@ -771,17 +810,17 @@ function InstrumentCluster() {
                         
                         <Tooltip title={`Export ${module.label} data`}>
                           <IconButton 
-                            size="medium"
+                            size="small"
                             onClick={() => handleExport(module.id)}
                             disabled={isExporting || loading}
                             sx={{ 
                               color: '#3B82F6',
-                              padding: '6px',
+                              padding: '4px',
                               '&:hover': { backgroundColor: 'rgba(0, 212, 170, 0.1)' },
                               '&:disabled': { color: '#666666' }
                             }}
                           >
-                            <DownloadIcon sx={{ fontSize: '20px' }} />
+                            <DownloadIcon sx={{ fontSize: '16px' }} />
                           </IconButton>
                         </Tooltip>
                       </Box>
@@ -789,19 +828,20 @@ function InstrumentCluster() {
 
                     {/* Main Metric */}
                     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                      <Typography variant="h3" sx={{ 
+                      <Typography variant="h4" sx={{ 
                         color: '#1F2937',
                         fontWeight: 700,
                         textAlign: 'center',
-                        mb: 1
+                        mb: 0.5,
+                        fontSize: '1.75rem'
                       }}>
                         {module.data.count !== undefined ? module.data.count : module.data.uptime}
                       </Typography>
                       
                       {module.data.trend && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                          <TrendIcon sx={{ color: '#3B82F6', fontSize: '1rem' }} />
-                          <Typography variant="body2" sx={{ color: '#3B82F6' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                          <TrendIcon sx={{ color: '#3B82F6', fontSize: '0.8rem' }} />
+                          <Typography variant="body2" sx={{ color: '#3B82F6', fontSize: '0.75rem' }}>
                             {module.data.trend}
                           </Typography>
                         </Box>
@@ -812,7 +852,8 @@ function InstrumentCluster() {
                     <Typography variant="caption" sx={{ 
                       color: '#6B7280',
                       textAlign: 'center',
-                      mt: 1
+                      mt: 0.5,
+                      fontSize: '0.65rem'
                     }}>
                       {module.data.activity}
                     </Typography>

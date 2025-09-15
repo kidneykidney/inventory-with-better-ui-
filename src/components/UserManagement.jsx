@@ -317,8 +317,6 @@ function UserManagement() {
   };
 
   const deleteUser = async (userId) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
-    
     // Get user info before deletion for audit log
     const userToDelete = users.find(u => u.id === userId);
     

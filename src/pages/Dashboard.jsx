@@ -67,7 +67,7 @@ const StatCard = ({ title, value, icon, color = 'primary', subtitle, loading = f
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
     >
       <Card sx={{ 
-        height: '110px',
+        height: '85px',
         background: '#FFFFFF',
         border: `1px solid ${DASHBOARD_COLORS.border}`,
         borderRadius: 2,
@@ -96,18 +96,18 @@ const StatCard = ({ title, value, icon, color = 'primary', subtitle, loading = f
           }}
         />
         
-        <CardContent sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <CardContent sx={{ p: 1.5, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
             <Typography variant="subtitle2" sx={{ 
               color: DASHBOARD_COLORS.textSecondary,
               fontWeight: 500,
-              fontSize: '0.8rem'
+              fontSize: '0.7rem'
             }}>
               {title}
             </Typography>
             <Box sx={{ 
-              width: 32,
-              height: 32,
+              width: 26,
+              height: 26,
               borderRadius: '50%',
               background: cardColors.bg,
               display: 'flex',
@@ -115,7 +115,7 @@ const StatCard = ({ title, value, icon, color = 'primary', subtitle, loading = f
               justifyContent: 'center'
             }}>
               {React.cloneElement(icon, { 
-                sx: { fontSize: 16, color: cardColors.main } 
+                sx: { fontSize: 14, color: cardColors.main } 
               })}
             </Box>
           </Box>
@@ -124,8 +124,8 @@ const StatCard = ({ title, value, icon, color = 'primary', subtitle, loading = f
             <Typography variant="h4" sx={{ 
               fontWeight: 700,
               color: DASHBOARD_COLORS.text,
-              fontSize: '1.6rem',
-              mb: 0.5,
+              fontSize: '1.3rem',
+              mb: 0.2,
               lineHeight: 1
             }}>
               {loading ? (
@@ -138,7 +138,7 @@ const StatCard = ({ title, value, icon, color = 'primary', subtitle, loading = f
             {subtitle && (
               <Typography variant="caption" sx={{ 
                 color: DASHBOARD_COLORS.textSecondary,
-                fontSize: '0.7rem'
+                fontSize: '0.65rem'
               }}>
                 {subtitle}
               </Typography>
@@ -497,7 +497,7 @@ const Dashboard = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
         >
-          <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={12} sm={6} md={3}>
               <StatCard
                 title="Total Products"
@@ -547,7 +547,7 @@ const Dashboard = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
         >
-          <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={12} sm={6} md={3}>
               <StatCard
                 title="Categories"
@@ -597,7 +597,7 @@ const Dashboard = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
         >
-          <Grid container spacing={3}>
+          <Grid container spacing={2}>
             <Grid item xs={12} md={8}>
               <RecentActivities activities={activities} loading={loading} />
             </Grid>

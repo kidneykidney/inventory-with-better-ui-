@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 logger.info("=> Using simple authentication system")
 logger.info("=> Admin credentials: admin / College@2025")
 
-# Include the authentication router
+# Include the authentication router (already has /api/auth prefix)
 app.include_router(auth_router, tags=["authentication"])
 
 # Include the invoice router with proper prefix
@@ -35,6 +35,23 @@ app.include_router(analytics_router, prefix="/api/analytics", tags=["analytics"]
 # Include the premium analytics router with proper prefix
 app.include_router(premium_analytics_router, prefix="/api/analytics", tags=["premium-analytics"])
 
+# Add a simple test endpoint to verify the app is working
+@app.get("/test")
+async def test_endpoint():
+    return {"message": "Server is working", "status": "ok"}
+
+# Debug endpoint to list all routes
+@app.get("/debug/routes")
+async def debug_routes():
+    routes = []
+    for route in app.routes:
+        routes.append({
+            "path": getattr(route, 'path', 'N/A'),
+            "methods": getattr(route, 'methods', 'N/A'),
+            "name": getattr(route, 'name', 'N/A')
+        })
+    return {"routes": routes}
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

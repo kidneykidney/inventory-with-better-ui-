@@ -66,6 +66,7 @@ import OCRInvoiceUploadDialog from './OCRInvoiceUploadDialog';
 import BulkInvoiceUploadDialog from './BulkInvoiceUploadDialog';
 import BulkInvoiceCSVDialog from './BulkInvoiceCSVDialog';
 import BulkManualInvoiceDialog from './BulkManualInvoiceDialog';
+import InvoiceImageViewer from './InvoiceImageViewer';
 import ErrorBoundary from './ErrorBoundary';
 import NotificationService from '../services/notificationService';
 
@@ -102,6 +103,8 @@ const InvoiceManagement = () => {
   const [speedDialOpen, setSpeedDialOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState(null);
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [selectedInvoiceForImages, setSelectedInvoiceForImages] = useState(null);
   
   // Summary stats
   const [summary, setSummary] = useState({
@@ -242,6 +245,11 @@ const InvoiceManagement = () => {
     setOcrInvoiceDialogOpen(false);
     fetchInvoices();
     fetchSummary();
+  };
+
+  const handleViewInvoiceImages = (invoice) => {
+    setSelectedInvoiceForImages(invoice);
+    setImageViewerOpen(true);
   };
 
   const handleDeleteClick = (invoice) => {
@@ -466,14 +474,31 @@ const InvoiceManagement = () => {
             <Card sx={{ mb: 1 }}>
               <CardContent sx={{ py: 1 }}>
                 <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mb: 1 }}>
-                  Student Information
+                  👤 Borrower Information
                 </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                  <Typography variant="body2"><strong>Name:</strong> {selectedInvoice.student_name}</Typography>
-                  <Typography variant="body2"><strong>Student ID:</strong> {selectedInvoice.student_id_number}</Typography>
-                  <Typography variant="body2"><strong>Email:</strong> {selectedInvoice.student_email}</Typography>
-                  <Typography variant="body2"><strong>Department:</strong> {selectedInvoice.department}</Typography>
-                  <Typography variant="body2"><strong>Year:</strong> {selectedInvoice.year_of_study}</Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 2 }}>
+                  <Typography variant="body2"><strong>📝 Full Name:</strong> {selectedInvoice.student_name}</Typography>
+                  <Typography variant="body2"><strong>🆔 Student ID:</strong> {selectedInvoice.student_id_number}</Typography>
+                  <Typography variant="body2"><strong>📧 Email:</strong> {selectedInvoice.student_email}</Typography>
+                  <Typography variant="body2"><strong>🏢 Department:</strong> {selectedInvoice.department}</Typography>
+                  <Typography variant="body2"><strong>📚 Year of Study:</strong> {selectedInvoice.year_of_study}</Typography>
+                  <Typography variant="body2"><strong>📞 Contact:</strong> 
+                    <Chip 
+                      label={selectedInvoice.acknowledged_by_student ? 'Verified' : 'Pending Verification'} 
+                      size="small" 
+                      color={selectedInvoice.acknowledged_by_student ? 'success' : 'warning'}
+                      sx={{ ml: 1 }}
+                    />
+                  </Typography>
+                </Box>
+                
+                {/* Borrower Responsibilities */}
+                <Box sx={{ mt: 2, p: 2, bgcolor: '#FFF7ED', borderRadius: 1, borderLeft: '4px solid #F59E0B' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>⚠️ Borrower Responsibilities:</Typography>
+                  <Typography variant="body2">
+                    The borrower ({selectedInvoice.student_name}) acknowledges receiving the above components and agrees to:
+                    return them by the specified date, maintain them in good condition, and accept liability for any damage or loss.
+                  </Typography>
                 </Box>
               </CardContent>
             </Card>
@@ -482,15 +507,38 @@ const InvoiceManagement = () => {
             <Card sx={{ mb: 1 }}>
               <CardContent sx={{ py: 1 }}>
                 <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mb: 1 }}>
-                  Invoice Details
+                  📋 Lending Agreement Details
                 </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                  <Typography variant="body2"><strong>Order:</strong> {selectedInvoice.order_number}</Typography>
-                  <Typography variant="body2"><strong>Type:</strong> {selectedInvoice.invoice_type}</Typography>
-                  <Typography variant="body2"><strong>Items:</strong> {selectedInvoice.total_items}</Typography>
-                  <Typography variant="body2"><strong>Issue Date:</strong> {formatDate(selectedInvoice.issue_date)}</Typography>
-                  <Typography variant="body2"><strong>Due Date:</strong> {formatDate(selectedInvoice.due_date)}</Typography>
-                  <Typography variant="body2"><strong>Issued By:</strong> {selectedInvoice.issued_by}</Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 2 }}>
+                  <Typography variant="body2"><strong>📄 Order Reference:</strong> {selectedInvoice.order_number || 'Manual Invoice'}</Typography>
+                  <Typography variant="body2"><strong>📦 Lending Type:</strong> {selectedInvoice.invoice_type}</Typography>
+                  <Typography variant="body2"><strong>📊 Total Items:</strong> {selectedInvoice.total_items}</Typography>
+                  <Typography variant="body2"><strong>💰 Total Value:</strong> ₹{selectedInvoice.total_value?.toFixed(2) || '0.00'}</Typography>
+                  <Typography variant="body2"><strong>📅 Issued On:</strong> {formatDate(selectedInvoice.issue_date)}</Typography>
+                  <Typography variant="body2"><strong>⏰ Return By:</strong> {formatDate(selectedInvoice.due_date)}</Typography>
+                  <Typography variant="body2"><strong>👤 Issued By (Lender):</strong> {selectedInvoice.issued_by || 'System'}</Typography>
+                  <Typography variant="body2"><strong>📍 Status:</strong> 
+                    <Chip 
+                      label={selectedInvoice.status} 
+                      size="small" 
+                      color={
+                        selectedInvoice.status === 'issued' ? 'success' : 
+                        selectedInvoice.status === 'acknowledged' ? 'primary' : 'default'
+                      }
+                      sx={{ ml: 1 }}
+                    />
+                  </Typography>
+                </Box>
+                
+                {/* Lending Duration & Terms */}
+                <Box sx={{ mt: 2, p: 2, bgcolor: '#F8F9FA', borderRadius: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>📋 Lending Terms:</Typography>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 1 }}>
+                    <Typography variant="body2">• Items must be returned in original condition</Typography>
+                    <Typography variant="body2">• Borrower is responsible for any damage or loss</Typography>
+                    <Typography variant="body2">• Late returns may incur additional fees</Typography>
+                    <Typography variant="body2">• Contact lender for any issues or extensions</Typography>
+                  </Box>
                 </Box>
               </CardContent>
             </Card>
@@ -539,31 +587,78 @@ const InvoiceManagement = () => {
             {selectedInvoice.items && selectedInvoice.items.length > 0 && (
               <Card>
                 <CardContent sx={{ py: 1 }}>
-                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mb: 1 }}>Items</Typography>
+                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mb: 1 }}>
+                    📦 Components Being Lent
+                  </Typography>
                     <TableContainer>
                       <Table size="small">
                         <TableHead>
-                          <TableRow>
-                            <TableCell>Product</TableCell>
-                            <TableCell>SKU</TableCell>
-                            <TableCell align="right">Quantity</TableCell>
-                            <TableCell align="right">Unit Value</TableCell>
-                            <TableCell>Expected Return</TableCell>
+                          <TableRow sx={{ bgcolor: '#F8F9FA' }}>
+                            <TableCell><strong>🔧 Component Name</strong></TableCell>
+                            <TableCell><strong>🏷️ SKU/ID</strong></TableCell>
+                            <TableCell align="right"><strong>📊 Qty</strong></TableCell>
+                            <TableCell align="right"><strong>💰 Value Each</strong></TableCell>
+                            <TableCell align="right"><strong>💰 Total Value</strong></TableCell>
+                            <TableCell><strong>📅 Return Date</strong></TableCell>
+                            <TableCell><strong>⏱️ Lending Period</strong></TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {selectedInvoice.items.map((item, index) => (
-                            <TableRow key={index}>
-                              <TableCell>{item.product_name}</TableCell>
-                              <TableCell>{item.product_sku}</TableCell>
-                              <TableCell align="right">{item.quantity}</TableCell>
-                              <TableCell align="right">₹{item.unit_value.toFixed(2)}</TableCell>
-                              <TableCell>{formatDate(item.expected_return_date)}</TableCell>
-                            </TableRow>
-                          ))}
+                          {selectedInvoice.items.map((item, index) => {
+                            const totalItemValue = (item.quantity * item.unit_value).toFixed(2);
+                            const lendingDays = item.lending_duration_days || 
+                              (item.expected_return_date && selectedInvoice.issue_date ? 
+                                Math.ceil((new Date(item.expected_return_date) - new Date(selectedInvoice.issue_date)) / (1000 * 60 * 60 * 24)) : 
+                                null);
+                            
+                            return (
+                              <TableRow key={index} sx={{ '&:nth-of-type(odd)': { bgcolor: '#FAFAFA' } }}>
+                                <TableCell>
+                                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                    {item.product_name}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell>
+                                  <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                                    {item.product_sku}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Chip label={item.quantity} size="small" variant="outlined" />
+                                </TableCell>
+                                <TableCell align="right">₹{item.unit_value.toFixed(2)}</TableCell>
+                                <TableCell align="right">
+                                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                    ₹{totalItemValue}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell>
+                                  <Typography variant="body2">
+                                    {formatDate(item.expected_return_date)}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell>
+                                  <Chip 
+                                    label={lendingDays ? `${lendingDays} days` : 'TBD'} 
+                                    size="small" 
+                                    color={lendingDays > 30 ? 'warning' : 'primary'}
+                                    variant="outlined"
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
                         </TableBody>
                       </Table>
                     </TableContainer>
+                    
+                    {/* Summary Row */}
+                    <Box sx={{ mt: 2, p: 2, bgcolor: '#EBF8FF', borderRadius: 1, borderLeft: '4px solid #3B82F6' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        📋 Summary: {selectedInvoice.total_items} component(s) worth ₹{selectedInvoice.total_value?.toFixed(2) || '0.00'} 
+                        lent to {selectedInvoice.student_name} on {formatDate(selectedInvoice.issue_date)}
+                      </Typography>
+                    </Box>
                   </CardContent>
                 </Card>
               )}
@@ -1020,19 +1115,26 @@ const InvoiceManagement = () => {
                         color: '#1F2937'
                       }}>
                         <Box display="flex" alignItems="center">
-                          {invoice.physical_invoice_captured ? (
-                            <Tooltip title="Physical invoice captured">
-                              <CheckCircleIcon color="success" fontSize="small" />
+                          {invoice.image_count > 0 ? (
+                            <Tooltip title="View invoice images">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleViewInvoiceImages(invoice)}
+                                sx={{ 
+                                  p: 0.5,
+                                  '&:hover': {
+                                    backgroundColor: 'rgba(25, 118, 210, 0.1)',
+                                    transform: 'scale(1.1)'
+                                  }
+                                }}
+                              >
+                                <CameraIcon fontSize="small" color="primary" />
+                              </IconButton>
                             </Tooltip>
                           ) : (
-                            <Tooltip title="Physical invoice not captured">
+                            <Tooltip title="No images available">
                               <CameraIcon color="disabled" fontSize="small" />
                             </Tooltip>
-                          )}
-                          {invoice.image_count > 0 && (
-                            <Badge badgeContent={invoice.image_count} color="secondary" sx={{ ml: 1 }}>
-                              <UploadIcon fontSize="small" />
-                            </Badge>
                           )}
                         </Box>
                       </TableCell>
@@ -1447,6 +1549,17 @@ const InvoiceManagement = () => {
           fetchInvoices();
           fetchSummary();
         }}
+      />
+
+      {/* Invoice Image Viewer Dialog */}
+      <InvoiceImageViewer
+        open={imageViewerOpen}
+        onClose={() => {
+          setImageViewerOpen(false);
+          setSelectedInvoiceForImages(null);
+        }}
+        invoiceId={selectedInvoiceForImages?.id}
+        invoiceNumber={selectedInvoiceForImages?.invoice_number}
       />
       </Box>
     </ErrorBoundary>

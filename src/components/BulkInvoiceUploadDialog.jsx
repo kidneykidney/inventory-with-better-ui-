@@ -55,6 +55,7 @@ const BulkInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
   const [processedFiles, setProcessedFiles] = useState([]);
   const [currentStep, setCurrentStep] = useState(0); // 0: upload, 1: review, 2: processing, 3: results
   const [error, setError] = useState('');
+  const [processStarted, setProcessStarted] = useState(false); // Prevent duplicate processing
 
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files);
@@ -89,6 +90,8 @@ const BulkInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
         const file = selectedFiles[i];
         const formData = new FormData();
         formData.append('file', file);
+        // Disable auto-creation during extraction phase
+        formData.append('auto_create_invoice', 'false');
 
         try {
           const response = await fetch(`${API_BASE_URL}/api/invoices/ocr-upload`, {
@@ -178,6 +181,13 @@ const BulkInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
   };
 
   const processFiles = async () => {
+    // Prevent duplicate processing
+    if (processStarted || processing) {
+      console.log('Processing already in progress, ignoring duplicate request');
+      return;
+    }
+
+    setProcessStarted(true);
     setProcessing(true);
     setCurrentStep(2); // Move to processing step
     const results = [];
@@ -194,24 +204,31 @@ const BulkInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
         }
 
         try {
-          const invoiceData = {
-            student_name: item.data.student_name || 'Unknown Student',
-            student_id: item.data.student_id || null,
-            student_email: item.data.student_email || null,
-            department: item.data.department || 'General',
-            year_of_study: item.data.year_of_study || null,
-            invoice_type: item.data.invoice_type || 'lending',
-            issued_by: 'Bulk OCR System',
-            notes: `Bulk uploaded invoice. OCR confidence: ${item.confidence || 'N/A'}`,
-            auto_create_student: true
-          };
+          // Create FormData to send both invoice data and image file
+          const formData = new FormData();
+          
+          // Add invoice data fields
+          formData.append('student_name', item.data.student_name || 'Unknown Student');
+          if (item.data.student_id) formData.append('student_id', item.data.student_id);
+          if (item.data.student_email) formData.append('student_email', item.data.student_email);
+          formData.append('department', item.data.department || 'General');
+          if (item.data.year_of_study) formData.append('year_of_study', item.data.year_of_study);
+          formData.append('invoice_type', item.data.invoice_type || 'lending');
+          formData.append('issued_by', 'Bulk OCR System');
+          formData.append('notes', `Bulk uploaded invoice. OCR confidence: ${item.confidence || 'N/A'}%`);
+          
+          // Add OCR-specific data
+          if (item.confidence) formData.append('ocr_confidence', item.confidence);
+          if (item.rawText) formData.append('ocr_text', item.rawText);
+          
+          // Add the original image file
+          if (item.file) {
+            formData.append('file', item.file, item.fileName);
+          }
 
-          const response = await fetch(`${API_BASE_URL}/api/invoices/create-with-student`, {
+          const response = await fetch(`${API_BASE_URL}/api/invoices/create-with-student-and-image`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(invoiceData),
+            body: formData,
           });
 
           if (!response.ok) {
@@ -225,7 +242,10 @@ const BulkInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
             success: true,
             invoice_number: result.invoice.invoice_number,
             student_name: item.data.student_name,
-            message: 'Invoice created successfully'
+            image_stored: result.image_stored || false,
+            message: result.image_stored 
+              ? 'Invoice created successfully with image stored'
+              : 'Invoice created successfully (image not stored)'
           });
         } catch (err) {
           results.push({
@@ -260,6 +280,7 @@ const BulkInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
     setProcessedFiles([]);
     setCurrentStep(0);
     setProcessing(false);
+    setProcessStarted(false);
     setError('');
     onClose();
   };
@@ -411,35 +432,91 @@ const BulkInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
             </Box>
             {item.success ? (
               <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
+                {/* Student Information */}
+                <Grid item xs={12}>
+                  <Typography variant="h6" sx={{ color: '#1976d2', mb: 1 }}>
+                    Student Information
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={4}>
                   <TextField
                     fullWidth
-                    label="Student Name"
+                    label="Student Name *"
                     value={item.data.student_name || ''}
                     onChange={(e) => updateExtractedData(index, 'student_name', e.target.value)}
                     variant="outlined"
                     size="small"
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} md={4}>
                   <TextField
                     fullWidth
-                    label="Student ID"
+                    label="Student ID *"
                     value={item.data.student_id || ''}
                     onChange={(e) => updateExtractedData(index, 'student_id', e.target.value)}
                     variant="outlined"
                     size="small"
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} md={4}>
                   <TextField
                     fullWidth
-                    label="Department"
-                    value={item.data.department || ''}
-                    onChange={(e) => updateExtractedData(index, 'department', e.target.value)}
+                    label="Email"
+                    value={item.data.student_email || ''}
+                    onChange={(e) => updateExtractedData(index, 'student_email', e.target.value)}
                     variant="outlined"
                     size="small"
+                    type="email"
                   />
+                </Grid>
+
+                {/* Lending Information */}
+                <Grid item xs={12}>
+                  <Typography variant="h6" sx={{ color: '#1976d2', mb: 1, mt: 2 }}>
+                    Lending Information
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Lender Name"
+                    value={item.data.lender_name || ''}
+                    onChange={(e) => updateExtractedData(index, 'lender_name', e.target.value)}
+                    variant="outlined"
+                    size="small"
+                    placeholder="Faculty/Staff member"
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Date"
+                    value={item.data.lending_date || ''}
+                    onChange={(e) => updateExtractedData(index, 'lending_date', e.target.value)}
+                    variant="outlined"
+                    size="small"
+                    type="date"
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Time"
+                    value={item.data.lending_time || ''}
+                    onChange={(e) => updateExtractedData(index, 'lending_time', e.target.value)}
+                    variant="outlined"
+                    size="small"
+                    type="time"
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+
+                {/* Additional Details */}
+                <Grid item xs={12}>
+                  <Typography variant="h6" sx={{ color: '#1976d2', mb: 1, mt: 2 }}>
+                    Details
+                  </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth size="small">
@@ -456,17 +533,63 @@ const BulkInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
                     </Select>
                   </FormControl>
                 </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Due Date"
+                    value={item.data.due_date || ''}
+                    onChange={(e) => updateExtractedData(index, 'due_date', e.target.value)}
+                    variant="outlined"
+                    size="small"
+                    type="date"
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Notes"
+                    value={item.data.notes || ''}
+                    onChange={(e) => updateExtractedData(index, 'notes', e.target.value)}
+                    variant="outlined"
+                    size="small"
+                    multiline
+                    rows={2}
+                    placeholder="Additional lending details, purpose, special instructions"
+                  />
+                </Grid>
+
+                {/* Product Information Note */}
+                <Grid item xs={12}>
+                  <Typography variant="body2" sx={{ 
+                    color: 'text.secondary', 
+                    fontStyle: 'italic',
+                    bgcolor: 'rgba(25, 118, 210, 0.1)',
+                    p: 1.5,
+                    borderRadius: 1,
+                    border: '1px solid rgba(25, 118, 210, 0.2)'
+                  }}>
+                    <strong>Product Details:</strong> Products will be linked from the existing Product Management module. 
+                    Use the Products module to manage item details, specifications, pricing, and inventory levels.
+                  </Typography>
+                </Grid>
+
+                {/* Raw OCR Text - Always show at the bottom */}
                 {item.rawText && (
                   <Grid item xs={12}>
+                    <Typography variant="h6" sx={{ color: '#1976d2', mb: 1, mt: 2 }}>
+                      Raw OCR Text
+                    </Typography>
                     <TextField
                       fullWidth
-                      label="Raw OCR Text"
-                      value={item.rawText.slice(0, 200) + (item.rawText.length > 200 ? '...' : '')}
+                      label="Extracted Text from OCR"
+                      value={item.rawText}
                       multiline
                       rows={3}
                       variant="outlined"
                       size="small"
                       InputProps={{ readOnly: true }}
+                      sx={{ bgcolor: 'rgba(0,0,0,0.05)' }}
                     />
                   </Grid>
                 )}
@@ -683,7 +806,7 @@ const BulkInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
             </Button>
             <Button
               onClick={processFiles}
-              disabled={!canProceedFromReview || processing}
+              disabled={!canProceedFromReview || processing || processStarted}
               variant="contained"
               sx={{
                 bgcolor: '#10B981',

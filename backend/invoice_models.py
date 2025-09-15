@@ -56,6 +56,41 @@ class ProcessingStatus(str, Enum):
 # Base models
 class InvoiceBase(BaseModel):
     invoice_type: InvoiceType = InvoiceType.LENDING
+    
+    # Enhanced lending information
+    lending_purpose: Optional[str] = None
+    lending_location: Optional[str] = None
+    project_name: Optional[str] = None
+    supervisor_name: Optional[str] = None
+    supervisor_email: Optional[str] = None
+    lending_terms: Optional[str] = None
+    
+    # Enhanced borrower information
+    borrower_phone: Optional[str] = None
+    borrower_address: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    
+    # Enhanced timing
+    requested_start_date: Optional[datetime] = None
+    actual_lending_date: Optional[datetime] = None
+    expected_return_date: Optional[datetime] = None
+    grace_period_days: Optional[int] = 7
+    
+    # Financial information
+    security_deposit: Optional[float] = 0.0
+    late_return_fee: Optional[float] = 0.0
+    
+    # Authority information
+    issuer_designation: Optional[str] = None
+    approved_by: Optional[str] = None
+    approval_date: Optional[datetime] = None
+    
+    # Additional information
+    special_instructions: Optional[str] = None
+    risk_assessment: Optional[str] = "low"
+    acknowledgment_method: Optional[str] = "digital_signature"
+    
     notes: Optional[str] = None
 
 class InvoiceCreate(InvoiceBase):
@@ -65,7 +100,7 @@ class InvoiceCreate(InvoiceBase):
     due_date: Optional[datetime] = None
 
 class InvoiceCreateWithStudent(InvoiceBase):
-    """Create invoice with automatic student creation"""
+    """Create invoice with automatic student creation - Enhanced for lending"""
     student_name: str
     student_id: Optional[str] = None
     student_email: Optional[str] = None
@@ -86,10 +121,47 @@ class InvoiceItemBase(BaseModel):
     product_id: str
     product_name: str
     product_sku: str
+    
+    # Enhanced component information
+    product_category: Optional[str] = None
+    product_description: Optional[str] = None
+    serial_number: Optional[str] = None
+    manufacturer: Optional[str] = None
+    model_number: Optional[str] = None
+    
+    # Quantity and availability
     quantity: int
+    available_quantity: Optional[int] = None
+    
+    # Financial details
     unit_value: float = 0.00
+    replacement_cost: Optional[float] = 0.00
+    
+    # Lending terms for this specific item
     lending_duration_days: Optional[int] = None
+    max_lending_duration: Optional[int] = None
+    special_handling_required: Optional[bool] = False
+    handling_instructions: Optional[str] = None
+    
+    # Timeline
     expected_return_date: Optional[datetime] = None
+    grace_period_end_date: Optional[datetime] = None
+    
+    # Condition tracking
+    condition_at_lending: Optional[str] = "good"
+    condition_notes: Optional[str] = None
+    
+    # Risk and safety
+    risk_level: Optional[str] = "low"
+    safety_requirements: Optional[str] = None
+    training_required: Optional[bool] = False
+    certification_required: Optional[bool] = False
+    
+    # Usage tracking
+    usage_purpose: Optional[str] = None
+    usage_location: Optional[str] = None
+    co_users: Optional[List[str]] = []
+    
     notes: Optional[str] = None
 
 class InvoiceItemCreate(InvoiceItemBase):

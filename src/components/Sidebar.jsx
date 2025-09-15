@@ -14,19 +14,9 @@ import {
   IconButton,
   Badge,
   Avatar,
-  Menu,      {/* User Profile Section */}
-      <Box sx={{ p: 0.1, borderTop: 1, borderColor: 'divider' }}>
-        <Box display="flex" alignItems="center" gap={0.1}>
-          <Avatar sx={{ bgcolor: 'primary.main', width: 12, height: 12, fontSize: '0.5rem' }}>A</Avatar>
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.5rem', lineHeight: 1 }}>
-              Admin
-            </Typography>
-          </Box>
-          <IconButton onClick={handleMenuClick} size="small" sx={{ p: 0.05, width: 12, height: 12 }}>
-            <AccountIcon sx={{ fontSize: '0.6rem' }} />
-          </IconButton>
-        </Box> useTheme,
+  Menu,
+  MenuItem,
+  useTheme,
   useMediaQuery
 } from '@mui/material';
 import {

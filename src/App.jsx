@@ -51,7 +51,7 @@ import {
 } from '@mui/icons-material';
 
 // Import our modules
-import OrderManagement from './pages/OrderManagement';
+import LendingManagement from './pages/LendingManagement';
 import Dashboard from './pages/Dashboard';
 import InstrumentCluster from './components/InstrumentCluster';
 import PremiumAnalyticsDashboard from './pages/PremiumAnalyticsDashboard';
