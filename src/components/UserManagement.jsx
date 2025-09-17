@@ -52,10 +52,6 @@ function UserManagement() {
     full_name: '',
     password: '',
     role: 'sub_admin',
-    permissions: {
-      modules: ['dashboard', 'products', 'students', 'orders', 'invoicing', 'reports'],
-      actions: ['create', 'read', 'update', 'delete', 'export']
-    },
     force_password_change: true
   });
 
@@ -388,10 +384,6 @@ function UserManagement() {
       full_name: '',
       password: '',
       role: 'sub_admin',
-      permissions: {
-        modules: ['dashboard', 'products', 'students', 'orders', 'invoicing', 'reports'],
-        actions: ['create', 'read', 'update', 'delete', 'export']
-      },
       force_password_change: true
     });
   };
@@ -409,10 +401,6 @@ function UserManagement() {
       full_name: user.full_name,
       password: '',
       role: user.role,
-      permissions: user.permissions ? JSON.parse(user.permissions) : {
-        modules: ['dashboard', 'products', 'students', 'orders', 'invoicing', 'reports'],
-        actions: ['create', 'read', 'update', 'delete', 'export']
-      },
       force_password_change: user.force_password_change
     });
     setOpenEditDialog(true);
@@ -452,18 +440,6 @@ function UserManagement() {
     return new Date(dateString).toLocaleString();
   };
 
-  const handlePermissionChange = (module, checked) => {
-    setFormData(prev => ({
-      ...prev,
-      permissions: {
-        ...prev.permissions,
-        modules: checked 
-          ? [...prev.permissions.modules, module]
-          : prev.permissions.modules.filter(m => m !== module)
-      }
-    }));
-  };
-
   return (
     <Box sx={{ 
       p: 1,
@@ -485,7 +461,7 @@ function UserManagement() {
             </Typography>
           </Box>
           <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '0.8rem' }}>
-            Manage users, roles, and permissions for the inventory system
+            Manage users and roles for the inventory system
           </Typography>
         </Box>
 
@@ -705,27 +681,6 @@ function UserManagement() {
                   label="Force password change on first login"
                 />
               </Grid>
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  Module Permissions
-                </Typography>
-                <Grid container spacing={1}>
-                  {['dashboard', 'products', 'students', 'orders', 'invoicing', 'reports', 'tools', 'settings'].map((module) => (
-                    <Grid item xs={6} sm={4} md={3} key={module}>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={formData.permissions.modules.includes(module)}
-                            onChange={(e) => handlePermissionChange(module, e.target.checked)}
-                            size="small"
-                          />
-                        }
-                        label={module.charAt(0).toUpperCase() + module.slice(1)}
-                      />
-                    </Grid>
-                  ))}
-                </Grid>
-              </Grid>
             </Grid>
           </DialogContent>
           <DialogActions>
@@ -796,27 +751,6 @@ function UserManagement() {
                   }
                   label="Force password change"
                 />
-              </Grid>
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  Module Permissions
-                </Typography>
-                <Grid container spacing={1}>
-                  {['dashboard', 'products', 'students', 'orders', 'invoicing', 'reports', 'tools', 'settings'].map((module) => (
-                    <Grid item xs={6} sm={4} md={3} key={module}>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={formData.permissions.modules.includes(module)}
-                            onChange={(e) => handlePermissionChange(module, e.target.checked)}
-                            size="small"
-                          />
-                        }
-                        label={module.charAt(0).toUpperCase() + module.slice(1)}
-                      />
-                    </Grid>
-                  ))}
-                </Grid>
               </Grid>
             </Grid>
           </DialogContent>

@@ -59,6 +59,7 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
     notes: '',
     due_date: '',
     issued_by: 'System Administrator',
+    lender_id: '',
     
     // For existing student selection
     useExistingStudent: true,
@@ -66,6 +67,7 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
   }]);
   
   const [students, setStudents] = useState([]);
+  const [lenders, setLenders] = useState([]);
 
   const steps = ['Student Information', 'Invoice Details', 'Review & Create'];
 
@@ -101,6 +103,7 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
   useEffect(() => {
     if (open) {
       fetchStudents();
+      fetchLenders();
       resetForm();
     }
   }, [open]);
@@ -117,6 +120,18 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
     }
   };
 
+  const fetchLenders = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/lenders`);
+      const data = await response.json();
+      if (response.ok) {
+        setLenders(data.filter(lender => lender.is_active)); // Only show active lenders
+      }
+    } catch (err) {
+      console.error('Error fetching lenders:', err);
+    }
+  };
+
   const resetForm = () => {
     setCurrentStep(0);
     setInvoices([{
@@ -129,6 +144,7 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
       notes: '',
       due_date: '',
       issued_by: 'System Administrator',
+      lender_id: '',
       useExistingStudent: true,
       selectedExistingStudent: null
     }]);
@@ -146,6 +162,7 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
       notes: '',
       due_date: '',
       issued_by: 'System Administrator',
+      lender_id: '',
       useExistingStudent: true,
       selectedExistingStudent: null
     }]);
@@ -208,8 +225,8 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
             setError(`Invoice ${i + 1}: Due date is required`);
             return false;
           }
-          if (!invoice.issued_by.trim()) {
-            setError(`Invoice ${i + 1}: Issued by is required`);
+          if (!invoice.lender_id) {
+            setError(`Invoice ${i + 1}: Staff assignment is required`);
             return false;
           }
           break;
@@ -241,8 +258,17 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
           const requestData = {
             invoice_type: invoice.invoice_type,
             notes: invoice.notes || '',
-            issued_by: invoice.issued_by,
-            due_date: invoice.due_date ? new Date(invoice.due_date).toISOString() : null
+            lender_id: invoice.lender_id,
+            due_date: invoice.due_date ? (() => {
+              // Parse DD/MM/YYYY format and convert to YYYY-MM-DD
+              const parts = invoice.due_date.split('/');
+              if (parts.length === 3) {
+                const [day, month, year] = parts;
+                return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+              }
+              // If it's already in YYYY-MM-DD format or a valid date string
+              return new Date(invoice.due_date).toISOString().split('T')[0];
+            })() : null
           };
 
           if (invoice.useExistingStudent && invoice.selectedExistingStudent) {
@@ -613,19 +639,26 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                   </Grid>
 
                   <Grid item xs={2}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      placeholder="Issued by"
-                      value={invoice.issued_by}
-                      onChange={(e) => handleInputChange(index, 'issued_by', e.target.value)}
-                      sx={{ 
-                        '& .MuiOutlinedInput-root': { 
+                    <FormControl fullWidth size="small">
+                      <Select
+                        value={invoice.lender_id}
+                        onChange={(e) => handleInputChange(index, 'lender_id', e.target.value)}
+                        displayEmpty
+                        error={!invoice.lender_id}
+                        sx={{ 
                           fontSize: '0.8rem', 
-                          height: '32px' 
-                        } 
-                      }}
-                    />
+                          height: '32px',
+                          '& .MuiSelect-select': { fontSize: '0.8rem' }
+                        }}
+                      >
+                        <MenuItem value="" disabled>Select staff...</MenuItem>
+                        {lenders.map((lender) => (
+                          <MenuItem key={lender.id} value={lender.id}>
+                            {lender.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
                   </Grid>
 
                   <Grid item xs={3}>
@@ -748,7 +781,7 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                             <strong>Type:</strong> {invoice.invoice_type}<br />
                             <strong>Amount:</strong> ₹{invoice.amount}<br />
                             <strong>Due Date:</strong> {new Date(invoice.due_date).toLocaleDateString()}<br />
-                            <strong>Issued By:</strong> {invoice.issued_by || 'Not specified'}<br />
+                            <strong>Assigned Staff:</strong> {lenders.find(l => l.id === invoice.lender_id)?.name || 'Not specified'}<br />
                             {invoice.notes && (
                               <>
                                 <strong>Notes:</strong> {invoice.notes}

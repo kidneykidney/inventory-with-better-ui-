@@ -52,6 +52,7 @@ import {
 
 // Import our modules
 import LendingManagement from './pages/LendingManagement';
+import LenderManagement from './pages/LenderManagement';
 import Dashboard from './pages/Dashboard';
 import InstrumentCluster from './components/InstrumentCluster';
 import PremiumAnalyticsDashboard from './pages/PremiumAnalyticsDashboard';
@@ -336,6 +337,7 @@ function App() {
     { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, badge: 0, roles: ['main_admin', 'sub_admin', 'viewer'] },
     { id: 'products', label: 'Products Management', icon: <InventoryIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
     { id: 'students', label: 'Student Management', icon: <PeopleIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
+    { id: 'lenders', label: 'Staff Management', icon: <SupervisorAccountIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
     { id: 'orders', label: 'Lending Management', icon: <StoreIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
     { id: 'invoicing', label: 'Invoicing & Billing', icon: <ReceiptIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
     { id: 'reports', label: 'Reports & Analytics', icon: <BarChartIcon />, badge: 0, roles: ['main_admin', 'sub_admin', 'viewer'] },
@@ -372,13 +374,15 @@ function App() {
           return <ListView type="products" />;
         case 'students':
           return <ListView type="students" />;
+        case 'lenders':
+          return <LenderManagement />;
         case 'invoicing':
           return <InvoiceManagement />;
         case 'invoice-dashboard':
           return <InvoiceDashboard />;
         case 'reports':
           return <InstrumentCluster />;
-        case 'users':
+        case 'users': 
           return <UserManagement />;
         case 'settings':
           return <SettingsManagement />;

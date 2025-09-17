@@ -2,7 +2,7 @@
 Invoice Management API Endpoints
 Handles invoice creation, management, and camera upload functionality
 """
-from fastapi import APIRouter, HTTPException, Depends, File, UploadFile, Form, Response
+from fastapi import APIRouter, HTTPException, Depends, File, UploadFile, Form, Response, Request
 from fastapi.responses import FileResponse, JSONResponse
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
@@ -123,7 +123,7 @@ def save_uploaded_image(image_data: str, filename: str, invoice_id: str) -> tupl
 
 @invoice_router.post("/", response_model=Invoice)
 async def create_invoice(invoice: InvoiceCreate, db: DatabaseManager = Depends(get_db)):
-    """Create a new invoice - now handles automatic student creation"""
+    """Create a new invoice - now includes lender information from order"""
     
     # If student_id is provided, check if student exists
     if invoice.student_id:
@@ -138,10 +138,26 @@ async def create_invoice(invoice: InvoiceCreate, db: DatabaseManager = Depends(g
     else:
         raise HTTPException(status_code=400, detail="Student ID is required")
     
+    # Get lender information from the order if order_id is provided
+    lender_id = None
+    issued_by_lender = None
+    
+    if invoice.order_id:
+        order_query = """
+        SELECT o.lender_id, l.name as lender_name 
+        FROM orders o 
+        LEFT JOIN lenders l ON o.lender_id = l.id 
+        WHERE o.id = %s
+        """
+        order_result = db.execute_query(order_query, (invoice.order_id,))
+        if order_result and order_result[0]['lender_id']:
+            lender_id = order_result[0]['lender_id']
+            issued_by_lender = order_result[0]['lender_id']  # Use ID, not name
+    
     query = """
     INSERT INTO invoices (
-        order_id, student_id, invoice_type, status, due_date, issued_by, notes
-    ) VALUES (%s, %s, %s, 'issued', %s, %s, %s)
+        order_id, student_id, invoice_type, status, due_date, issued_by, notes, lender_id, issued_by_lender
+    ) VALUES (%s, %s, %s, 'issued', %s, %s, %s, %s, %s)
     RETURNING *
     """
     
@@ -149,7 +165,7 @@ async def create_invoice(invoice: InvoiceCreate, db: DatabaseManager = Depends(g
         query, 
         (
             invoice.order_id, actual_student_id, invoice.invoice_type, 
-            invoice.due_date, invoice.issued_by, invoice.notes
+            invoice.due_date, invoice.issued_by, invoice.notes, lender_id, issued_by_lender
         )
     )
     
@@ -240,18 +256,99 @@ async def create_invoice_with_student(
             actual_student_id = student_uuid
             api_logger.info(f"Created new student with ID: {student_id}")
         
-        # Step 3: Create the invoice
+        # Step 3: Get lender information - either from request or order
+        lender_id = None
+        issued_by_lender = None
+        
+        api_logger.info(f"=== DEBUGGING LENDER ASSIGNMENT ===")
+        api_logger.info(f"request.lender_id: {getattr(request, 'lender_id', 'NOT SET')}")
+        api_logger.info(f"request.issued_by: {getattr(request, 'issued_by', 'NOT SET')}")
+        
+        # First check if lender_id is provided directly in the request
+        if hasattr(request, 'lender_id') and request.lender_id:
+            # Validate that lender_id is a proper UUID, not a name
+            import uuid
+            try:
+                # Try to parse as UUID to validate format
+                uuid.UUID(request.lender_id)
+                lender_id = request.lender_id
+                issued_by_lender = request.lender_id
+                api_logger.info(f"Valid lender_id provided: {lender_id}")
+            except ValueError:
+                # lender_id is not a valid UUID, might be a name - try to find by name
+                api_logger.warning(f"Invalid lender_id format (not UUID): {request.lender_id}, attempting to find by name")
+                lender_search_query = "SELECT id FROM lenders WHERE name ILIKE %s"
+                lender_result = db.execute_query(lender_search_query, (f"%{request.lender_id}%",))
+                if lender_result:
+                    lender_id = lender_result[0]['id']
+                    issued_by_lender = lender_result[0]['id']
+                    api_logger.info(f"Found lender by name '{request.lender_id}': {lender_id}")
+                else:
+                    api_logger.error(f"Lender not found for name: {request.lender_id}")
+                    raise HTTPException(status_code=400, detail=f"Invalid lender: {request.lender_id}")
+        
+        # Note: InvoiceCreateWithStudent doesn't have order_id, so this fallback is not applicable
+        # This section is for the regular InvoiceCreate model which has order_id
+        
+        api_logger.info(f"FINAL VALUES BEFORE INSERT:")
+        api_logger.info(f"lender_id: {lender_id}")
+        api_logger.info(f"issued_by_lender: {issued_by_lender}")
+        api_logger.info(f"=== END DEBUGGING ===")
+        
+        # Safety check: Ensure issued_by_lender is a valid UUID or None
+        if issued_by_lender is not None:
+            try:
+                import uuid
+                uuid.UUID(str(issued_by_lender))  # Validate UUID format
+            except (ValueError, TypeError):
+                api_logger.error(f"Invalid UUID for issued_by_lender: {issued_by_lender}, setting to None")
+                issued_by_lender = None
+        
+        # Step 4: Create the invoice with lender information
+        # Add debugging logs before database query
+        api_logger.info(f"DEBUG - Before invoice creation:")
+        api_logger.info(f"  lender_id: {lender_id} (type: {type(lender_id)})")
+        api_logger.info(f"  issued_by_lender: {issued_by_lender} (type: {type(issued_by_lender)})")
+        api_logger.info(f"  request.issued_by: {request.issued_by} (type: {type(request.issued_by)})")
+        
+        # Add fallback to prevent None values being passed to UUID fields
+        if issued_by_lender is None:
+            api_logger.warning("issued_by_lender is None, setting to NULL for database")
+            issued_by_lender = None  # Keep as None for database NULL
+        else:
+            # Validate issued_by_lender is a UUID if not None
+            try:
+                import uuid
+                uuid.UUID(str(issued_by_lender))
+                api_logger.info(f"issued_by_lender UUID validation passed: {issued_by_lender}")
+            except ValueError:
+                api_logger.error(f"issued_by_lender is not a valid UUID: {issued_by_lender} (type: {type(issued_by_lender)})")
+                raise HTTPException(status_code=400, detail=f"Invalid issued_by_lender UUID: {issued_by_lender}")
+        
+        if lender_id is None:
+            api_logger.warning("lender_id is None, setting to NULL for database")
+            lender_id = None  # Keep as None for database NULL
+        else:
+            # Validate lender_id is a UUID if not None
+            try:
+                import uuid
+                uuid.UUID(str(lender_id))
+                api_logger.info(f"lender_id UUID validation passed: {lender_id}")
+            except ValueError:
+                api_logger.error(f"lender_id is not a valid UUID: {lender_id} (type: {type(lender_id)})")
+                raise HTTPException(status_code=400, detail=f"Invalid lender_id UUID: {lender_id}")
+        
         invoice_query = """
         INSERT INTO invoices (
-            student_id, invoice_type, status, due_date, issued_by, notes
-        ) VALUES (%s, %s, 'issued', %s, %s, %s)
+            student_id, invoice_type, status, due_date, issued_by, notes, lender_id, issued_by_lender
+        ) VALUES (%s, %s, 'issued', %s, %s, %s, %s, %s)
         RETURNING *
         """
         
-        invoice_result = db.execute_query(
-            invoice_query, 
-            (actual_student_id, request.invoice_type, request.due_date, request.issued_by, request.notes)
-        )
+        query_params = (actual_student_id, request.invoice_type, request.due_date, request.issued_by, request.notes, lender_id, issued_by_lender)
+        api_logger.info(f"DEBUG - Query parameters: {query_params}")
+        
+        invoice_result = db.execute_query(invoice_query, query_params)
         
         if not invoice_result:
             raise HTTPException(status_code=500, detail="Failed to create invoice")
@@ -283,6 +380,7 @@ async def create_invoice_with_student(
 # New endpoint for creating invoice with automatic student creation and image storage
 @invoice_router.post("/create-with-student-and-image")
 async def create_invoice_with_student_and_image(
+    request: Request,  # Add request to inspect raw form data
     student_name: str = Form(...),
     student_id: str = Form(None),
     student_email: str = Form(None),
@@ -292,6 +390,7 @@ async def create_invoice_with_student_and_image(
     due_date: str = Form(None),
     issued_by: str = Form("OCR System"),
     notes: str = Form(None),
+    lender_name: str = Form(None),  # Added lender_name parameter for staff auto-creation
     ocr_confidence: float = Form(None),
     ocr_text: str = Form(None),
     file: UploadFile = File(None),
@@ -304,8 +403,23 @@ async def create_invoice_with_student_and_image(
     from pathlib import Path
     
     try:
+        # Debug: Try to inspect the raw request form data
+        try:
+            form_data = await request.form()
+            api_logger.info(f"🔍 RAW FORM DATA KEYS: {list(form_data.keys())}")
+            for key, value in form_data.items():
+                if key != 'file':  # Don't log file content
+                    api_logger.info(f"🔍 RAW FORM FIELD: {key} = '{value}' (type: {type(value)})")
+        except Exception as e:
+            api_logger.error(f"❌ Could not inspect raw form data: {e}")
+        
         api_logger.info(f"=== Starting create_invoice_with_student_and_image for: {student_name} ===")
         api_logger.info(f"File received: {file.filename if file else 'No file'}")
+        api_logger.info(f"🔍 DEBUG: lender_name parameter value: '{lender_name}' (type: {type(lender_name)})")
+        api_logger.info(f"🔍 DEBUG: lender_name is None: {lender_name is None}")
+        api_logger.info(f"🔍 DEBUG: lender_name is falsy: {not bool(lender_name)}")
+        api_logger.info(f"🔍 DEBUG: lender_name stripped: '{(lender_name or '').strip()}'")
+        api_logger.info(f"🔍 DEBUG: lender_name after strip is truthy: {bool((lender_name or '').strip())}")
         
         api_logger.info(f"Creating invoice with student auto-creation and image storage for: {student_name}")
         
@@ -355,12 +469,96 @@ async def create_invoice_with_student_and_image(
             actual_student_id = student_uuid
             api_logger.info(f"Created new student with ID: {student_id}")
         
+        # Step 2.5: Handle staff/lender auto-creation if lender_name is provided
+        issued_by_lender = None
+        lender_id = None
+        
+        # Normalize lender_name - handle None, empty string, or whitespace
+        normalized_lender_name = (lender_name or '').strip()
+        
+        if normalized_lender_name:
+            api_logger.info(f"👤 Processing lender name: '{normalized_lender_name}'")
+            
+            # Try to find existing lender
+            lender_query = """
+            SELECT id, name FROM lenders 
+            WHERE LOWER(name) LIKE LOWER(%s)
+            LIMIT 1
+            """
+            lender_result = db.execute_query(
+                lender_query, 
+                (f"%{normalized_lender_name}%",)
+            )
+            
+            if lender_result:
+                # Staff member found
+                lender_id = lender_result[0]['id']
+                issued_by_lender = lender_result[0]['id']
+                api_logger.info(f"✅ Found existing staff: {lender_result[0]['name']} (ID: {lender_id})")
+            else:
+                # Staff member not found - create automatically
+                try:
+                    api_logger.info(f"🚫 Staff not found, creating new staff: '{normalized_lender_name}'")
+                    
+                    # Generate auto staff ID
+                    import random
+                    year = datetime.now().year
+                    random_num = random.randint(1000, 9999)
+                    auto_staff_id = f"STF{year}{random_num}"
+                    api_logger.info(f"🔢 Generated staff ID: {auto_staff_id}")
+                    
+                    # Create new staff member with minimal information
+                    new_staff_query = """
+                    INSERT INTO lenders (
+                        name, employee_id, department, designation, 
+                        authority_level, can_approve_lending, can_lend_high_value
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id, name, employee_id
+                    """
+                    
+                    new_staff_params = (
+                        normalized_lender_name,
+                        auto_staff_id,
+                        'Auto-Generated',  # Default department
+                        'Staff',          # Default designation
+                        'standard',       # Default authority level
+                        True,            # Can approve lending
+                        False            # Cannot lend high value items
+                    )
+                    
+                    api_logger.info(f"🔄 Executing staff creation query with params: {new_staff_params}")
+                    
+                    new_staff_result = db.execute_query(
+                        new_staff_query,
+                        new_staff_params
+                    )
+                    
+                    api_logger.info(f"📝 Staff creation result: {new_staff_result}")
+                    
+                    if new_staff_result:
+                        lender_id = new_staff_result[0]['id']
+                        issued_by_lender = new_staff_result[0]['id']
+                        api_logger.info(f"✅ Auto-created staff: {lender_name} (ID: {lender_id}, Employee ID: {auto_staff_id})")
+                    else:
+                        api_logger.warning(f"⚠️ Failed to create staff member: {lender_name} - no result returned")
+                        
+                except Exception as create_error:
+                    api_logger.error(f"❌ Error creating staff member {lender_name}: {create_error}")
+                    import traceback
+                    api_logger.error(f"❌ Traceback: {traceback.format_exc()}")
+                    # Continue without staff assignment if creation fails
+        else:
+            api_logger.info("ℹ️ No lender_name provided, skipping staff processing")
+        
         # Step 3: Create the invoice
         invoice_uuid = str(uuid.uuid4())
+        
+        # lender_id and issued_by_lender are now set above during staff processing
+        
         invoice_query = """
         INSERT INTO invoices (
-            id, student_id, invoice_type, status, due_date, issued_by, notes
-        ) VALUES (%s, %s, %s, 'issued', %s, %s, %s)
+            id, student_id, invoice_type, status, due_date, issued_by, notes, lender_id, issued_by_lender
+        ) VALUES (%s, %s, %s, 'issued', %s, %s, %s, %s, %s)
         RETURNING *
         """
         
@@ -375,7 +573,7 @@ async def create_invoice_with_student_and_image(
         
         invoice_result = db.execute_query(
             invoice_query, 
-            (invoice_uuid, actual_student_id, invoice_type, parsed_due_date, issued_by, notes)
+            (invoice_uuid, actual_student_id, invoice_type, parsed_due_date, issued_by, notes, lender_id, issued_by_lender)
         )
         
         if not invoice_result:
@@ -533,6 +731,11 @@ async def get_invoices(
         s.email as student_email,
         s.department,
         s.year_of_study,
+        l.name as lender_name,
+        l.email as lender_email,
+        l.department as lender_department,
+        l.designation as lender_designation,
+        l2.name as issued_by_lender_name,
         (SELECT COUNT(*) FROM invoice_items ii WHERE ii.invoice_id = i.id) as item_count,
         (SELECT COUNT(*) FROM invoice_images img WHERE img.invoice_id = i.id) as image_count,
         (SELECT COUNT(*) FROM student_acknowledgments sa WHERE sa.invoice_id = i.id) as acknowledgment_count,
@@ -540,6 +743,8 @@ async def get_invoices(
     FROM invoices i
     LEFT JOIN orders o ON i.order_id = o.id
     LEFT JOIN students s ON i.student_id = s.id
+    LEFT JOIN lenders l ON i.lender_id = l.id
+    LEFT JOIN lenders l2 ON i.issued_by_lender = l2.id
     {where_clause}
     ORDER BY i.created_at DESC
     OFFSET %s LIMIT %s
@@ -567,10 +772,17 @@ async def get_invoice(invoice_id: str, db: DatabaseManager = Depends(get_db)):
             s.student_id as student_id_number,
             s.email as student_email,
             s.department,
-            s.year_of_study
+            s.year_of_study,
+            l.name as lender_name,
+            l.email as lender_email,
+            l.department as lender_department,
+            l.designation as lender_designation,
+            l2.name as issued_by_lender_name
         FROM invoices i
         LEFT JOIN orders o ON i.order_id = o.id
         LEFT JOIN students s ON i.student_id = s.id
+        LEFT JOIN lenders l ON i.lender_id = l.id
+        LEFT JOIN lenders l2 ON i.issued_by_lender = l2.id
         WHERE i.id = %s
         """
         
@@ -666,6 +878,14 @@ async def update_invoice(invoice_id: str, invoice_update: InvoiceUpdate, db: Dat
         if invoice_update.notes is not None:
             update_fields.append("notes = %s")
             params.append(invoice_update.notes)
+        
+        if invoice_update.lender_id is not None:
+            update_fields.append("lender_id = %s")
+            params.append(invoice_update.lender_id)
+        
+        if invoice_update.issued_by_lender is not None:
+            update_fields.append("issued_by_lender = %s")
+            params.append(invoice_update.issued_by_lender)
         
         # Always update the updated_at timestamp
         update_fields.append("updated_at = CURRENT_TIMESTAMP")
@@ -1280,15 +1500,149 @@ async def process_invoice_with_ocr(
                         (extracted_data.get('student_id', ''), extracted_data.get('student_name', ''))
                     )
                     
+                    # Initialize student_id variable
+                    student_id = None
+                    
+                    # Log what was extracted for debugging
+                    api_logger.info(f"🔍 OCR Extracted Data: {json.dumps(extracted_data, indent=2)}")
+                    
                     if student_result:
                         student_id = student_result[0]['id']
+                        api_logger.info(f"✅ Found existing student: {student_result[0]['id']}")
+                    else:
+                        # Student not found - create automatically like we do for staff
+                        try:
+                            api_logger.info(f"🚫 Student not found, creating new student: '{extracted_data.get('student_name')}'")
+                            
+                            # Generate auto student ID
+                            import random
+                            year = datetime.now().year
+                            random_num = random.randint(1000, 9999)
+                            auto_student_id = f"STU{year}{random_num}"
+                            api_logger.info(f"🔢 Generated student ID: {auto_student_id}")
+                            
+                            # Create new student with extracted information
+                            student_uuid = str(uuid.uuid4())
+                            new_student_query = """
+                            INSERT INTO students (
+                                id, student_id, name, email, department, year_of_study
+                            ) VALUES (%s, %s, %s, %s, %s, %s)
+                            RETURNING id, name, student_id
+                            """
+                            
+                            new_student_params = (
+                                student_uuid,
+                                extracted_data.get('student_id') or auto_student_id,  # Use extracted ID or generate one
+                                extracted_data.get('student_name'),
+                                extracted_data.get('student_email', ''),  # Email might be empty
+                                extracted_data.get('department', 'Auto-Generated'),  # Default department
+                                1  # Default year
+                            )
+                            
+                            api_logger.info(f"🔄 Executing student creation query with params: {new_student_params}")
+                            
+                            new_student_result = db.execute_query(
+                                new_student_query,
+                                new_student_params
+                            )
+                            
+                            api_logger.info(f"📝 Student creation result: {new_student_result}")
+                            
+                            if new_student_result:
+                                student_id = new_student_result[0]['id']
+                                api_logger.info(f"✅ Auto-created student: {extracted_data.get('student_name')} (ID: {student_id})")
+                            else:
+                                api_logger.warning(f"⚠️ Failed to create student: {extracted_data.get('student_name')} - no result returned")
+                                return  # Can't continue without student
+                                
+                        except Exception as create_error:
+                            api_logger.error(f"❌ Error creating student {extracted_data.get('student_name')}: {create_error}")
+                            import traceback
+                            api_logger.error(f"❌ Traceback: {traceback.format_exc()}")
+                            return  # Can't continue without student
                         
-                        # Create invoice
+                        # Try to find lender in database if name was extracted
+                        lender_id = None
+                        issued_by_lender = None
+                        if extracted_data.get('lender_name'):
+                            lender_name = extracted_data['lender_name'].strip()
+                            api_logger.info(f"👤 Looking for staff/lender: '{lender_name}'")
+                            
+                            lender_query = """
+                            SELECT id, name FROM lenders 
+                            WHERE LOWER(name) LIKE LOWER(%s)
+                            LIMIT 1
+                            """
+                            lender_result = db.execute_query(
+                                lender_query, 
+                                (f"%{lender_name}%",)
+                            )
+                            api_logger.info(f"🔍 Lender search query result: {lender_result}")
+                            
+                            if lender_result:
+                                # Staff member found
+                                lender_id = lender_result[0]['id']
+                                issued_by_lender = lender_result[0]['id']
+                                api_logger.info(f"Found existing staff: {lender_result[0]['name']} (ID: {lender_id})")
+                            else:
+                                # Staff member not found - create automatically
+                                try:
+                                    api_logger.info(f"🚫 Staff not found, creating new staff: '{lender_name}'")
+                                    
+                                    # Generate auto staff ID
+                                    import random
+                                    year = datetime.now().year
+                                    random_num = random.randint(1000, 9999)
+                                    auto_staff_id = f"STF{year}{random_num}"
+                                    api_logger.info(f"🔢 Generated staff ID: {auto_staff_id}")
+                                    
+                                    # Create new staff member with minimal information
+                                    new_staff_query = """
+                                    INSERT INTO lenders (
+                                        name, employee_id, department, designation, 
+                                        authority_level, can_approve_lending, can_lend_high_value
+                                    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                                    RETURNING id, name, employee_id
+                                    """
+                                    
+                                    new_staff_params = (
+                                        lender_name,
+                                        auto_staff_id,
+                                        'Auto-Generated',  # Default department
+                                        'Staff',          # Default designation
+                                        'standard',       # Default authority level
+                                        True,            # Can approve lending
+                                        False            # Cannot lend high value items
+                                    )
+                                    
+                                    api_logger.info(f"🔄 Executing staff creation query with params: {new_staff_params}")
+                                    
+                                    new_staff_result = db.execute_query(
+                                        new_staff_query,
+                                        new_staff_params
+                                    )
+                                    
+                                    api_logger.info(f"📝 Staff creation result: {new_staff_result}")
+                                    
+                                    if new_staff_result:
+                                        lender_id = new_staff_result[0]['id']
+                                        issued_by_lender = new_staff_result[0]['id']
+                                        api_logger.info(f"✅ Auto-created staff: {lender_name} (ID: {lender_id}, Employee ID: {auto_staff_id})")
+                                    else:
+                                        api_logger.warning(f"⚠️ Failed to create staff member: {lender_name} - no result returned")
+                                        
+                                except Exception as create_error:
+                                    api_logger.error(f"❌ Error creating staff member {lender_name}: {create_error}")
+                                    import traceback
+                                    api_logger.error(f"❌ Traceback: {traceback.format_exc()}")
+                                    # Continue without staff assignment if creation fails
+                        else:
+                            api_logger.info(f"ℹ️ No lender_name found in extracted data")
                         invoice_uuid = str(uuid.uuid4())
                         invoice_query = """
                         INSERT INTO invoices (
-                            id, student_id, invoice_type, status, due_date, issued_by, notes
-                        ) VALUES (%s, %s, %s, 'issued', %s, %s, %s)
+                            id, student_id, invoice_type, status, due_date, issued_by, notes, lender_id, issued_by_lender
+                        ) VALUES (%s, %s, %s, 'issued', %s, %s, %s, %s, %s)
                         RETURNING id, invoice_number
                         """
                         
@@ -1300,7 +1654,9 @@ async def process_invoice_with_ocr(
                                 'lending',
                                 extracted_data.get('due_date') or None,
                                 'OCR System',
-                                f"Auto-created from OCR processing. Original file: {file.filename}"
+                                f"Auto-created from OCR processing. Original file: {file.filename}",
+                                lender_id,
+                                issued_by_lender
                             )
                         )
                         
@@ -1417,8 +1773,8 @@ async def create_bulk_invoices(
             invoice_query = """
             INSERT INTO invoices (
                 order_id, student_id, invoice_type, status, total_items,
-                due_date, issued_by, notes
-            ) VALUES (%s, %s, 'lending', 'issued', %s, %s, %s, %s)
+                due_date, issued_by, notes, lender_id, issued_by_lender
+            ) VALUES (%s, %s, 'lending', 'issued', %s, %s, %s, %s, %s, %s)
             RETURNING *
             """
             
@@ -1426,7 +1782,8 @@ async def create_bulk_invoices(
                 invoice_query,
                 (
                     order_id, order_data['student_id'], order_data['total_items'],
-                    order_data['expected_return_date'], bulk_request.issued_by, bulk_request.notes
+                    order_data['expected_return_date'], bulk_request.issued_by, bulk_request.notes,
+                    order_data.get('lender_id'), order_data.get('lender_name')
                 )
             )
             
@@ -1743,6 +2100,24 @@ def extract_invoice_information(ocr_text: str) -> dict:
             if student_match and len(student_match.group(1)) >= 3:
                 info['student_id'] = student_match.group(1)
         
+        # Extract lender/staff information
+        for line in text_lines:
+            # Look for staff/lender name patterns
+            staff_patterns = [
+                r'(?:issued\s*by|lender|staff|teacher|instructor)[\s:]*([A-Za-z\s]{3,30})',
+                r'(?:approved\s*by|authorized\s*by)[\s:]*([A-Za-z\s]{3,30})',
+                r'(?:lending\s*staff|responsible\s*person)[\s:]*([A-Za-z\s]{3,30})'
+            ]
+            for pattern in staff_patterns:
+                match = re.search(pattern, line, re.IGNORECASE)
+                if match:
+                    staff_name = match.group(1).strip()
+                    if len(staff_name) >= 3 and not any(char.isdigit() for char in staff_name):
+                        info['lender_name'] = staff_name
+                        break
+            if 'lender_name' in info:
+                break
+        
         # Extract items/products
         items = []
         for line in text_lines:
@@ -1851,7 +2226,9 @@ async def extract_invoice_data_from_image(
     """
     import time
     processing_id = f"{int(time.time())}_{uuid.uuid4().hex[:8]}"
-    api_logger.info(f"Starting OCR processing with ID: {processing_id}")
+    api_logger.info(f"🔍 DEBUG: /ocr/extract endpoint called with processing ID: {processing_id}")
+    api_logger.info(f"🔍 DEBUG: extract_data parameter: {extract_data}")
+    api_logger.info(f"🔍 DEBUG: file: {file.filename if file else 'None'}")
     
     try:
         if not OCR_AVAILABLE:
@@ -1906,6 +2283,7 @@ async def extract_invoice_data_from_image(
                     api_logger.info(f"Item {i+1}: {item}")
                     
                 api_logger.info(f"Data extraction successful. Final confidence: {result['confidence_score']*100:.1f}%")
+                api_logger.info(f"🔍 DEBUG: Final extracted_data being returned: {json.dumps(extracted_data, indent=2)}")
             except Exception as e:
                 api_logger.warning(f"Data extraction failed: {e}")
                 # Fallback to basic parsing
@@ -1930,6 +2308,7 @@ def convert_date_to_iso_format(date_str: str) -> str:
     """
     Convert various date formats to ISO format (YYYY-MM-DD) for HTML date inputs
     Handles formats like:
+    - "2025-09-30" (already ISO)
     - "August 26, 2025"
     - "Sept 20, 2025" 
     - "8/26/2025"
@@ -1941,6 +2320,15 @@ def convert_date_to_iso_format(date_str: str) -> str:
     try:
         # Clean up common OCR artifacts
         cleaned = date_str.replace("'", "").replace('"', '').strip()
+        
+        # Check if already in YYYY-MM-DD format
+        iso_match = re.match(r'^(\d{4})-(\d{1,2})-(\d{1,2})$', cleaned)
+        if iso_match:
+            year, month, day = iso_match.groups()
+            year, month, day = int(year), int(month), int(day)
+            # Validate the date components
+            if 1 <= month <= 12 and 1 <= day <= 31 and year >= 1900:
+                return f"{year:04d}-{month:02d}-{day:02d}"
         
         # Handle "Sept" abbreviation
         cleaned = re.sub(r'Sept(\d)', r'September \1', cleaned, flags=re.IGNORECASE)
@@ -2108,13 +2496,14 @@ def parse_text_simple(text: str) -> dict:
             extracted["invoice_number"] = match.group(1)
             break
     
-    # Look for student ID patterns (more flexible)
+    # Look for student ID patterns (more flexible, including hyphenated IDs)
     student_id_patterns = [
+        r'Student\s+ID[#:]?\s*([A-Z0-9\-]+)',
+        r'STU[#\-]?\s*([A-Z0-9\-]+)',
+        r'ID[#:]?\s*([A-Z0-9\-]{5,15})',
         r'Student\s+ID[#:]?\s*([A-Z0-9]+)',
-        r'STU\s*([0-9]{4,6})',
-        r'ID[#:]?\s*([A-Z0-9]{5,10})',
         r'STUD([0-9]{6,8})',
-        r'Borrower\s+ID[#:]?\s*([A-Z0-9]+)'
+        r'Borrower\s+ID[#:]?\s*([A-Z0-9\-]+)'
     ]
     for pattern in student_id_patterns:
         match = re.search(pattern, full_text, re.IGNORECASE)
@@ -2142,6 +2531,33 @@ def parse_text_simple(text: str) -> dict:
                 api_logger.info(f"👤 Extracted student name with pattern {i+1}: {name}")
                 break
     
+    # Look for lender/staff information patterns (enhanced for titles like Dr., Prof., etc.)
+    lender_patterns = [
+        r'Issued\s+by\s+Staff[#:]?\s*([A-Za-z\s\.]+?)(?:\s*Lending|\s*Date|\s*Phone|\s*Email|\s*Department|\n|$)',  # "Issued by Staff: Dr. Sarah Johnson"
+        r'Issued\s+by[#:]?\s*([A-Za-z\s\.]+?)(?:\s*Lending|\s*Date|\s*Phone|\s*Email|\s*Department|\n|$)',
+        r'Lender[#:]?\s*([A-Za-z\s\.]+?)(?:\s*Lending|\s*Date|\s*Phone|\s*Email|\s*Department|\n|$)',
+        r'Staff[#:]?\s*([A-Za-z\s\.]+?)(?:\s*Lending|\s*Date|\s*Phone|\s*Email|\s*Department|\n|$)',
+        r'Teacher[#:]?\s*([A-Za-z\s\.]+?)(?:\s*Lending|\s*Date|\s*Phone|\s*Email|\s*Department|\n|$)',
+        r'Instructor[#:]?\s*([A-Za-z\s\.]+?)(?:\s*Lending|\s*Date|\s*Phone|\s*Email|\s*Department|\n|$)',
+        r'Approved\s+by[#:]?\s*([A-Za-z\s\.]+?)(?:\s*Lending|\s*Date|\s*Phone|\s*Email|\s*Department|\n|$)',
+        r'Authorized\s+by[#:]?\s*([A-Za-z\s\.]+?)(?:\s*Lending|\s*Date|\s*Phone|\s*Email|\s*Department|\n|$)',
+        r'Lending\s+Staff[#:]?\s*([A-Za-z\s\.]+?)(?:\s*Lending|\s*Date|\s*Phone|\s*Email|\s*Department|\n|$)',
+        r'Responsible\s+Person[#:]?\s*([A-Za-z\s\.]+?)(?:\s*Lending|\s*Date|\s*Phone|\s*Email|\s*Department|\n|$)',
+        r'Dr\.\s+([A-Za-z\s]+?)(?:\s*Lending|\s*Date|\s*Phone|\s*Email|\s*Staff\s+ID|\s*Employee\s+ID|\s*Department|\n|$)',  # Match "Dr. Sarah Johnson"
+        r'Prof\.\s+([A-Za-z\s]+?)(?:\s*Lending|\s*Date|\s*Phone|\s*Email|\s*Staff\s+ID|\s*Employee\s+ID|\s*Department|\n|$)',  # Match "Prof. John Smith"
+        r'Mr\.\s+([A-Za-z\s]+?)(?:\s*Lending|\s*Date|\s*Phone|\s*Email|\s*Staff\s+ID|\s*Employee\s+ID|\s*Department|\n|$)',   # Match "Mr. David Brown"
+        r'Ms\.\s+([A-Za-z\s]+?)(?:\s*Lending|\s*Date|\s*Phone|\s*Email|\s*Staff\s+ID|\s*Employee\s+ID|\s*Department|\n|$)',   # Match "Ms. Jane Doe"
+        r'Mrs\.\s+([A-Za-z\s]+?)(?:\s*Lending|\s*Date|\s*Phone|\s*Email|\s*Staff\s+ID|\s*Employee\s+ID|\s*Department|\n|$)'   # Match "Mrs. Mary White"
+    ]
+    for i, pattern in enumerate(lender_patterns):
+        match = re.search(pattern, full_text, re.IGNORECASE)
+        if match and not extracted["lender_name"]:
+            lender_name = clean_extracted_text(match.group(1), "name")
+            if len(lender_name) >= 3 and not any(char.isdigit() for char in lender_name):
+                extracted["lender_name"] = lender_name
+                api_logger.info(f"👥 Extracted lender name with pattern {i+1}: {lender_name}")
+                break
+
     # Look for email patterns (enhanced for @ symbols)
     email_patterns = [
         r'Email[#:]?\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})',
@@ -2257,12 +2673,19 @@ def parse_text_simple(text: str) -> dict:
                 extracted["emergency_contact_name"] = emergency
                 break
     
-    # Look for issued by / lender name
+    # Look for issued by / lender name (enhanced staff patterns)
     issued_patterns = [
-        r'Issued\s+by[#:]?\s*([A-Za-z\s\.]+?)(?:Designation|Department|Date|\n)',
-        r'Approved\s+By[#:]?\s*([A-Za-z\s\.]+?)(?:Designation|Department|Date|\n|Processing)',
-        r'Lender[#:]?\s*([A-Za-z\s\.]+?)(?:Designation|Department|Date|\n)',
-        r'Lab\s+Manager[#:]?\s*([A-Za-z\s\.]+?)(?:Designation|Department|Date|\n)'
+        r'Issued\s+by\s+Staff:\s*([A-Za-z\s\.\-]+?)(?:Staff\s+ID|Date|Time|Invoice|Due|\n|$)',
+        r'Issued\s+by\s+Staff[#:]?\s*([A-Za-z\s\.\-]+?)(?:Staff\s+ID|Date|Time|Invoice|Due|\n|$)',
+        r'Staff:\s*([A-Za-z\s\.\-]+?)(?:Staff\s+ID|Date|Time|Invoice|Due|\n|$)',
+        r'Staff[#:]?\s*([A-Za-z\s\.\-]+?)(?:Staff\s+ID|Date|Time|Invoice|Due|\n|$)',
+        r'Dr\.\s+([A-Za-z\s\.\-]+?)(?:Date|Time|Invoice|Due|Staff\s+ID|\n|$)',
+        r'Prof\.\s+([A-Za-z\s\.\-]+?)(?:Date|Time|Invoice|Due|Staff\s+ID|\n|$)',
+        r'Professor\s+([A-Za-z\s\.\-]+?)(?:Date|Time|Invoice|Due|Staff\s+ID|\n|$)',
+        r'Issued\s+by[#:]?\s*([A-Za-z\s\.\-]+?)(?:Designation|Department|Date|\n)',
+        r'Approved\s+By[#:]?\s*([A-Za-z\s\.\-]+?)(?:Designation|Department|Date|\n|Processing)',
+        r'Lender[#:]?\s*([A-Za-z\s\.\-]+?)(?:Designation|Department|Date|\n)',
+        r'Lab\s+Manager[#:]?\s*([A-Za-z\s\.\-]+?)(?:Designation|Department|Date|\n)'
     ]
     for i, pattern in enumerate(issued_patterns):
         match = re.search(pattern, full_text, re.IGNORECASE)
@@ -2270,8 +2693,12 @@ def parse_text_simple(text: str) -> dict:
             issued = clean_extracted_text(match.group(1), "name")
             if len(issued) > 2:
                 extracted["issued_by"] = issued
-                extracted["lender_name"] = issued  # Add for frontend compatibility
-                api_logger.info(f"👤 Extracted lender name with pattern {i+1}: {issued}")
+                # Only set lender_name if it's not already set (from the dedicated lender extraction above)
+                if not extracted["lender_name"]:
+                    extracted["lender_name"] = issued  # Add for frontend compatibility
+                    api_logger.info(f"👤 Extracted lender name from issued_by with pattern {i+1}: {issued}")
+                else:
+                    api_logger.info(f"👤 Extracted issued_by with pattern {i+1} but lender_name already set: {issued}")
                 break
         elif match:
             api_logger.info(f"👤 Pattern {i+1} found lender but field already filled: {match.group(1)}")
@@ -2298,13 +2725,16 @@ def parse_text_simple(text: str) -> dict:
         else:
             api_logger.debug(f"📅 Issue date pattern {i+1} failed")
     
-    # Look for due date patterns (enhanced)
+    # Look for due date patterns (enhanced with YYYY-MM-DD support)
     date_patterns = [
-        r'Due\s+Date[#:]?\s*([A-Za-z0-9,\s]+?)(?:\n|$|Signature)',
-        r'Return\s+Date[#:]?\s*([A-Za-z0-9,\s]+?)(?:\n|$|Signature)',
-        r'Expected\s+Return[#:]?\s*([A-Za-z0-9,\s]+?)(?:\n|$|Signature)',
+        r'Due\s+Date[#:]?\s*(\d{4}-\d{1,2}-\d{1,2})',  # YYYY-MM-DD format first
+        r'Due\s+Date[#:]?\s*([A-Za-z0-9,\s-]+?)(?:\n|$|Invoice|Type)',
+        r'Return\s+Date[#:]?\s*(\d{4}-\d{1,2}-\d{1,2})',  # YYYY-MM-DD format first  
+        r'Return\s+Date[#:]?\s*([A-Za-z0-9,\s-]+?)(?:\n|$|Invoice|Type)',
+        r'Expected\s+Return[#:]?\s*(\d{4}-\d{1,2}-\d{1,2})',  # YYYY-MM-DD format first
+        r'Expected\s+Return[#:]?\s*([A-Za-z0-9,\s-]+?)(?:\n|$|Invoice|Type)',
+        # Remove the broad (\d{4}-\d{1,2}-\d{1,2}) pattern to avoid wrong matches
         r'(September|October|November|December|January|February|March|April|May|June|July|August)\s+\d{1,2},?\s+\d{4}',
-        r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})',
         r'Sept?\s*\d{1,2},?\s*\d{4}'
     ]
     for pattern in date_patterns:

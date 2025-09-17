@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -75,6 +75,8 @@ const LendingManagement = () => {
       status: 'pending',
       date: '2025-08-20',
       items: ['Laptop Charger', 'Mouse', 'Keyboard'],
+      lender: 'Dr. Smith',
+      lenderId: 1,
     },
     {
       id: 'ORD002',
@@ -86,6 +88,8 @@ const LendingManagement = () => {
       status: 'completed',
       date: '2025-08-19',
       items: ['Arduino Kit', 'Sensors', 'Breadboard'],
+      lender: 'Prof. Johnson',
+      lenderId: 2,
     },
     {
       id: 'ORD003',
@@ -97,6 +101,8 @@ const LendingManagement = () => {
       status: 'partial',
       date: '2025-08-18',
       items: ['3D Filament', 'Tools Set', 'Measuring Kit'],
+      lender: 'Mr. Wilson',
+      lenderId: 3,
     },
   ]);
 
@@ -122,7 +128,28 @@ const LendingManagement = () => {
     projectDescription: '',
     mentorName: '',
     expectedDelivery: '',
+    lenderId: '', // New lender field
   });
+
+  // Add lender data state
+  const [lenders, setLenders] = useState([]);
+
+  // Fetch lenders on component mount
+  useEffect(() => {
+    fetchLenders();
+  }, []);
+
+  const fetchLenders = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/lenders');
+      if (response.ok) {
+        const lendersData = await response.json();
+        setLenders(lendersData);
+      }
+    } catch (error) {
+      console.error('Error fetching lenders:', error);
+    }
+  };
 
   const stats = [
     {
@@ -439,6 +466,11 @@ const LendingManagement = () => {
                         </TableCell>
                         <TableCell>
                           <Typography variant="subtitle2" className="font-semibold text-gray-900 uppercase tracking-wider">
+                            Assigned Lender
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="subtitle2" className="font-semibold text-gray-900 uppercase tracking-wider">
                             Status
                           </Typography>
                         </TableCell>
@@ -506,6 +538,16 @@ const LendingManagement = () => {
                               </Typography>
                               <Typography variant="body2" className="text-gray-500">
                                 {order.department} - {order.year}
+                              </Typography>
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Box>
+                              <Typography variant="subtitle1" className="font-semibold text-gray-900">
+                                {order.lender || 'Unassigned'}
+                              </Typography>
+                              <Typography variant="body2" className="text-gray-500">
+                                Staff Member
                               </Typography>
                             </Box>
                           </TableCell>
@@ -769,6 +811,22 @@ const LendingManagement = () => {
                         InputLabelProps={{ shrink: true }}
                       />
                     </Grid>
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth>
+                        <InputLabel>Assigned Lender/Staff *</InputLabel>
+                        <Select
+                          value={studentInfo.lenderId}
+                          label="Assigned Lender/Staff *"
+                          onChange={(e) => setStudentInfo({...studentInfo, lenderId: e.target.value})}
+                        >
+                          {lenders.map((lender) => (
+                            <MenuItem key={lender.id} value={lender.id}>
+                              {lender.name} - {lender.designation} ({lender.department})
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
                   </Grid>
                 </Card>
               </Box>
@@ -1001,6 +1059,12 @@ const LendingManagement = () => {
                     <Grid item xs={12} md={6}>
                       <Typography variant="body2"><strong>Expected Delivery:</strong> {studentInfo.expectedDelivery}</Typography>
                     </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="body2"><strong>Assigned Lender:</strong> {lenders.find(l => l.id === studentInfo.lenderId)?.name || 'Not assigned'}</Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="body2"><strong>Lender Department:</strong> {lenders.find(l => l.id === studentInfo.lenderId)?.department || 'N/A'}</Typography>
+                    </Grid>
                   </Grid>
                 </Card>
 
@@ -1065,6 +1129,8 @@ const LendingManagement = () => {
                   email: studentInfo.email,
                   department: studentInfo.department,
                   year: studentInfo.year,
+                  lender: lenders.find(l => l.id === studentInfo.lenderId)?.name || 'Unassigned',
+                  lenderId: studentInfo.lenderId,
                   amount: calculateTotal(),
                   status: 'pending',
                   date: new Date().toISOString().split('T')[0],
@@ -1076,13 +1142,13 @@ const LendingManagement = () => {
                 setSelectedProducts([]);
                 setStudentInfo({
                   name: '', email: '', phone: '', studentId: '', department: '', year: '',
-                  semester: '', projectTitle: '', projectDescription: '', mentorName: '', expectedDelivery: ''
+                  semester: '', projectTitle: '', projectDescription: '', mentorName: '', expectedDelivery: '', lenderId: ''
                 });
                 setActiveTab(0);
               }
             }}
             disabled={
-              (orderStep === 0 && (!studentInfo.name || !studentInfo.email || !studentInfo.department)) ||
+              (orderStep === 0 && (!studentInfo.name || !studentInfo.email || !studentInfo.department || !studentInfo.lenderId)) ||
               (orderStep === 1 && selectedProducts.length === 0)
             }
             variant="contained"

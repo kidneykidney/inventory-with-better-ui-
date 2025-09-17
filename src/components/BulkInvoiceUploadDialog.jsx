@@ -213,6 +213,15 @@ const BulkInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
           if (item.data.student_email) formData.append('student_email', item.data.student_email);
           formData.append('department', item.data.department || 'General');
           if (item.data.year_of_study) formData.append('year_of_study', item.data.year_of_study);
+          
+          // Add lender data for staff auto-creation (same as single OCR)
+          if (item.data.lender_name) {
+            formData.append('lender_name', item.data.lender_name);
+            console.log(`🔍 Bulk OCR: Adding lender_name for ${item.fileName}: "${item.data.lender_name}"`);
+          } else {
+            console.log(`⚠️ Bulk OCR: No lender_name found for ${item.fileName}`);
+          }
+          
           formData.append('invoice_type', item.data.invoice_type || 'lending');
           formData.append('issued_by', 'Bulk OCR System');
           formData.append('notes', `Bulk uploaded invoice. OCR confidence: ${item.confidence || 'N/A'}%`);
@@ -627,7 +636,7 @@ const BulkInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
         Creating Invoices...
       </Typography>
       <Typography variant="body2" color="text.secondary" gutterBottom>
-        Creating invoices with automatic student creation
+        Creating invoices with automatic student and staff creation
       </Typography>
       <LinearProgress 
         variant="determinate" 

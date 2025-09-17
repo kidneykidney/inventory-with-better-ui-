@@ -52,6 +52,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
     student_id: '',
     student_email: '',
     department: '',
+    lender_name: '',
     invoice_type: 'lending',
     items: [],
     due_date: '',
@@ -152,6 +153,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
       student_id: data.student_id || '',
       student_email: data.student_email || '',
       department: data.department || '',
+      lender_name: data.lender_name || '',
       due_date: data.due_date || '',
       notes: data.notes || '',
       items: data.items || [],
@@ -163,8 +165,9 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
     
     // Also log the individual fields for debugging
     console.log('📋 OCR Extracted Fields:');
-    console.log(`   Name: "${data.student_name}"`);
-    console.log(`   ID: "${data.student_id}"`);
+    console.log(`   Student Name: "${data.student_name}"`);
+    console.log(`   Student ID: "${data.student_id}"`);
+    console.log(`   Lender Name: "${data.lender_name}"`);
     console.log(`   Email: "${data.student_email}"`);
     console.log(`   Department: "${data.department}"`);
   };
@@ -215,35 +218,65 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
       setLoading(true);
       setError('');
 
-      console.log('🚀 Creating invoice with auto-student creation');
+      console.log('🚀 Creating invoice with auto-student and lender creation');
       console.log('Manual Data:', manualData);
+      console.log('🔍 DEBUG: manualData.lender_name value:', `'${manualData.lender_name}'`);
+      console.log('🔍 DEBUG: manualData.lender_name type:', typeof manualData.lender_name);
+      console.log('🔍 DEBUG: manualData.lender_name?.trim():', `'${manualData.lender_name?.trim()}'`);
 
       // Validate we have minimum required data
       if (!manualData.student_name || !manualData.student_name.trim()) {
         throw new Error('Student name is required to create invoice');
       }
 
-      // Use the new create-with-student endpoint that handles everything
-      const invoiceData = {
-        student_name: manualData.student_name.trim(),
-        student_id: manualData.student_id?.trim() || null,
-        student_email: manualData.student_email?.trim() || null,
-        department: manualData.department?.trim() || null,
-        year_of_study: manualData.year_of_study || null,
-        invoice_type: manualData.invoice_type || 'lending',
-        due_date: manualData.due_date || null,
-        issued_by: 'OCR System',
-        notes: `Invoice created from OCR upload. Original text: ${ocrResults?.raw_text ? ocrResults.raw_text.substring(0, 200) + '...' : 'N/A'}`
-      };
+      // Use the create-with-student-and-image endpoint that handles both student and lender auto-creation
+      const formData = new FormData();
+      
+      // Add student data
+      formData.append('student_name', manualData.student_name.trim());
+      if (manualData.student_id?.trim()) formData.append('student_id', manualData.student_id.trim());
+      if (manualData.student_email?.trim()) formData.append('student_email', manualData.student_email.trim());
+      if (manualData.department?.trim()) formData.append('department', manualData.department.trim());
+      
+      // Add lender data - this is the key addition!
+      // Always add lender_name to FormData, even if empty, for debugging
+      const lenderNameValue = manualData.lender_name || '';
+      console.log('🔍 About to add lender_name to FormData. Value:', `'${lenderNameValue}'`);
+      formData.append('lender_name', lenderNameValue);
+      console.log('✅ Added lender_name to FormData:', `'${lenderNameValue}'`);
+      
+      // Add invoice data
+      formData.append('invoice_type', manualData.invoice_type || 'lending');
+      if (manualData.due_date) formData.append('due_date', manualData.due_date);
+      formData.append('issued_by', 'OCR System');
+      
+      const notes = `Invoice created from OCR upload. Original text: ${ocrResults?.raw_text ? ocrResults.raw_text.substring(0, 200) + '...' : 'N/A'}`;
+      if (manualData.notes?.trim()) {
+        formData.append('notes', `${notes}\n\nUser Notes: ${manualData.notes.trim()}`);
+      } else {
+        formData.append('notes', notes);
+      }
 
-      console.log('📤 Sending invoice creation request:', invoiceData);
+      // Add the original image file
+      if (selectedFile) {
+        formData.append('file', selectedFile);
+      }
 
-      const invoiceResponse = await fetch(`${API_BASE_URL}/api/invoices/create-with-student`, {
+      console.log('📤 Sending invoice creation request with lender info to /create-with-student-and-image');
+      
+      // Debug: Log all FormData entries
+      console.log('🔍 FormData entries:');
+      for (let [key, value] of formData.entries()) {
+        console.log(`  ${key}: '${value}'`);
+      }
+      
+      // Final check - manually verify lender_name in FormData
+      const lenderFromForm = formData.get('lender_name');
+      console.log('🔍 CRITICAL DEBUG: lender_name from FormData.get():', `'${lenderFromForm}'`);
+
+      const invoiceResponse = await fetch(`${API_BASE_URL}/api/invoices/create-with-student-and-image`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(invoiceData)
+        body: formData
       });
 
       if (!invoiceResponse.ok) {
@@ -258,75 +291,11 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
       // Show success notification with details about what was created
       if (window.addNotification) {
         const studentInfo = manualData.student_id ? `${manualData.student_name} (${manualData.student_id})` : manualData.student_name;
+        const lenderInfo = manualData.lender_name ? ` Staff: ${manualData.lender_name}` : '';
         window.addNotification(
-          `Invoice ${invoice.invoice_number} created successfully for ${studentInfo}! Student record was automatically created/updated.`,
+          `Invoice ${invoice.invoice_number} created successfully for ${studentInfo}!${lenderInfo} Records were automatically created/updated.`,
           'success'
         );
-      }
-
-      // If we have extracted items, try to add them to the invoice
-      if (manualData.items && manualData.items.length > 0) {
-        console.log('📦 Adding items to invoice');
-        
-        try {
-          // Get available products to match against
-          const productsResponse = await fetch(`${API_BASE_URL}/api/products`);
-          const products = await productsResponse.json();
-          
-          for (const ocrItem of manualData.items) {
-            // Try to match products by SKU or name
-            let matchedProduct = products.find(p => 
-              (p.sku && ocrItem.sku && p.sku.toLowerCase() === ocrItem.sku.toLowerCase()) ||
-              (p.name && ocrItem.name && 
-               (p.name.toLowerCase().includes(ocrItem.name.toLowerCase()) ||
-                ocrItem.name.toLowerCase().includes(p.name.toLowerCase())))
-            );
-            
-            if (matchedProduct) {
-              const invoiceItemData = {
-                product_id: matchedProduct.id,
-                product_name: matchedProduct.name,
-                product_sku: matchedProduct.sku,
-                quantity: parseInt(ocrItem.quantity) || 1,
-                unit_value: matchedProduct.unit_price || 0,
-                notes: `OCR extracted: ${ocrItem.name || 'N/A'}`
-              };
-
-              await fetch(`${API_BASE_URL}/api/invoices/${invoice.id}/items`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(invoiceItemData)
-              });
-
-              console.log(`✅ Added item: ${matchedProduct.name}`);
-            } else {
-              console.log(`⚠️  Could not match item: ${ocrItem.name || ocrItem.sku}`);
-            }
-          }
-        } catch (itemError) {
-          console.warn('⚠️  Failed to add some items:', itemError);
-          // Don't fail the whole process if items fail to add
-        }
-      }
-
-      // Upload the original image to the invoice if we have it
-      if (selectedFile) {
-        console.log('📸 Uploading original image to invoice');
-        try {
-          const imageFormData = new FormData();
-          imageFormData.append('file', selectedFile);
-          imageFormData.append('image_type', 'physical_invoice');
-          imageFormData.append('upload_method', 'file_upload');
-
-          await fetch(`${API_BASE_URL}/api/invoices/${invoice.id}/upload-image`, {
-            method: 'POST',
-            body: imageFormData
-          });
-          console.log('✅ Image uploaded successfully');
-        } catch (uploadError) {
-          console.warn('⚠️  Failed to upload image:', uploadError);
-          // Don't fail the whole process if image upload fails
-        }
       }
 
       console.log('🎉 Invoice creation completed successfully!');
@@ -353,6 +322,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
       student_id: '',
       student_email: '',
       department: '',
+      lender_name: '',
       invoice_type: 'lending',
       items: [],
       due_date: '',
@@ -550,6 +520,16 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
                         onChange={(e) => handleManualDataChange('department', e.target.value)}
                       />
                     </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        fullWidth
+                        label="Staff/Lender Name"
+                        value={manualData.lender_name}
+                        onChange={(e) => handleManualDataChange('lender_name', e.target.value)}
+                        placeholder="e.g., Dr. Sarah Johnson"
+                        helperText="Will auto-create staff member if not found"
+                      />
+                    </Grid>
                   </Grid>
                 </CardContent>
               </Card>
@@ -654,6 +634,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
                     <Typography variant="body2">
                       Type: {manualData.invoice_type}<br />
                       Due: {manualData.due_date || 'Not set'}<br />
+                      Staff: {manualData.lender_name || 'None'}<br />
                       From: OCR Upload
                     </Typography>
                   </CardContent>

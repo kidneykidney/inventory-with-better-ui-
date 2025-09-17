@@ -35,7 +35,8 @@ import {
   Cancel as CancelIcon,
   Person as PersonIcon,
   Inventory as InventoryIcon,
-  Receipt as ReceiptIcon
+  Receipt as ReceiptIcon,
+  SupervisorAccount as SupervisorAccountIcon
 } from '@mui/icons-material';
 
 const API_BASE_URL = 'http://localhost:8000';
@@ -48,6 +49,7 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
   // Form data
   const [invoiceData, setInvoiceData] = useState({
     student_id: '',
+    lender_id: '',
     invoice_type: 'lending',
     notes: '',
     due_date: '',
@@ -63,8 +65,10 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
   
   // Options data
   const [students, setStudents] = useState([]);
+  const [lenders, setLenders] = useState([]);
   const [products, setProducts] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [selectedLender, setSelectedLender] = useState(null);
   const [selectedProducts, setSelectedProducts] = useState([]);
 
   const steps = ['Select Student', 'Add Items', 'Review & Create'];
@@ -72,6 +76,7 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
   useEffect(() => {
     if (open) {
       fetchStudents();
+      fetchLenders();
       fetchProducts();
     }
   }, [open]);
@@ -86,6 +91,19 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
       }
     } catch (err) {
       console.error('Error fetching students:', err);
+    }
+  };
+
+  const fetchLenders = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/lenders`);
+      const data = await response.json();
+      if (response.ok) {
+        setLenders(data);
+        console.log('Lenders fetched:', data);
+      }
+    } catch (err) {
+      console.error('Error fetching lenders:', err);
     }
   };
 
@@ -107,6 +125,16 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
       setInvoiceData(prev => ({
         ...prev,
         student_id: newValue.id
+      }));
+    }
+  };
+
+  const handleLenderChange = (event, newValue) => {
+    setSelectedLender(newValue);
+    if (newValue) {
+      setInvoiceData(prev => ({
+        ...prev,
+        lender_id: newValue.id
       }));
     }
   };
@@ -148,7 +176,7 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
   const validateStep = (step) => {
     switch (step) {
       case 0:
-        return selectedStudent !== null;
+        return selectedStudent !== null && selectedLender !== null;
       case 1:
         return invoiceItems.every(item => item.product_id && item.quantity > 0);
       case 2:
@@ -181,6 +209,7 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
       // Prepare complete order data with items
       const orderData = {
         student_id: selectedStudent.id,
+        lender_id: selectedLender.id,
         expected_return_date: invoiceData.due_date,
         notes: invoiceData.notes,
         items: invoiceItems.map(item => ({
@@ -266,6 +295,7 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
     setCurrentStep(0);
     setInvoiceData({
       student_id: '',
+      lender_id: '',
       invoice_type: 'lending',
       notes: '',
       due_date: '',
@@ -278,6 +308,7 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
       notes: ''
     }]);
     setSelectedStudent(null);
+    setSelectedLender(null);
     setSelectedProducts([]);
     setError('');
     onClose();
@@ -328,6 +359,41 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
                         <Typography>{option.name}</Typography>
                         <Typography variant="caption" color="text.secondary">
                           {option.student_id} • {option.department}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  );
+                }}
+              />
+            </Grid>
+            <Grid size={12}>
+              <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
+                <SupervisorAccountIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                Select Assigned Lender/Staff
+              </Typography>
+            </Grid>
+            <Grid size={12}>
+              <Autocomplete
+                options={lenders}
+                getOptionLabel={(option) => `${option.name} - ${option.designation} (${option.department})`}
+                value={selectedLender}
+                onChange={handleLenderChange}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Assigned Lender/Staff"
+                    required
+                    placeholder="Search lenders..."
+                  />
+                )}
+                renderOption={(props, option) => {
+                  const { key, ...otherProps } = props;
+                  return (
+                    <Box component="li" key={key} {...otherProps}>
+                      <Box>
+                        <Typography>{option.name}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {option.designation} • {option.department} • {option.authority_level}
                         </Typography>
                       </Box>
                     </Box>
@@ -551,6 +617,21 @@ const CreateInvoiceDialog = ({ open, onClose, onSuccess }) => {
                     <strong>ID:</strong> {selectedStudent?.student_id}<br />
                     <strong>Department:</strong> {selectedStudent?.department}<br />
                     <strong>Email:</strong> {selectedStudent?.email}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Lender Summary */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="subtitle1" gutterBottom>Assigned Lender</Typography>
+                  <Typography variant="body2">
+                    <strong>Name:</strong> {selectedLender?.name}<br />
+                    <strong>Designation:</strong> {selectedLender?.designation}<br />
+                    <strong>Department:</strong> {selectedLender?.department}<br />
+                    <strong>Authority:</strong> {selectedLender?.authority_level}
                   </Typography>
                 </CardContent>
               </Card>

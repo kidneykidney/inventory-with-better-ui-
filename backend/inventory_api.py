@@ -207,6 +207,7 @@ class OrderItemCreate(BaseModel):
 
 class OrderCreate(BaseModel):
     student_id: str
+    lender_id: Optional[str] = None  # Add lender support
     items: List[OrderItemCreate]
     notes: Optional[str] = None
     expected_return_date: Optional[date] = None
@@ -234,6 +235,8 @@ class Order(BaseModel):
     student_name: str
     student_email: str
     department: str
+    lender_id: Optional[str] = None  # Add lender support
+    lender_name: Optional[str] = None  # Add lender name
     order_type: str
     status: str
     total_items: int
@@ -864,6 +867,337 @@ async def get_student_by_student_id(student_id: str, db: DatabaseManager = Depen
         "updated_at": result["updated_at"]
     }
 
+# Lender models
+class LenderCreate(BaseModel):
+    lender_id: Optional[str] = None  # Made optional, can be auto-generated
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    department: str
+    designation: Optional[str] = None  # Professor, Lab Assistant, etc.
+    employee_id: Optional[str] = None
+    office_location: Optional[str] = None
+    authority_level: str = "standard"  # standard, senior, admin
+    can_approve_lending: bool = True
+    can_lend_high_value: bool = False
+
+class Lender(BaseModel):
+    id: str
+    lender_id: str
+    name: str
+    email: Optional[str]
+    phone: Optional[str]
+    department: str
+    designation: Optional[str]
+    employee_id: Optional[str]
+    office_location: Optional[str]
+    authority_level: str
+    can_approve_lending: bool
+    can_lend_high_value: bool
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+# Lender endpoints
+@app.get("/api/lenders", response_model=List[Lender])
+async def get_lenders(db: DatabaseManager = Depends(get_db)):
+    """Get all active lenders"""
+    query = "SELECT * FROM lenders WHERE is_active = true ORDER BY name"
+    results = db.execute_query(query)
+    return results
+
+@app.post("/api/lenders", response_model=Lender)
+async def create_lender(lender: LenderCreate, db: DatabaseManager = Depends(get_db)):
+    """Create a new lender with flexible handling"""
+    import uuid
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    logger.info(f"Creating lender with data: {lender.dict()}")
+    
+    # Validate required fields
+    if not lender.name or not lender.name.strip():
+        raise HTTPException(status_code=400, detail="Lender name is required")
+    if not lender.department or not lender.department.strip():
+        raise HTTPException(status_code=400, detail="Department is required")
+    
+    # If no lender_id provided, generate one
+    if not lender.lender_id or not lender.lender_id.strip():
+        # Generate a unique lender ID
+        timestamp = int(time.time() * 1000) % 1000000
+        lender.lender_id = f"LEND{timestamp}"
+    
+    # Generate email if not provided
+    if not lender.email or not lender.email.strip():
+        lender.email = f"{lender.lender_id.lower()}@staff.local"
+    
+    # Check if lender already exists by lender_id (flexible check)
+    existing_lender_by_id = db.execute_query("SELECT * FROM lenders WHERE lender_id = %s", (lender.lender_id,))
+    if existing_lender_by_id:
+        logger.info(f"Lender with ID {lender.lender_id} already exists, returning existing")
+        return existing_lender_by_id[0]
+    
+    # Check if lender exists by email (flexible check)
+    if lender.email and lender.email.strip() and not lender.email.endswith("@staff.local"):
+        existing_lender_by_email = db.execute_query("SELECT * FROM lenders WHERE email = %s", (lender.email,))
+        if existing_lender_by_email:
+            logger.info(f"Lender with email {lender.email} already exists, returning existing")
+            return existing_lender_by_email[0]
+    
+    # Create new lender
+    lender_uuid = str(uuid.uuid4())
+    
+    query = """
+    INSERT INTO lenders (id, lender_id, name, email, phone, department, designation, 
+                        employee_id, office_location, authority_level, can_approve_lending, 
+                        can_lend_high_value)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    RETURNING *
+    """
+    
+    try:
+        result = db.execute_query(query, (
+            lender_uuid,
+            lender.lender_id,
+            lender.name,
+            lender.email,
+            lender.phone,
+            lender.department,
+            lender.designation,
+            lender.employee_id,
+            lender.office_location,
+            lender.authority_level,
+            lender.can_approve_lending,
+            lender.can_lend_high_value
+        ))
+        
+        if result:
+            logger.info(f"Lender created successfully: {result[0]['lender_id']}")
+            return result[0]
+        else:
+            logger.error("No result returned from lender creation")
+            raise HTTPException(status_code=500, detail="Failed to create lender - no result returned")
+            
+    except Exception as e:
+        logger.error(f"Database error creating lender: {str(e)}")
+        if "duplicate key" in str(e).lower():
+            raise HTTPException(status_code=400, detail="Lender with this ID or email already exists")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+@app.post("/api/lenders/bulk", response_model=dict)
+async def create_lenders_bulk(lenders: List[LenderCreate], db: DatabaseManager = Depends(get_db)):
+    """Create multiple lenders at once"""
+    import uuid
+    import time
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    logger.info(f"Creating {len(lenders)} lenders in bulk")
+    
+    created_lenders = []
+    failed_lenders = []
+    
+    for i, lender in enumerate(lenders):
+        try:
+            # Validate required fields
+            if not lender.name or not lender.name.strip():
+                failed_lenders.append({
+                    "index": i + 1,
+                    "error": "Lender name is required",
+                    "data": lender.dict()
+                })
+                continue
+                
+            if not lender.department or not lender.department.strip():
+                failed_lenders.append({
+                    "index": i + 1,
+                    "error": "Department is required",
+                    "data": lender.dict()
+                })
+                continue
+
+            # Generate lender_id if not provided
+            if not lender.lender_id or not lender.lender_id.strip():
+                timestamp = int(time.time() * 1000) % 1000000
+                lender.lender_id = f"LEND{timestamp}{i:03d}"
+
+            # Generate email if not provided
+            if not lender.email or not lender.email.strip():
+                lender.email = f"{lender.lender_id.lower()}@staff.local"
+
+            # Create new lender
+            lender_uuid = str(uuid.uuid4())
+            
+            query = """
+            INSERT INTO lenders (id, lender_id, name, email, phone, department, designation, 
+                                employee_id, office_location, authority_level, can_approve_lending, 
+                                can_lend_high_value)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING *
+            """
+            
+            result = db.execute_query(query, (
+                lender_uuid,
+                lender.lender_id,
+                lender.name,
+                lender.email,
+                lender.phone,
+                lender.department,
+                lender.designation,
+                lender.employee_id,
+                lender.office_location,
+                lender.authority_level,
+                lender.can_approve_lending,
+                lender.can_lend_high_value
+            ))
+            
+            if result:
+                created_lenders.append(result[0])
+                logger.info(f"Bulk lender {i+1} created successfully: {result[0]['lender_id']}")
+            else:
+                failed_lenders.append({
+                    "index": i + 1,
+                    "error": "Failed to create lender - no result returned",
+                    "data": lender.dict()
+                })
+                
+        except Exception as e:
+            logger.error(f"Error creating bulk lender {i+1}: {str(e)}")
+            error_msg = str(e)
+            if "duplicate key" in error_msg.lower():
+                error_msg = "Lender with this ID or email already exists"
+            
+            failed_lenders.append({
+                "index": i + 1,
+                "error": error_msg,
+                "data": lender.dict()
+            })
+    
+    logger.info(f"Bulk lender creation completed: {len(created_lenders)} successful, {len(failed_lenders)} failed")
+    
+    return {
+        "message": f"Bulk creation completed",
+        "total": len(lenders),
+        "successful": len(created_lenders),
+        "failed": len(failed_lenders),
+        "created_lenders": created_lenders,
+        "failed_lenders": failed_lenders
+    }
+
+@app.put("/api/lenders/{lender_db_id}")
+async def update_lender(lender_db_id: str, lender_update: dict, db: DatabaseManager = Depends(get_db)):
+    """Update an existing lender"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Validate UUID format
+    try:
+        uuid.UUID(lender_db_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid lender ID format")
+    
+    # Check if lender exists
+    existing_lender = db.execute_query("SELECT * FROM lenders WHERE id = %s", (lender_db_id,))
+    if not existing_lender:
+        raise HTTPException(status_code=404, detail="Lender not found")
+    
+    # Build update query dynamically
+    update_fields = []
+    update_values = []
+    
+    allowed_fields = {
+        'name', 'email', 'phone', 'department', 'designation', 'employee_id', 
+        'office_location', 'authority_level', 'can_approve_lending', 
+        'can_lend_high_value', 'max_lending_value', 'is_active', 'notes'
+    }
+    
+    for field, value in lender_update.items():
+        if field in allowed_fields:
+            update_fields.append(f"{field} = %s")
+            update_values.append(value)
+    
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No valid fields provided for update")
+    
+    update_values.append(lender_db_id)
+    query = f"UPDATE lenders SET {', '.join(update_fields)} WHERE id = %s RETURNING *"
+    
+    try:
+        result = db.execute_query(query, update_values)
+        if result:
+            logger.info(f"Lender updated successfully: {lender_db_id}")
+            return result[0]
+        else:
+            raise HTTPException(status_code=500, detail="Failed to update lender")
+    except Exception as e:
+        logger.error(f"Database error updating lender: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+@app.delete("/api/lenders/{lender_id}")
+async def delete_lender(lender_id: str, db: DatabaseManager = Depends(get_db)):
+    """Soft delete a lender (set is_active = false)"""
+    query = "UPDATE lenders SET is_active = false WHERE id = %s OR lender_id = %s"
+    if db.execute_command(query, (lender_id, lender_id)):
+        return {"message": "Lender deactivated successfully"}
+    
+    raise HTTPException(status_code=500, detail="Failed to deactivate lender")
+
+@app.delete("/api/lenders/bulk")
+async def bulk_delete_lenders(lender_ids: List[str], db: DatabaseManager = Depends(get_db)):
+    """Bulk delete lenders (hard delete for bulk operations)"""
+    try:
+        if not lender_ids:
+            raise HTTPException(status_code=400, detail="No lender IDs provided")
+        
+        # Create placeholders for the IN clause
+        placeholders = ', '.join(['%s'] * len(lender_ids))
+        
+        # Hard delete for bulk operations (since soft delete can be confusing in bulk)
+        query = f"DELETE FROM lenders WHERE id IN ({placeholders})"
+        
+        if db.execute_command(query, tuple(lender_ids)):
+            return {"message": f"Successfully deleted {len(lender_ids)} lender(s)"}
+        
+        raise HTTPException(status_code=500, detail="Failed to delete lenders")
+        
+    except Exception as e:
+        logger.error(f"Database error in bulk delete: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+@app.get("/api/lenders/by-lender-id/{lender_id}")
+async def get_lender_by_lender_id(lender_id: str, db: DatabaseManager = Depends(get_db)):
+    """Get lender by their lender ID (not database ID)"""
+    query = """
+    SELECT id, lender_id, name, email, phone, department, designation, employee_id,
+           office_location, authority_level, can_approve_lending, can_lend_high_value,
+           max_lending_value, is_active, created_at, updated_at
+    FROM lenders 
+    WHERE lender_id = %s AND is_active = true
+    """
+    
+    result = db.fetch_one(query, (lender_id,))
+    if not result:
+        raise HTTPException(status_code=404, detail="Lender not found")
+    
+    return {
+        "id": result["id"],
+        "lender_id": result["lender_id"],
+        "name": result["name"],
+        "email": result["email"],
+        "phone": result["phone"],
+        "department": result["department"],
+        "designation": result["designation"],
+        "employee_id": result["employee_id"],
+        "office_location": result["office_location"],
+        "authority_level": result["authority_level"],
+        "can_approve_lending": result["can_approve_lending"],
+        "can_lend_high_value": result["can_lend_high_value"],
+        "max_lending_value": float(result["max_lending_value"]),
+        "is_active": result["is_active"],
+        "created_at": result["created_at"],
+        "updated_at": result["updated_at"]
+    }
+
 # Dashboard statistics endpoints
 @app.get("/api/dashboard/stats")
 async def get_dashboard_stats(db: DatabaseManager = Depends(get_db)):
@@ -956,9 +1290,11 @@ async def get_orders(
 ):
     """Get all orders with optional filtering"""
     query = """
-    SELECT o.*, s.name as student_name, s.email as student_email, s.department
+    SELECT o.*, s.name as student_name, s.email as student_email, s.department,
+           l.name as lender_name
     FROM orders o
     JOIN students s ON o.student_id = s.id
+    LEFT JOIN lenders l ON o.lender_id = l.id
     WHERE 1=1
     """
     params = []
@@ -1044,12 +1380,12 @@ async def create_order(order: OrderCreate, db: DatabaseManager = Depends(get_db)
         
         # Create the order
         order_query = """
-        INSERT INTO orders (id, order_number, student_id, total_items, total_value, notes, expected_return_date)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO orders (id, order_number, student_id, lender_id, total_items, total_value, notes, expected_return_date)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """
         
         if not db.execute_command(order_query, (
-            order_id, order_number, order.student_id, total_items, total_value, 
+            order_id, order_number, order.student_id, order.lender_id, total_items, total_value, 
             order.notes, order.expected_return_date
         )):
             api_logger.error(f"Failed to create order {order_id} in database")

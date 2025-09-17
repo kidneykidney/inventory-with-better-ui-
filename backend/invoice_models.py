@@ -1,10 +1,48 @@
 """
 Pydantic models for Invoice Management System
 """
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-from datetime import datetime
+from pydantic import BaseModel, Field, field_validator
+from typing import List, Optional, Dict, Any, Union
+from datetime import datetime, date
 from enum import Enum
+import re
+
+def parse_date_string(date_str: Union[str, datetime, date, None]) -> Optional[datetime]:
+    """Parse various date formats into datetime object"""
+    if not date_str:
+        return None
+    
+    if isinstance(date_str, datetime):
+        return date_str
+    
+    if isinstance(date_str, date):
+        return datetime.combine(date_str, datetime.min.time())
+    
+    if not isinstance(date_str, str):
+        return None
+    
+    # Common date formats to try
+    date_formats = [
+        "%Y-%m-%d",
+        "%d/%m/%Y", 
+        "%m/%d/%Y",
+        "%d-%m-%Y",
+        "%Y/%m/%d",
+        "%d/%m/%y",
+        "%m/%d/%y",
+        "%d-%m-%y",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d %H:%M:%S"
+    ]
+    
+    for fmt in date_formats:
+        try:
+            return datetime.strptime(date_str.strip(), fmt)
+        except ValueError:
+            continue
+    
+    # If none worked, raise error
+    raise ValueError(f"Unable to parse date: {date_str}")
 
 # Enums for invoice system
 class InvoiceType(str, Enum):
@@ -57,6 +95,10 @@ class ProcessingStatus(str, Enum):
 class InvoiceBase(BaseModel):
     invoice_type: InvoiceType = InvoiceType.LENDING
     
+    # Staff/Lender information
+    lender_id: Optional[str] = None
+    issued_by_lender: Optional[str] = None
+    
     # Enhanced lending information
     lending_purpose: Optional[str] = None
     lending_location: Optional[str] = None
@@ -97,7 +139,12 @@ class InvoiceCreate(InvoiceBase):
     order_id: Optional[str] = None  # Allow manual invoice creation without order
     student_id: str
     issued_by: str
-    due_date: Optional[datetime] = None
+    due_date: Optional[Union[str, datetime, date]] = None
+    
+    @field_validator('due_date')
+    @classmethod
+    def validate_due_date(cls, v):
+        return parse_date_string(v)
 
 class InvoiceCreateWithStudent(InvoiceBase):
     """Create invoice with automatic student creation - Enhanced for lending"""
@@ -107,7 +154,12 @@ class InvoiceCreateWithStudent(InvoiceBase):
     department: Optional[str] = None
     year_of_study: Optional[int] = None
     issued_by: str = "OCR System"
-    due_date: Optional[datetime] = None
+    due_date: Optional[Union[str, datetime, date]] = None
+    
+    @field_validator('due_date')
+    @classmethod
+    def validate_due_date(cls, v):
+        return parse_date_string(v)
 
 class InvoiceUpdate(BaseModel):
     status: Optional[InvoiceStatus] = None
@@ -116,6 +168,8 @@ class InvoiceUpdate(BaseModel):
     physical_invoice_notes: Optional[str] = None
     acknowledged_by_student: Optional[bool] = None
     notes: Optional[str] = None
+    lender_id: Optional[str] = None
+    issued_by_lender: Optional[str] = None
 
 class InvoiceItemBase(BaseModel):
     product_id: str
@@ -339,6 +393,13 @@ class InvoiceDetail(Invoice):
     student_email: Optional[str] = None
     department: Optional[str] = None
     year_of_study: Optional[int] = None
+    
+    # Lender/Staff information
+    lender_name: Optional[str] = None
+    lender_email: Optional[str] = None
+    lender_department: Optional[str] = None
+    lender_designation: Optional[str] = None
+    issued_by_lender_name: Optional[str] = None
     
     # Related items
     items: List[InvoiceItem] = []

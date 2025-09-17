@@ -9,7 +9,9 @@ import {
   Chip,
   CircularProgress,
   IconButton,
-  Alert
+  Alert,
+  Button,
+  Divider
 } from '@mui/material';
 import {
   Inventory2 as Inventory2Icon,
@@ -22,7 +24,18 @@ import {
   Block as BlockIcon,
   Dashboard as DashboardIcon,
   Assessment,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Visibility as ViewIcon,
+  Speed as SpeedIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
+  PersonAdd as PersonAddIcon,
+  Storage as StorageIcon,
+  NetworkCheck as NetworkIcon,
+  Memory as MemoryIcon
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { dashboardAPI } from '../api/dashboard';
@@ -97,7 +110,7 @@ const StatCard = ({ title, value, icon, color = 'primary', subtitle, loading = f
         />
         
         <CardContent sx={{ p: 1.5, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5}}>
             <Typography variant="subtitle2" sx={{ 
               color: DASHBOARD_COLORS.textSecondary,
               fontWeight: 500,
@@ -106,16 +119,16 @@ const StatCard = ({ title, value, icon, color = 'primary', subtitle, loading = f
               {title}
             </Typography>
             <Box sx={{ 
-              width: 26,
+              width: 125,
               height: 26,
-              borderRadius: '50%',
-              background: cardColors.bg,
+              borderRadius: 1,
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'flex-end',
+              pr: 1
             }}>
               {React.cloneElement(icon, { 
-                sx: { fontSize: 14, color: cardColors.main } 
+                sx: { fontSize: 32, color: cardColors.main } 
               })}
             </Box>
           </Box>
@@ -154,12 +167,15 @@ const StatCard = ({ title, value, icon, color = 'primary', subtitle, loading = f
 const RecentActivities = ({ activities, loading = false }) => (
   <Card sx={{ 
     height: '100%',
+    width: '100%',
     background: DASHBOARD_COLORS.surface,
     border: `1px solid ${DASHBOARD_COLORS.border}`,
     borderRadius: 2,
-    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
+    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+    display: 'flex',
+    flexDirection: 'column'
   }}>
-    <CardContent sx={{ p: 2 }}>
+    <CardContent sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6" sx={{ 
           color: DASHBOARD_COLORS.text,
@@ -190,8 +206,8 @@ const RecentActivities = ({ activities, loading = false }) => (
           <CircularProgress sx={{ color: DASHBOARD_COLORS.primary }} size={24} />
         </Box>
       ) : activities && activities.length > 0 ? (
-        <Box sx={{ maxHeight: '200px', overflowY: 'auto' }}>
-          {activities.slice(0, 6).map((activity, index) => (
+        <Box sx={{ flex: 1, overflowY: 'auto' }}>
+          {activities.slice(0, 10).map((activity, index) => (
             <Box
               key={index}
               sx={{
@@ -200,22 +216,13 @@ const RecentActivities = ({ activities, loading = false }) => (
                 py: 1.5,
                 px: 1,
                 borderRadius: 1,
-                borderBottom: index < Math.min(activities.length, 6) - 1 ? `1px solid ${DASHBOARD_COLORS.border}` : 'none',
+                borderBottom: index < Math.min(activities.length, 10) - 1 ? `1px solid ${DASHBOARD_COLORS.border}` : 'none',
                 '&:hover': {
                   backgroundColor: 'rgba(59, 130, 246, 0.04)'
                 }
               }}
             >
-              <Box sx={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                backgroundColor: activity.status === 'approved' ? DASHBOARD_COLORS.success : 
-                                activity.status === 'pending' ? DASHBOARD_COLORS.warning :
-                                activity.status === 'rejected' ? DASHBOARD_COLORS.error : DASHBOARD_COLORS.primary,
-                mr: 1.5,
-                flexShrink: 0
-              }} />
+
               
               <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                 <Typography variant="body2" sx={{ 
@@ -277,12 +284,15 @@ const LowStockAlert = ({ lowStockItems, loading }) => {
   return (
     <Card sx={{
       height: '100%',
+      width: '100%',
       background: DASHBOARD_COLORS.surface,
       border: `1px solid ${DASHBOARD_COLORS.warning}`,
       borderRadius: 2,
-      boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
+      boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+      display: 'flex',
+      flexDirection: 'column'
     }}>
-      <CardContent sx={{ p: 3 }}>
+      <CardContent sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6" sx={{ 
             color: DASHBOARD_COLORS.text,
@@ -310,7 +320,7 @@ const LowStockAlert = ({ lowStockItems, loading }) => {
             <CircularProgress sx={{ color: DASHBOARD_COLORS.warning }} />
           </Box>
         ) : lowStockItems && lowStockItems.length > 0 ? (
-          <Box sx={{ maxHeight: '200px', overflowY: 'auto' }}>
+          <Box sx={{ flex: 1, overflowY: 'auto' }}>
             {lowStockItems.map((item, index) => (
               <Box
                 key={index}
@@ -352,6 +362,123 @@ const LowStockAlert = ({ lowStockItems, loading }) => {
             color: DASHBOARD_COLORS.textSecondary
           }}>
             <Typography variant="body2">All items are well stocked</Typography>
+          </Box>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+// Category Overview Component
+const CategoryOverview = ({ loading }) => {
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        // Mock category data - replace with actual API call
+        setCategories([
+          { name: 'Electronics', count: 15, color: '#3B82F6' },
+          { name: 'Tools', count: 8, color: '#10B981' },
+          { name: 'Supplies', count: 12, color: '#F59E0B' },
+          { name: 'Equipment', count: 6, color: '#EF4444' },
+          { name: 'Software', count: 4, color: '#8B5CF6' },
+          { name: 'Other', count: 3, color: '#6B7280' }
+        ]);
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  return (
+    <Card sx={{
+      height: '100%',
+      width: '100%',
+      background: DASHBOARD_COLORS.surface,
+      border: `1px solid ${DASHBOARD_COLORS.border}`,
+      borderRadius: 2,
+      boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
+      <CardContent sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6" sx={{ 
+            color: DASHBOARD_COLORS.text,
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1
+          }}>
+            <CategoryIcon sx={{ color: DASHBOARD_COLORS.primary, fontSize: 20 }} />
+            Product Categories
+          </Typography>
+          <Chip 
+            label={`${categories?.length || 0} categories`} 
+            size="small" 
+            sx={{
+              backgroundColor: `${DASHBOARD_COLORS.primary}20`,
+              color: DASHBOARD_COLORS.primary,
+              fontWeight: 600
+            }}
+          />
+        </Box>
+        
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress sx={{ color: DASHBOARD_COLORS.primary }} />
+          </Box>
+        ) : categories && categories.length > 0 ? (
+          <Box sx={{ flex: 1, overflowY: 'auto' }}>
+            {categories.map((category, index) => (
+              <Box
+                key={index}
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  py: 2,
+                  px: 1,
+                  borderRadius: 1,
+                  borderBottom: index < categories.length - 1 ? `1px solid ${DASHBOARD_COLORS.border}` : 'none',
+                  '&:hover': {
+                    backgroundColor: 'rgba(59, 130, 246, 0.05)'
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Typography variant="body2" sx={{ 
+                    color: DASHBOARD_COLORS.text,
+                    fontWeight: 500
+                  }}>
+                    {category.name}
+                  </Typography>
+                </Box>
+                <Chip
+                  label={category.count}
+                  size="small"
+                  sx={{
+                    backgroundColor: `${category.color}20`,
+                    color: category.color,
+                    fontWeight: 600,
+                    minWidth: 24,
+                    height: 20,
+                    fontSize: '0.7rem'
+                  }}
+                />
+              </Box>
+            ))}
+          </Box>
+        ) : (
+          <Box sx={{ 
+            textAlign: 'center', 
+            py: 4,
+            color: DASHBOARD_COLORS.textSecondary
+          }}>
+            <Typography variant="body2">No categories found</Typography>
           </Box>
         )}
       </CardContent>
@@ -431,11 +558,13 @@ const Dashboard = () => {
 
   return (
     <Box sx={{
-      minHeight: '100vh',
+      height: '100vh',
       background: DASHBOARD_COLORS.background,
-      p: 3
+      p: 3,
+      display: 'flex',
+      flexDirection: 'column'
     }}>
-      <Container maxWidth="xl">
+      <Container maxWidth="xl" sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {/* Clean Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -592,20 +721,20 @@ const Dashboard = () => {
         </motion.div>
 
         {/* Dashboard Content */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-        >
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={8}>
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          {/* First Row of Cards */}
+          <Grid container spacing={3} sx={{ flex: 1, mb: 3 }}>
+            <Grid item xs={12} md={4} sx={{ display: 'flex', height: '100%' }}>
               <RecentActivities activities={activities} loading={loading} />
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={4} sx={{ display: 'flex', height: '100%' }}>
               <LowStockAlert lowStockItems={lowStockItems} loading={loading} />
             </Grid>
+            <Grid item xs={12} md={4} sx={{ display: 'flex', height: '100%' }}>
+              <CategoryOverview loading={loading} />
+            </Grid>
           </Grid>
-        </motion.div>
+        </Box>
       </Container>
     </Box>
   );

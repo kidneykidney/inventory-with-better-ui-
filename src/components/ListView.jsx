@@ -74,6 +74,7 @@ const ListView = ({ type = 'products' }) => {
   const [categories, setCategories] = useState([]);
   const [students, setStudents] = useState([]);
   const [products, setProducts] = useState([]);
+  const [lenders, setLenders] = useState([]);
   
   // Bulk selection states
   const [selectedItems, setSelectedItems] = useState([]);
@@ -122,6 +123,7 @@ const ListView = ({ type = 'products' }) => {
           id: Date.now(),
           student_id: '',
           product_id: '',
+          lender_id: '',
           quantity_requested: 1,
           notes: '',
           expected_return_date: ''
@@ -178,6 +180,7 @@ const ListView = ({ type = 'products' }) => {
         { key: 'order_number', label: 'Lending #', type: 'number', prefix: '' },
         { key: 'student_name', label: 'Student', type: 'text' },
         { key: 'department', label: 'Department', type: 'text' },
+        { key: 'lender_name', label: 'Assigned Lender', type: 'text' },
         { key: 'total_items', label: 'Items', type: 'number' },
         { key: 'total_value', label: 'Value', type: 'number', prefix: '$' },
         { key: 'requested_date', label: 'Date', type: 'date' },
@@ -217,6 +220,17 @@ const ListView = ({ type = 'products' }) => {
             options: students?.map(student => ({ value: student.id, label: `${student.name} (${student.student_id})` })) || [] },
           { key: 'product_id', label: 'Product', type: 'select', required: true,
             options: products?.map(product => ({ value: product.id, label: `${product.name} - $${product.unit_price}` })) || [] },
+          { key: 'lender_id', label: 'Lender/Staff', type: 'select', required: true,
+            options: (() => {
+              console.log('Rendering lender options, lenders array:', lenders);
+              console.log('Lenders array length:', lenders?.length || 0);
+              const options = lenders?.map(lender => ({ 
+                value: lender.id, 
+                label: `${lender.name} - ${lender.designation} (${lender.department})` 
+              })) || [];
+              console.log('Generated lender options:', options);
+              return options;
+            })() },
           { key: 'quantity_requested', label: 'Quantity', type: 'number', required: true },
           { key: 'notes', label: 'Notes', type: 'text', multiline: true },
           { key: 'expected_return_date', label: 'Expected Return Date', type: 'date' }
@@ -314,6 +328,38 @@ const ListView = ({ type = 'products' }) => {
     }
   };
 
+  // Fetch lenders for orders
+  const fetchLenders = async () => {
+    try {
+      console.log('Fetching lenders from:', `${API_BASE_URL}/api/lenders`);
+      const response = await fetch(`${API_BASE_URL}/api/lenders`);
+      console.log('Lenders response status:', response.status);
+      
+      if (response.ok) {
+        const lendersData = await response.json();
+        console.log('Lenders data received:', lendersData);
+        console.log('Number of lenders:', lendersData.length);
+        setLenders(lendersData);
+      } else {
+        console.error('Failed to fetch lenders - response not ok:', response.status, response.statusText);
+      }
+    } catch (err) {
+      console.error('Failed to fetch lenders - error:', err);
+    }
+  };
+
+  // Add immediate test data for lenders
+  useEffect(() => {
+    // Add test lenders if none are loaded
+    if (lenders.length === 0 && type === 'orders') {
+      console.log('Adding test lenders for debugging');
+      setLenders([
+        { id: '1', name: 'Dr. John Smith', designation: 'Professor', department: 'Computer Science' },
+        { id: '2', name: 'Sarah Wilson', designation: 'Lab Coordinator', department: 'Electrical Engineering' }
+      ]);
+    }
+  }, [type, lenders]);
+
   useEffect(() => {
     console.log('ListView useEffect triggered for type:', type);
     console.log('Current config:', config[type]);
@@ -326,6 +372,7 @@ const ListView = ({ type = 'products' }) => {
     if (type === 'orders') {
       fetchStudents();
       fetchProducts();
+      fetchLenders();
     }
   }, [type]);
 
@@ -356,6 +403,7 @@ const ListView = ({ type = 'products' }) => {
         // Transform form data to order API format
         requestBody = {
           student_id: formData.student_id,
+          lender_id: formData.lender_id,
           items: [{
             product_id: formData.product_id,
             quantity_requested: parseInt(formData.quantity_requested || 1),
@@ -498,14 +546,14 @@ const ListView = ({ type = 'products' }) => {
         );
       } else if (type === 'orders') {
         validItems = bulkItems.filter(order => 
-          order.student_id && order.product_id && order.quantity_requested > 0
+          order.student_id && order.product_id && order.lender_id && order.quantity_requested > 0
         );
       }
 
       if (validItems.length === 0) {
         const requiredFields = type === 'products' ? 'name and SKU' : 
                               type === 'students' ? 'name and department' :
-                              type === 'orders' ? 'student, product and quantity' : 'required fields';
+                              type === 'orders' ? 'student, product, lender and quantity' : 'required fields';
         setError(`Please add at least one valid ${moduleName} with ${requiredFields}`);
         setSubmitting(false);
         return;
@@ -532,6 +580,7 @@ const ListView = ({ type = 'products' }) => {
           // Orders require a different structure with items array
           itemData = {
             student_id: String(item.student_id),
+            lender_id: String(item.lender_id),
             items: [{
               product_id: String(item.product_id),
               quantity_requested: Number(item.quantity_requested) || 1,
@@ -1699,7 +1748,7 @@ const ListView = ({ type = 'products' }) => {
                       const validItems = items.filter(item => {
                         if (type === 'products') return item.name.trim() && item.sku.trim();
                         if (type === 'students') return item.name.trim() && item.department.trim();
-                        if (type === 'orders') return item.student_id && item.product_id;
+                        if (type === 'orders') return item.student_id && item.product_id && item.lender_id;
                         return true;
                       });
                       const moduleName = type.charAt(0).toUpperCase() + type.slice(1);

@@ -51,7 +51,6 @@ import {
   Refresh as RefreshIcon,
   AttachMoney as MoneyIcon,
   Schedule as ScheduleIcon,
-  PhotoCamera as PhotoCameraIcon,
   SmartToy as SmartToyIcon,
   CloudUpload as CloudUploadIcon,
   Search as SearchIcon,
@@ -134,7 +133,9 @@ const InvoiceManagement = () => {
           (invoice.student_name && invoice.student_name.toLowerCase().includes(query)) ||
           (invoice.status && invoice.status.toLowerCase().includes(query)) ||
           (invoice.invoice_type && invoice.invoice_type.toLowerCase().includes(query)) ||
-          (invoice.notes && invoice.notes.toLowerCase().includes(query))
+          (invoice.notes && invoice.notes.toLowerCase().includes(query)) ||
+          (invoice.lender_name && invoice.lender_name.toLowerCase().includes(query)) ||
+          (invoice.issued_by_lender && invoice.issued_by_lender.toLowerCase().includes(query))
         );
       });
       setFilteredInvoices(filtered);
@@ -491,6 +492,27 @@ const InvoiceManagement = () => {
                     />
                   </Typography>
                 </Box>
+                
+                {/* Staff/Lender Information */}
+                {(selectedInvoice.lender_name || selectedInvoice.issued_by_lender) && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mb: 1 }}>
+                      👥 Staff/Lender Information
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 2 }}>
+                      <Typography variant="body2"><strong>👤 Staff Name:</strong> {selectedInvoice.lender_name || selectedInvoice.issued_by_lender || 'Not Assigned'}</Typography>
+                      {selectedInvoice.lender_email && (
+                        <Typography variant="body2"><strong>📧 Staff Email:</strong> {selectedInvoice.lender_email}</Typography>
+                      )}
+                      {selectedInvoice.lender_department && (
+                        <Typography variant="body2"><strong>🏢 Staff Department:</strong> {selectedInvoice.lender_department}</Typography>
+                      )}
+                      {selectedInvoice.lender_designation && (
+                        <Typography variant="body2"><strong>💼 Designation:</strong> {selectedInvoice.lender_designation}</Typography>
+                      )}
+                    </Box>
+                  </Box>
+                )}
                 
                 {/* Borrower Responsibilities */}
                 <Box sx={{ mt: 2, p: 2, bgcolor: '#FFF7ED', borderRadius: 1, borderLeft: '4px solid #F59E0B' }}>
@@ -976,6 +998,13 @@ const InvoiceManagement = () => {
                   </TableCell>
                   <TableCell sx={{ 
                     color: '#1F2937', 
+                    fontWeight: 700,  
+                    fontSize: '0.75rem'
+                  }}>
+                    Staff/Lender
+                  </TableCell>
+                  <TableCell sx={{ 
+                    color: '#1F2937', 
                     fontWeight: 700,
                     fontSize: '0.75rem'
                   }}>
@@ -1109,6 +1138,21 @@ const InvoiceManagement = () => {
                         <Badge badgeContent={invoice.item_count} color="primary">
                           <AssignmentIcon />
                         </Badge>
+                      </TableCell>
+                      <TableCell sx={{ 
+                        
+                        color: '#1F2937'
+                      }}>
+                        <Box>
+                          <Typography variant="body2" sx={{ color: '#1F2937', fontWeight: 500 }}>
+                            {invoice.lender_name || 'No Staff Assigned'}
+                          </Typography>
+                          {invoice.lender_department && (
+                            <Typography variant="caption" sx={{ color: '#6B7280' }}>
+                              {invoice.lender_department}
+                            </Typography>
+                          )}
+                        </Box>
                       </TableCell>
                       <TableCell sx={{ 
                         
@@ -1387,32 +1431,6 @@ const InvoiceManagement = () => {
             tooltipTitle="Bulk Upload Invoice Images"
             onClick={() => {
               setBulkUploadDialogOpen(true);
-              setSpeedDialOpen(false);
-            }}
-          />
-          <SpeedDialAction
-            icon={
-              <Box
-                animate={{ 
-                  scale: [1, 1.2, 1]
-                }}
-                transition={{ 
-                  duration: 1.5,
-                  repeat: Infinity,
-                  repeatDelay: 3
-                }}
-                whileHover={{ 
-                  rotate: 15, 
-                  scale: 1.3,
-                  transition: { duration: 0.3 }
-                }}
-              >
-                <PhotoCameraIcon sx={{ fontSize: '1.5rem' }} />
-              </Box>
-            }
-            tooltipTitle="Quick Camera Capture"
-            onClick={() => {
-              setCameraDialogOpen(true);
               setSpeedDialOpen(false);
             }}
           />
