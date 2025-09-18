@@ -44,6 +44,7 @@ import {
   Inventory as InventoryIcon,
   Search as SearchIcon,
   Category as CategoryIcon,
+  Settings as SettingsIcon,
   ShoppingCart as CartIcon,
   Assignment as AssignmentIcon,
   Warning as WarningIcon,
@@ -68,8 +69,11 @@ const Products = () => {
   // Dialog states
   const [openProductDialog, setOpenProductDialog] = useState(false);
   const [openCategoryDialog, setOpenCategoryDialog] = useState(false);
+  const [openCategoryManagementDialog, setOpenCategoryManagementDialog] = useState(false);
   const [openOrderDialog, setOpenOrderDialog] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [deletingCategory, setDeletingCategory] = useState(null);
   
   // Order management
   const [selectedProducts, setSelectedProducts] = useState([]);
@@ -303,6 +307,58 @@ const Products = () => {
     }
   };
 
+  const editCategory = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/categories/${editingCategory.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(categoryForm)
+      });
+      
+      if (response.ok) {
+        showSnackbar('Category updated successfully', 'success');
+        setOpenCategoryDialog(false);
+        setEditingCategory(null);
+        setCategoryForm({ name: '', description: '' });
+        fetchCategories();
+      } else {
+        throw new Error('Failed to update category');
+      }
+    } catch (error) {
+      showSnackbar('Failed to update category', 'error');
+    }
+  };
+
+  const deleteCategory = async (categoryId) => {
+    try {
+      const response = await fetch(`${API_BASE}/categories/${categoryId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        showSnackbar('Category deleted successfully', 'success');
+        setDeletingCategory(null);
+        fetchCategories();
+      } else {
+        throw new Error('Failed to delete category');
+      }
+    } catch (error) {
+      showSnackbar('Failed to delete category', 'error');
+    }
+  };
+
+  const openEditCategoryDialog = (category) => {
+    setEditingCategory(category);
+    setCategoryForm({ name: category.name, description: category.description || '' });
+    setOpenCategoryDialog(true);
+  };
+
+  const closeCategoryDialog = () => {
+    setOpenCategoryDialog(false);
+    setEditingCategory(null);
+    setCategoryForm({ name: '', description: '' });
+  };
+
   const createOrder = async () => {
     try {
       const orderItems = selectedProducts.map(product => ({
@@ -486,35 +542,45 @@ const Products = () => {
             </Typography>
           </Box>
           <Box>
-            <Tooltip title="Add New Product">
-              <Fab 
-                color="secondary" 
-                sx={{ mr: 1, bgcolor: '#66bb6a', '&:hover': { bgcolor: '#5cb660' } }}
-                onClick={handleOpenProductDialog}
-              >
-                <AddIcon />
-              </Fab>
-            </Tooltip>
-            <Tooltip title="Add Category">
-              <Fab 
-                color="secondary" 
-                sx={{ mr: 1, bgcolor: '#81c784', '&:hover': { bgcolor: '#7cc47f' } }}
-                onClick={() => setOpenCategoryDialog(true)}
-              >
-                <CategoryIcon />
-              </Fab>
-            </Tooltip>
-            <Tooltip title="Create Lending">
-              <Badge badgeContent={selectedProducts.length} color="error">
-                <Fab 
-                  color="secondary" 
-                  sx={{ bgcolor: '#9ccc65', '&:hover': { bgcolor: '#8bc34a' } }}
-                  onClick={() => setOpenOrderDialog(true)}
-                >
-                  <CartIcon />
-                </Fab>
-              </Badge>
-            </Tooltip>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleOpenProductDialog}
+              sx={{ mr: 1, bgcolor: '#66bb6a', '&:hover': { bgcolor: '#5cb660' } }}
+            >
+              Add Product
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<CategoryIcon />}
+              onClick={() => setOpenCategoryDialog(true)}
+              sx={{ mr: 1, bgcolor: '#81c784', '&:hover': { bgcolor: '#7cc47f' } }}
+            >
+              Add Category
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<SettingsIcon />}
+              onClick={() => setOpenCategoryManagementDialog(true)}
+              sx={{ mr: 1, bgcolor: '#a5d6a7', '&:hover': { bgcolor: '#9ccc65' } }}
+            >
+              Manage Categories
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<CartIcon />}
+              onClick={() => setOpenOrderDialog(true)}
+              sx={{ bgcolor: '#9ccc65', '&:hover': { bgcolor: '#8bc34a' } }}
+            >
+              Create Lending
+              {selectedProducts.length > 0 && (
+                <Chip 
+                  size="small" 
+                  label={selectedProducts.length} 
+                  sx={{ ml: 1, bgcolor: 'rgba(255,255,255,0.2)' }}
+                />
+              )}
+            </Button>
           </Box>
         </Box>
       </Paper>
@@ -1022,8 +1088,10 @@ const Products = () => {
       </Dialog>
 
       {/* Category Dialog */}
-      <Dialog open={openCategoryDialog} onClose={() => setOpenCategoryDialog(false)}>
-        <DialogTitle>Add New Category</DialogTitle>
+      <Dialog open={openCategoryDialog} onClose={closeCategoryDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {editingCategory ? 'Edit Category' : 'Add New Category'}
+        </DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
@@ -1043,13 +1111,148 @@ const Products = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenCategoryDialog(false)}>Cancel</Button>
+          <Button onClick={closeCategoryDialog}>Cancel</Button>
           <Button 
-            onClick={createCategory}
+            onClick={editingCategory ? editCategory : createCategory}
             variant="contained"
             sx={{ bgcolor: '#4caf50', '&:hover': { bgcolor: '#2e7d32' } }}
           >
-            Create Category
+            {editingCategory ? 'Update' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Category Management Dialog */}
+      <Dialog 
+        open={openCategoryManagementDialog} 
+        onClose={() => setOpenCategoryManagementDialog(false)}
+        maxWidth="md" 
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" gap={1}>
+            <CategoryIcon color="primary" />
+            Category Management
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 1 }}>
+            {categories.length === 0 ? (
+              <Box textAlign="center" py={4}>
+                <CategoryIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="h6" color="text.secondary">
+                  No categories found
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Click "Add Category" to create your first category
+                </Typography>
+              </Box>
+            ) : (
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell><strong>Category Name</strong></TableCell>
+                      <TableCell><strong>Description</strong></TableCell>
+                      <TableCell align="center"><strong>Actions</strong></TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {categories.map((category) => (
+                      <TableRow key={category.id} hover>
+                        <TableCell>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <CategoryIcon fontSize="small" color="primary" />
+                            <Typography variant="body2" fontWeight={500}>
+                              {category.name}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">
+                            {category.description || 'No description'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Box display="flex" gap={1} justifyContent="center">
+                            <Tooltip title="Edit Category">
+                              <IconButton 
+                                size="small" 
+                                onClick={() => {
+                                  setOpenCategoryManagementDialog(false);
+                                  openEditCategoryDialog(category);
+                                }}
+                                color="primary"
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Delete Category">
+                              <IconButton 
+                                size="small" 
+                                onClick={() => setDeletingCategory(category)}
+                                color="error"
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            startIcon={<CategoryIcon />}
+            onClick={() => {
+              setOpenCategoryManagementDialog(false);
+              setOpenCategoryDialog(true);
+            }}
+            variant="outlined"
+          >
+            Add New Category
+          </Button>
+          <Button onClick={() => setOpenCategoryManagementDialog(false)}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Category Confirmation Dialog */}
+      <Dialog 
+        open={!!deletingCategory} 
+        onClose={() => setDeletingCategory(null)}
+        maxWidth="xs"
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" gap={1} color="error.main">
+            <DeleteIcon />
+            Delete Category
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete the category <strong>"{deletingCategory?.name}"</strong>? 
+          </Typography>
+          <Typography variant="body2" color="warning.main" sx={{ mt: 2 }}>
+            ⚠️ This action cannot be undone. Products in this category will become uncategorized.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeletingCategory(null)}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={() => deleteCategory(deletingCategory.id)}
+            color="error"
+            variant="contained"
+          >
+            Delete
           </Button>
         </DialogActions>
       </Dialog>

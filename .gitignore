@@ -31,7 +31,3 @@ logs/
 __pycache__/
 *.pyc
 *.pyo
-
-# Uploaded files
-backend/uploads/
-uploads/

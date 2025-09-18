@@ -54,7 +54,9 @@ import {
   Schedule as ScheduleIcon,
   Cancel as CancelIcon,
   Search as SearchIcon,
-  Clear as ClearIcon
+  Clear as ClearIcon,
+  Category as CategoryIcon,
+  Settings as SettingsIcon
 } from '@mui/icons-material';
 import NotificationService from '../services/notificationService';
 
@@ -91,6 +93,13 @@ const ListView = ({ type = 'products' }) => {
 
   // Legacy bulk products state for backward compatibility
   const [bulkProducts, setBulkProducts] = useState([]);
+
+  // Category management state (for products module)
+  const [openCategoryDialog, setOpenCategoryDialog] = useState(false);
+  const [openCategoryManagementDialog, setOpenCategoryManagementDialog] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [deletingCategory, setDeletingCategory] = useState(null);
+  const [categoryForm, setCategoryForm] = useState({ name: '', description: '' });
 
   const initializeBulkItem = () => {
     switch (type) {
@@ -156,7 +165,7 @@ const ListView = ({ type = 'products' }) => {
         { key: 'unit_price', label: 'Price', type: 'number', prefix: '₹' },
         { key: 'category_name', label: 'Category', type: 'text' },
         { key: 'quantity_available', label: 'Stock', type: 'number' },
-        { key: 'status', label: 'Status', type: 'status' }
+        { key: 'quantity_available', label: 'Stock Level', type: 'stock_level' }
       ]
     },
     students: {
@@ -199,7 +208,6 @@ const ListView = ({ type = 'products' }) => {
           { key: 'unit_price', label: 'Price', type: 'number', required: true },
           { key: 'category_id', label: 'Category', type: 'select', required: true, 
             options: categories?.map(cat => ({ value: cat.id, label: cat.name })) || [] },
-          { key: 'quantity_total', label: 'Total Stock', type: 'number', required: true },
           { key: 'quantity_available', label: 'Available Stock', type: 'number', required: true },
           { key: 'description', label: 'Description', type: 'text', multiline: true }
         ];
@@ -346,6 +354,83 @@ const ListView = ({ type = 'products' }) => {
     } catch (err) {
       console.error('Failed to fetch lenders - error:', err);
     }
+  };
+
+  // Category Management Functions
+  const createCategory = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/categories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(categoryForm)
+      });
+      
+      if (response.ok) {
+        console.log('Category created successfully');
+        setOpenCategoryDialog(false);
+        setCategoryForm({ name: '', description: '' });
+        fetchCategories(); // Refresh categories list
+      } else {
+        console.error('Failed to create category');
+      }
+    } catch (error) {
+      console.error('Error creating category:', error);
+    }
+  };
+
+  const updateCategory = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/categories/${editingCategory.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(categoryForm)
+      });
+      
+      if (response.ok) {
+        console.log('Category updated successfully');
+        setOpenCategoryDialog(false);
+        setEditingCategory(null);
+        setCategoryForm({ name: '', description: '' });
+        fetchCategories(); // Refresh categories list
+      } else {
+        console.error('Failed to update category');
+      }
+    } catch (error) {
+      console.error('Error updating category:', error);
+    }
+  };
+
+  const deleteCategory = async (categoryId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/categories/${categoryId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        console.log('Category deleted successfully');
+        setDeletingCategory(null);
+        fetchCategories(); // Refresh categories list
+      } else {
+        console.error('Failed to delete category');
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error);
+    }
+  };
+
+  const openEditCategoryDialog = (category) => {
+    setEditingCategory(category);
+    setCategoryForm({ 
+      name: category.name, 
+      description: category.description || '' 
+    });
+    setOpenCategoryDialog(true);
+  };
+
+  const closeCategoryDialog = () => {
+    setOpenCategoryDialog(false);
+    setEditingCategory(null);
+    setCategoryForm({ name: '', description: '' });
   };
 
   // Add immediate test data for lenders
@@ -1050,6 +1135,32 @@ const ListView = ({ type = 'products' }) => {
     );
   };
 
+  const StockLevelChip = ({ quantity }) => {
+    const getStockLevel = (qty) => {
+      const numQty = parseInt(qty) || 0;
+      if (numQty <= 5) return { level: 'Low Stock', color: 'error', icon: <WarningIcon sx={{ fontSize: '16px', mr: 0.5 }} /> };
+      if (numQty <= 20) return { level: 'Medium Stock', color: 'warning', icon: <InventoryIcon sx={{ fontSize: '16px', mr: 0.5 }} /> };
+      return { level: 'High Stock', color: 'success', icon: <CheckCircleIcon sx={{ fontSize: '16px', mr: 0.5 }} /> };
+    };
+
+    const stockInfo = getStockLevel(quantity);
+
+    return (
+      <Chip
+        icon={stockInfo.icon}
+        label={stockInfo.level}
+        color={stockInfo.color}
+        size="small"
+        sx={{
+          fontWeight: 600,
+          '& .MuiChip-label': {
+            color: '#374151'
+          }
+        }}
+      />
+    );
+  };
+
   // Render cell content
   const renderCellContent = (item, column) => {
     let value = item[column.key];
@@ -1062,6 +1173,8 @@ const ListView = ({ type = 'products' }) => {
     switch (column.type) {
       case 'status':
         return <StatusChip status={value} />;
+      case 'stock_level':
+        return <StockLevelChip quantity={value} />;
       case 'number':
         return (
           <Typography variant="body2" sx={{ fontWeight: 600, color: '#3B82F6' }}>
@@ -1218,9 +1331,9 @@ const ListView = ({ type = 'products' }) => {
                 minHeight: '32px',
                 height: '32px',
                 minWidth: '100px',
-                px: 3,
-                py: 0.75,
-                fontSize: '0.8rem',
+                px: 2,
+                py: 0.5,
+                fontSize: '0.75rem',
                 fontWeight: 600,
                 textTransform: 'none',
                 letterSpacing: '0.025em',
@@ -1251,9 +1364,9 @@ const ListView = ({ type = 'products' }) => {
                 minHeight: '32px',
                 height: '32px',
                 minWidth: '120px',
-                px: 3,
-                py: 0.75,
-                fontSize: '0.8rem',
+                px: 2,
+                py: 0.5,
+                fontSize: '0.75rem',
                 fontWeight: 600,
                 textTransform: 'none',
                 letterSpacing: '0.025em',
@@ -1267,6 +1380,65 @@ const ListView = ({ type = 'products' }) => {
             >
               Add {type.slice(0, -1)}
             </Button>
+            
+            {/* Category Management Buttons - Only for products */}
+            {type === 'products' && (
+              <>
+                <Button
+                  variant="contained"
+                  startIcon={<CategoryIcon fontSize="small" />}
+                  onClick={() => setOpenCategoryDialog(true)}
+                  sx={{
+                    backgroundColor: '#3B82F6',
+                    color: '#FFFFFF',
+                    minHeight: '32px',
+                    height: '32px',
+                    minWidth: '140px',
+                    px: 2,
+                    py: 0.5,
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    letterSpacing: '0.025em',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    '&:hover': {
+                      backgroundColor: '#2563EB',
+                    },
+                  }}
+                >
+                  Add Category
+                </Button>
+                
+                <Button
+                  variant="contained"
+                  startIcon={<SettingsIcon fontSize="small" />}
+                  onClick={() => setOpenCategoryManagementDialog(true)}
+                  sx={{
+                    backgroundColor: '#3B82F6',
+                    color: '#FFFFFF',
+                    minHeight: '32px',
+                    height: '32px',
+                    minWidth: '160px',
+                    px: 2,
+                    py: 0.5,
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    letterSpacing: '0.025em',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    '&:hover': {
+                      backgroundColor: '#2563EB',
+                    },
+                  }}
+                >
+                  Manage Categories
+                </Button>
+              </>
+            )}
           </Box>
         </Box>
 
@@ -1819,6 +1991,186 @@ const ListView = ({ type = 'products' }) => {
               Overdue
             </MenuItem>
           </Menu>
+        )}
+
+        {/* Category Management Dialogs - Only for products */}
+        {type === 'products' && (
+          <>
+            {/* Add/Edit Category Dialog */}
+            <Dialog 
+              open={openCategoryDialog} 
+              onClose={closeCategoryDialog} 
+              maxWidth="sm" 
+              fullWidth
+            >
+              <DialogTitle>
+                {editingCategory ? 'Edit Category' : 'Add New Category'}
+              </DialogTitle>
+              <DialogContent>
+                <TextField
+                  fullWidth
+                  label="Category Name"
+                  value={categoryForm.name}
+                  onChange={(e) => setCategoryForm({...categoryForm, name: e.target.value})}
+                  sx={{ mt: 1, mb: 2 }}
+                  required
+                />
+                <TextField
+                  fullWidth
+                  label="Description"
+                  value={categoryForm.description}
+                  onChange={(e) => setCategoryForm({...categoryForm, description: e.target.value})}
+                  multiline
+                  rows={3}
+                />
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={closeCategoryDialog}>Cancel</Button>
+                <Button 
+                  onClick={editingCategory ? updateCategory : createCategory}
+                  variant="contained"
+                  sx={{ bgcolor: '#10B981', '&:hover': { bgcolor: '#059669' } }}
+                >
+                  {editingCategory ? 'Update' : 'Create'}
+                </Button>
+              </DialogActions>
+            </Dialog>
+
+            {/* Manage Categories Dialog */}
+            <Dialog 
+              open={openCategoryManagementDialog} 
+              onClose={() => setOpenCategoryManagementDialog(false)}
+              maxWidth="md" 
+              fullWidth
+            >
+              <DialogTitle>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <CategoryIcon color="primary" />
+                  Category Management
+                </Box>
+              </DialogTitle>
+              <DialogContent>
+                <Box sx={{ mt: 1 }}>
+                  {categories.length === 0 ? (
+                    <Box textAlign="center" py={4}>
+                      <CategoryIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                      <Typography variant="h6" color="text.secondary">
+                        No categories found
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Click "Add New Category" to create your first category
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <TableContainer component={Paper} variant="outlined">
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell><strong>Category Name</strong></TableCell>
+                            <TableCell><strong>Description</strong></TableCell>
+                            <TableCell align="center"><strong>Actions</strong></TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {categories.map((category) => (
+                            <TableRow key={category.id} hover>
+                              <TableCell>
+                                <Box display="flex" alignItems="center" gap={1}>
+                                  <CategoryIcon fontSize="small" color="primary" />
+                                  <Typography variant="body2" fontWeight={500}>
+                                    {category.name}
+                                  </Typography>
+                                </Box>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2" color="text.secondary">
+                                  {category.description || 'No description'}
+                                </Typography>
+                              </TableCell>
+                              <TableCell align="center">
+                                <Box display="flex" gap={1} justifyContent="center">
+                                  <Tooltip title="Edit Category">
+                                    <IconButton 
+                                      size="small" 
+                                      onClick={() => {
+                                        setOpenCategoryManagementDialog(false);
+                                        openEditCategoryDialog(category);
+                                      }}
+                                      color="primary"
+                                    >
+                                      <EditIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                  <Tooltip title="Delete Category">
+                                    <IconButton 
+                                      size="small" 
+                                      onClick={() => setDeletingCategory(category)}
+                                      color="error"
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  )}
+                </Box>
+              </DialogContent>
+              <DialogActions>
+                <Button 
+                  startIcon={<CategoryIcon />}
+                  onClick={() => {
+                    setOpenCategoryManagementDialog(false);
+                    setOpenCategoryDialog(true);
+                  }}
+                  variant="outlined"
+                >
+                  Add New Category
+                </Button>
+                <Button onClick={() => setOpenCategoryManagementDialog(false)}>
+                  Close
+                </Button>
+              </DialogActions>
+            </Dialog>
+
+            {/* Delete Category Confirmation Dialog */}
+            <Dialog 
+              open={!!deletingCategory} 
+              onClose={() => setDeletingCategory(null)}
+              maxWidth="xs"
+            >
+              <DialogTitle>
+                <Box display="flex" alignItems="center" gap={1} color="error.main">
+                  <DeleteIcon />
+                  Delete Category
+                </Box>
+              </DialogTitle>
+              <DialogContent>
+                <Typography>
+                  Are you sure you want to delete the category <strong>"{deletingCategory?.name}"</strong>? 
+                </Typography>
+                <Typography variant="body2" color="warning.main" sx={{ mt: 2 }}>
+                  ⚠️ This action cannot be undone. Products in this category will become uncategorized.
+                </Typography>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setDeletingCategory(null)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={() => deleteCategory(deletingCategory.id)}
+                  color="error"
+                  variant="contained"
+                >
+                  Delete
+                </Button>
+              </DialogActions>
+            </Dialog>
+          </>
         )}
       </Box>
     </Paper>

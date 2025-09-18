@@ -1140,7 +1140,6 @@ const InvoiceManagement = () => {
                         </Badge>
                       </TableCell>
                       <TableCell sx={{ 
-                        
                         color: '#1F2937'
                       }}>
                         <Box>
@@ -1154,11 +1153,15 @@ const InvoiceManagement = () => {
                           )}
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ 
-                        
+                      <TableCell align="center" sx={{ 
                         color: '#1F2937'
                       }}>
-                        <Box display="flex" alignItems="center">
+                        <Box sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          minHeight: '24px'
+                        }}>
                           {invoice.image_count > 0 ? (
                             <Tooltip title="View invoice images">
                               <IconButton
@@ -1177,7 +1180,9 @@ const InvoiceManagement = () => {
                             </Tooltip>
                           ) : (
                             <Tooltip title="No images available">
-                              <CameraIcon color="disabled" fontSize="small" />
+                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <CameraIcon color="disabled" fontSize="small" />
+                              </Box>
                             </Tooltip>
                           )}
                         </Box>

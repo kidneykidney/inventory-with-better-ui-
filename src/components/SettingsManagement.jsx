@@ -5,8 +5,6 @@ import {
   Card,
   CardContent,
   Grid,
-  Tabs,
-  Tab,
   Button,
   TextField,
   Switch,
@@ -64,7 +62,6 @@ const API_BASE_URL = 'http://localhost:8000';
 
 const SettingsManagement = () => {
   // State management
-  const [currentTab, setCurrentTab] = useState(0);
   const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -397,62 +394,57 @@ const SettingsManagement = () => {
     const categoryInfo = categories.find(c => c.id === categoryId);
     
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-              <Box sx={{ color: categoryInfo?.color, mr: 2 }}>
-                {categoryInfo?.icon}
-              </Box>
-              <Typography variant="h5" component="h2" sx={{ flex: 1 }}>
-                {categoryInfo?.name || categoryId} Settings
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                {(categoryId === 'data_admin' || categoryId === 'integrations') && (
-                  <Tooltip title={`Test ${categoryInfo?.name} Configuration`}>
-                    <IconButton
-                      onClick={() => testConfiguration(categoryId)}
-                      disabled={testing[categoryId]}
-                      color="primary"
-                    >
-                      {testing[categoryId] ? <LinearProgress size={20} /> : <TestIcon />}
-                    </IconButton>
-                  </Tooltip>
-                )}
-                <Tooltip title="Reset to Defaults">
-                  <IconButton
-                    onClick={() => setResetDialog({ open: true, category: categoryId })}
-                    color="warning"
-                  >
-                    <ResetIcon />
-                  </IconButton>
-                </Tooltip>
-                <Button
-                  variant="contained"
-                  startIcon={<SaveIcon />}
-                  onClick={() => saveSettings(categoryId, categorySettings)}
-                  disabled={saving}
-                  sx={{ backgroundColor: categoryInfo?.color }}
+      <Box>
+        {/* Category Action Buttons */}
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, justifyContent: 'flex-end' }}>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {(categoryId === 'data_admin' || categoryId === 'integrations') && (
+              <Tooltip title={`Test ${categoryInfo?.name} Configuration`}>
+                <IconButton
+                  onClick={() => testConfiguration(categoryId)}
+                  disabled={testing[categoryId]}
+                  color="primary"
+                  sx={{ color: '#4CAF50' }}
                 >
-                  Save
-                </Button>
-              </Box>
-            </Box>
+                  {testing[categoryId] ? <LinearProgress size={20} /> : <TestIcon />}
+                </IconButton>
+              </Tooltip>
+            )}
+            <Tooltip title="Reset to Defaults">
+              <IconButton
+                onClick={() => setResetDialog({ open: true, category: categoryId })}
+                sx={{ color: '#FF9800' }}
+              >
+                <ResetIcon />
+              </IconButton>
+            </Tooltip>
+            <Button
+              variant="contained"
+              startIcon={<SaveIcon />}
+              onClick={() => saveSettings(categoryId, categorySettings)}
+              disabled={saving}
+              sx={{ 
+                backgroundColor: categoryInfo?.color,
+                '&:hover': {
+                  backgroundColor: categoryInfo?.color,
+                  opacity: 0.8
+                }
+              }}
+            >
+              Save
+            </Button>
+          </Box>
+        </Box>
 
-            <Grid container spacing={3}>
-              {Object.entries(categorySettings).map(([key, value]) => (
-                <Grid item xs={12} md={6} key={key}>
-                  {renderSettingField(categoryId, key, value, getFieldType(categoryId, key, value))}
-                </Grid>
-              ))}
+        {/* Settings Grid */}
+        <Grid container spacing={3}>
+          {Object.entries(categorySettings).map(([key, value]) => (
+            <Grid item xs={12} md={6} key={key}>
+              {renderSettingField(categoryId, key, value, getFieldType(categoryId, key, value))}
             </Grid>
-          </CardContent>
-        </Card>
-      </motion.div>
+          ))}
+        </Grid>
+      </Box>
     );
   };
 
@@ -519,42 +511,50 @@ const SettingsManagement = () => {
         </Box>
       </Box>
 
-      {/* Settings Tabs */}
-      <Paper sx={{ backgroundColor: '#FFFFFF' }}>
-        <Tabs
-          value={currentTab}
-          onChange={(e, newValue) => setCurrentTab(newValue)}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{
-            borderBottom: 1,
-            borderColor: 'divider',
-            '& .MuiTab-root': { color: '#fff' },
-            '& .Mui-selected': { color: '#4CAF50' },
-          }}
-        >
-          {categories.map((category, index) => (
-            <Tab
-              key={category.id}
-              icon={category.icon}
-              label={category.name}
-              iconPosition="start"
-            />
-          ))}
-        </Tabs>
-      </Paper>
-
-      {/* Settings Content */}
+      {/* Settings Content - Accordion Style */}
       <Box sx={{ mt: 3 }}>
-        <AnimatePresence mode="wait">
-          {categories.map((category, index) => (
-            currentTab === index && (
-              <motion.div key={category.id}>
+        {categories.map((category, index) => (
+          <Accordion 
+            key={category.id}
+            defaultExpanded={index === 0}
+            sx={{ 
+              mb: 2, 
+              backgroundColor: '#FFFFFF',
+              color: '#000',
+              '&:before': {
+                display: 'none',
+              },
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            }}
+          >
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon sx={{ color: '#666' }} />}
+              sx={{
+                backgroundColor: '#f8f9fa',
+                '&.Mui-expanded': {
+                  backgroundColor: '#e9ecef',
+                },
+                '& .MuiAccordionSummary-content': {
+                  alignItems: 'center',
+                }
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Box sx={{ color: category.color, mr: 2, display: 'flex' }}>
+                  {category.icon}
+                </Box>
+                <Typography variant="h6" sx={{ fontWeight: 600, color: '#333' }}>
+                  {category.name} Settings
+                </Typography>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails sx={{ p: 0 }}>
+              <Box sx={{ p: 3 }}>
                 {renderCategorySettings(category.id)}
-              </motion.div>
-            )
-          ))}
-        </AnimatePresence>
+              </Box>
+            </AccordionDetails>
+          </Accordion>
+        ))}
       </Box>
 
       {/* Validation Dialog */}

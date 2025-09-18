@@ -175,48 +175,49 @@ const RecentActivities = ({ activities, loading = false }) => (
     display: 'flex',
     flexDirection: 'column'
   }}>
-    <CardContent sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6" sx={{ 
+    <CardContent sx={{ p: 1.5, flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+        <Typography variant="subtitle2" sx={{ 
           color: DASHBOARD_COLORS.text,
           fontWeight: 600,
           display: 'flex',
           alignItems: 'center',
-          gap: 1,
-          fontSize: '1rem'
+          gap: 0.5,
+          fontSize: '0.85rem'
         }}>
-          <Assessment sx={{ color: DASHBOARD_COLORS.primary, fontSize: 18 }} />
+          <Assessment sx={{ color: DASHBOARD_COLORS.primary, fontSize: 16 }} />
           Recent Activities
         </Typography>
         <Chip 
-          label={`${activities?.length || 0} items`} 
+          label={`${activities?.length || 0}`} 
           size="small" 
           sx={{
             backgroundColor: `${DASHBOARD_COLORS.primary}20`,
             color: DASHBOARD_COLORS.primary,
             fontWeight: 600,
-            fontSize: '0.7rem',
-            height: 22
+            fontSize: '0.65rem',
+            height: 18,
+            minWidth: 24
           }}
         />
       </Box>
       
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-          <CircularProgress sx={{ color: DASHBOARD_COLORS.primary }} size={24} />
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 1 }}>
+          <CircularProgress sx={{ color: DASHBOARD_COLORS.primary }} size={20} />
         </Box>
       ) : activities && activities.length > 0 ? (
         <Box sx={{ flex: 1, overflowY: 'auto' }}>
-          {activities.slice(0, 10).map((activity, index) => (
+          {activities.slice(0, 6).map((activity, index) => (
             <Box
               key={index}
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                py: 1.5,
-                px: 1,
+                py: 0.75,
+                px: 0.5,
                 borderRadius: 1,
-                borderBottom: index < Math.min(activities.length, 10) - 1 ? `1px solid ${DASHBOARD_COLORS.border}` : 'none',
+                borderBottom: index < Math.min(activities.length, 6) - 1 ? `1px solid ${DASHBOARD_COLORS.border}` : 'none',
                 '&:hover': {
                   backgroundColor: 'rgba(59, 130, 246, 0.04)'
                 }
@@ -228,17 +229,17 @@ const RecentActivities = ({ activities, loading = false }) => (
                 <Typography variant="body2" sx={{ 
                   color: DASHBOARD_COLORS.text,
                   fontWeight: 500,
-                  mb: 0.3,
+                  mb: 0.2,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
-                  fontSize: '0.85rem'
+                  fontSize: '0.75rem'
                 }}>
                   {activity.description || activity.title || activity.action || 'Unknown activity'}
                 </Typography>
                 <Typography variant="caption" sx={{ 
                   color: DASHBOARD_COLORS.textSecondary,
-                  fontSize: '0.7rem'
+                  fontSize: '0.65rem'
                 }}>
                   {activity.date ? new Date(activity.date).toLocaleDateString() : 
                    activity.timestamp || 'Unknown time'}
@@ -249,9 +250,9 @@ const RecentActivities = ({ activities, loading = false }) => (
                 label={activity.status || 'active'}
                 size="small"
                 sx={{
-                  fontSize: '0.65rem',
-                  height: 18,
-                  minWidth: 50,
+                  fontSize: '0.6rem',
+                  height: 16,
+                  minWidth: 45,
                   backgroundColor: activity.status === 'approved' || activity.status === 'completed' ? `${DASHBOARD_COLORS.success}15` :
                                   activity.status === 'pending' ? `${DASHBOARD_COLORS.warning}15` :
                                   activity.status === 'rejected' ? `${DASHBOARD_COLORS.error}15` : `${DASHBOARD_COLORS.primary}15`,
@@ -266,11 +267,11 @@ const RecentActivities = ({ activities, loading = false }) => (
       ) : (
         <Box sx={{ 
           textAlign: 'center', 
-          py: 3,
+          py: 2,
           color: DASHBOARD_COLORS.textSecondary 
         }}>
-          <Assessment sx={{ fontSize: 36, mb: 1, opacity: 0.5 }} />
-          <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+          <Assessment sx={{ fontSize: 24, mb: 0.5, opacity: 0.5 }} />
+          <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
             No recent activities
           </Typography>
         </Box>
@@ -292,46 +293,50 @@ const LowStockAlert = ({ lowStockItems, loading }) => {
       display: 'flex',
       flexDirection: 'column'
     }}>
-      <CardContent sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6" sx={{ 
+      <CardContent sx={{ p: 1.5, flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography variant="subtitle2" sx={{ 
             color: DASHBOARD_COLORS.text,
             fontWeight: 600,
             display: 'flex',
             alignItems: 'center',
-            gap: 1
+            gap: 0.5,
+            fontSize: '0.85rem'
           }}>
-            <WarningIcon sx={{ color: DASHBOARD_COLORS.warning, fontSize: 20 }} />
+            <WarningIcon sx={{ color: DASHBOARD_COLORS.warning, fontSize: 16 }} />
             Low Stock Items
           </Typography>
           <Chip 
-            label={`${lowStockItems?.length || 0} items`} 
+            label={`${lowStockItems?.length || 0}`} 
             size="small" 
             sx={{
               backgroundColor: `${DASHBOARD_COLORS.warning}20`,
               color: DASHBOARD_COLORS.warning,
-              fontWeight: 600
+              fontWeight: 600,
+              fontSize: '0.65rem',
+              height: 18,
+              minWidth: 24
             }}
           />
         </Box>
         
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress sx={{ color: DASHBOARD_COLORS.warning }} />
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+            <CircularProgress sx={{ color: DASHBOARD_COLORS.warning }} size={20} />
           </Box>
         ) : lowStockItems && lowStockItems.length > 0 ? (
           <Box sx={{ flex: 1, overflowY: 'auto' }}>
-            {lowStockItems.map((item, index) => (
+            {lowStockItems.slice(0, 6).map((item, index) => (
               <Box
                 key={index}
                 sx={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  py: 2,
-                  px: 1,
+                  py: 0.75,
+                  px: 0.5,
                   borderRadius: 1,
-                  borderBottom: index < lowStockItems.length - 1 ? `1px solid ${DASHBOARD_COLORS.border}` : 'none',
+                  borderBottom: index < Math.min(lowStockItems.length, 6) - 1 ? `1px solid ${DASHBOARD_COLORS.border}` : 'none',
                   '&:hover': {
                     backgroundColor: 'rgba(245, 158, 11, 0.05)'
                   }
@@ -341,13 +346,14 @@ const LowStockAlert = ({ lowStockItems, loading }) => {
                   <Typography variant="body2" sx={{ 
                     color: DASHBOARD_COLORS.text,
                     fontWeight: 500,
-                    mb: 0.5
+                    mb: 0.2,
+                    fontSize: '0.75rem'
                   }}>
                     {item.name || item.product_name || 'Unknown Product'}
                   </Typography>
                   <Typography variant="caption" sx={{ 
                     color: DASHBOARD_COLORS.textSecondary,
-                    fontSize: '0.75rem'
+                    fontSize: '0.65rem'
                   }}>
                     Stock: {item.stock || item.quantity || 0} units
                   </Typography>
@@ -358,10 +364,10 @@ const LowStockAlert = ({ lowStockItems, loading }) => {
         ) : (
           <Box sx={{ 
             textAlign: 'center', 
-            py: 4,
+            py: 2,
             color: DASHBOARD_COLORS.textSecondary
           }}>
-            <Typography variant="body2">All items are well stocked</Typography>
+            <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>All items are well stocked</Typography>
           </Box>
         )}
       </CardContent>
@@ -404,32 +410,36 @@ const CategoryOverview = ({ loading }) => {
       display: 'flex',
       flexDirection: 'column'
     }}>
-      <CardContent sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6" sx={{ 
+      <CardContent sx={{ p: 1.5, flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography variant="subtitle2" sx={{ 
             color: DASHBOARD_COLORS.text,
             fontWeight: 600,
             display: 'flex',
             alignItems: 'center',
-            gap: 1
+            gap: 0.5,
+            fontSize: '0.85rem'
           }}>
-            <CategoryIcon sx={{ color: DASHBOARD_COLORS.primary, fontSize: 20 }} />
+            <CategoryIcon sx={{ color: DASHBOARD_COLORS.primary, fontSize: 16 }} />
             Product Categories
           </Typography>
           <Chip 
-            label={`${categories?.length || 0} categories`} 
+            label={`${categories?.length || 0}`} 
             size="small" 
             sx={{
               backgroundColor: `${DASHBOARD_COLORS.primary}20`,
               color: DASHBOARD_COLORS.primary,
-              fontWeight: 600
+              fontWeight: 600,
+              fontSize: '0.65rem',
+              height: 18,
+              minWidth: 24
             }}
           />
         </Box>
         
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress sx={{ color: DASHBOARD_COLORS.primary }} />
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+            <CircularProgress sx={{ color: DASHBOARD_COLORS.primary }} size={20} />
           </Box>
         ) : categories && categories.length > 0 ? (
           <Box sx={{ flex: 1, overflowY: 'auto' }}>
@@ -440,8 +450,8 @@ const CategoryOverview = ({ loading }) => {
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  py: 2,
-                  px: 1,
+                  py: 0.75,
+                  px: 0.5,
                   borderRadius: 1,
                   borderBottom: index < categories.length - 1 ? `1px solid ${DASHBOARD_COLORS.border}` : 'none',
                   '&:hover': {
@@ -449,10 +459,11 @@ const CategoryOverview = ({ loading }) => {
                   }
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="body2" sx={{ 
                     color: DASHBOARD_COLORS.text,
-                    fontWeight: 500
+                    fontWeight: 500,
+                    fontSize: '0.75rem'
                   }}>
                     {category.name}
                   </Typography>
@@ -464,9 +475,9 @@ const CategoryOverview = ({ loading }) => {
                     backgroundColor: `${category.color}20`,
                     color: category.color,
                     fontWeight: 600,
-                    minWidth: 24,
-                    height: 20,
-                    fontSize: '0.7rem'
+                    minWidth: 20,
+                    height: 16,
+                    fontSize: '0.65rem'
                   }}
                 />
               </Box>
@@ -475,10 +486,10 @@ const CategoryOverview = ({ loading }) => {
         ) : (
           <Box sx={{ 
             textAlign: 'center', 
-            py: 4,
+            py: 2,
             color: DASHBOARD_COLORS.textSecondary
           }}>
-            <Typography variant="body2">No categories found</Typography>
+            <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>No categories found</Typography>
           </Box>
         )}
       </CardContent>
@@ -565,7 +576,7 @@ const Dashboard = () => {
       flexDirection: 'column'
     }}>
       <Container maxWidth="xl" sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Clean Header */}
+        {/* Compact Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -575,46 +586,52 @@ const Dashboard = () => {
             display: 'flex', 
             justifyContent: 'space-between', 
             alignItems: 'center', 
-            mb: 4,
-            p: 3,
+            mb: 2,
+            p: 1.5,
             background: DASHBOARD_COLORS.surface,
-            borderRadius: 2,
+            borderRadius: 1.5,
             border: `1px solid ${DASHBOARD_COLORS.border}`,
             boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
           }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <DashboardIcon sx={{ fontSize: 32, color: DASHBOARD_COLORS.primary }} />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <DashboardIcon sx={{ fontSize: 20, color: DASHBOARD_COLORS.primary }} />
               <Box>
-                <Typography variant="h4" sx={{ 
+                <Typography variant="h6" sx={{ 
                   color: DASHBOARD_COLORS.text,
-                  fontWeight: 700,
-                  mb: 0.5
+                  fontWeight: 600,
+                  fontSize: '1.1rem',
+                  lineHeight: 1
                 }}>
                   Dashboard
                 </Typography>
-                <Typography variant="subtitle1" sx={{ 
-                  color: DASHBOARD_COLORS.textSecondary
+                <Typography variant="caption" sx={{ 
+                  color: DASHBOARD_COLORS.textSecondary,
+                  fontSize: '0.7rem'
                 }}>
-                  Live College Incubation Inventory Management System
+                  College Incubation Inventory System
                 </Typography>
               </Box>
             </Box>
             
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography variant="body2" sx={{ 
-                color: DASHBOARD_COLORS.textSecondary 
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="caption" sx={{ 
+                color: DASHBOARD_COLORS.textSecondary,
+                fontSize: '0.65rem'
               }}>
-                Last updated: {new Date().toLocaleTimeString()}
+                {new Date().toLocaleTimeString()}
               </Typography>
               <IconButton 
                 onClick={handleRefresh}
+                size="small"
                 sx={{ 
                   color: DASHBOARD_COLORS.primary,
                   backgroundColor: `${DASHBOARD_COLORS.primary}10`,
-                  '&:hover': { backgroundColor: `${DASHBOARD_COLORS.primary}20` }
+                  '&:hover': { backgroundColor: `${DASHBOARD_COLORS.primary}20` },
+                  width: 28,
+                  height: 28
                 }}
               >
-                <RefreshIcon />
+                <RefreshIcon fontSize="small" />
               </IconButton>
             </Box>
           </Box>

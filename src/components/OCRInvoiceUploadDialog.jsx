@@ -392,22 +392,34 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
             />
 
             <Grid container spacing={2} sx={{ mt: 2 }}>
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid item xs={12} sm={6}>
                 <Button
                   fullWidth
                   variant="outlined"
                   startIcon={<GalleryIcon />}
                   onClick={handleUploadClick}
+                  sx={{
+                    height: 48,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
                 >
                   Browse Files
                 </Button>
               </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid item xs={12} sm={6}>
                 <Button
                   fullWidth
                   variant="outlined"
                   startIcon={<CameraIcon />}
                   disabled
+                  sx={{
+                    height: 48,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
                 >
                   Camera (Coming Soon)
                 </Button>
@@ -455,7 +467,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
       case 2:
         return (
           <Grid container spacing={3}>
-            <Grid size={12}>
+            <Grid item xs={12}>
               <Typography variant="h6" gutterBottom>
                 <EditIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                 Review & Edit Extracted Data
@@ -463,7 +475,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
             </Grid>
 
             {ocrResults && (
-              <Grid size={12}>
+              <Grid item xs={12}>
                 <Alert 
                   severity={ocrResults.confidence_score > 0.7 ? "success" : "warning"} 
                   sx={{ mb: 2 }}
@@ -479,14 +491,14 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
             )}
 
             {/* Student Information */}
-            <Grid size={12}>
+            <Grid item xs={12}>
               <Card variant="outlined">
                 <CardContent>
                   <Typography variant="subtitle1" gutterBottom>
                     Student Information
                   </Typography>
                   <Grid container spacing={2}>
-                    <Grid size={{ xs: 12, sm: 6 }}>
+                    <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         label="Student Name"
@@ -495,7 +507,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
                         required
                       />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
+                    <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         label="Student ID"
@@ -504,7 +516,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
                         required
                       />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
+                    <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         label="Email"
@@ -512,7 +524,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
                         onChange={(e) => handleManualDataChange('student_email', e.target.value)}
                       />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
+                    <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         label="Department"
@@ -520,7 +532,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
                         onChange={(e) => handleManualDataChange('department', e.target.value)}
                       />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
+                    <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         label="Staff/Lender Name"
@@ -536,14 +548,14 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
             </Grid>
 
             {/* Invoice Details */}
-            <Grid size={12}>
+            <Grid item xs={12}>
               <Card variant="outlined">
                 <CardContent>
                   <Typography variant="subtitle1" gutterBottom>
                     Invoice Details
                   </Typography>
                   <Grid container spacing={2}>
-                    <Grid size={{ xs: 12, sm: 6 }}>
+                    <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         select
@@ -558,7 +570,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
                         <option value="replacement">Replacement</option>
                       </TextField>
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
+                    <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         label="Due Date"
@@ -568,7 +580,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
                         InputLabelProps={{ shrink: true }}
                       />
                     </Grid>
-                    <Grid size={12}>
+                    <Grid item xs={12}>
                       <TextField
                         fullWidth
                         multiline
@@ -585,7 +597,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
 
             {/* OCR Results */}
             {ocrResults && (
-              <Grid size={12}>
+              <Grid item xs={12}>
                 <Card variant="outlined">
                   <CardContent>
                     <Typography variant="subtitle1" gutterBottom>
@@ -615,7 +627,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
             </Typography>
 
             <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid item xs={12} sm={6}>
                 <Card variant="outlined">
                   <CardContent>
                     <Typography variant="subtitle2" gutterBottom>Student</Typography>
@@ -627,7 +639,7 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid item xs={12} sm={6}>
                 <Card variant="outlined">
                   <CardContent>
                     <Typography variant="subtitle2" gutterBottom>Invoice</Typography>
