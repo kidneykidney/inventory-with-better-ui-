@@ -208,7 +208,7 @@ const RecentActivities = ({ activities, loading = false }) => (
         </Box>
       ) : activities && activities.length > 0 ? (
         <Box sx={{ flex: 1, overflowY: 'auto' }}>
-          {activities.slice(0, 6).map((activity, index) => (
+          {activities.slice(0, 4).map((activity, index) => (
             <Box
               key={index}
               sx={{
@@ -217,7 +217,7 @@ const RecentActivities = ({ activities, loading = false }) => (
                 py: 0.75,
                 px: 0.5,
                 borderRadius: 1,
-                borderBottom: index < Math.min(activities.length, 6) - 1 ? `1px solid ${DASHBOARD_COLORS.border}` : 'none',
+                borderBottom: index < Math.min(activities.length, 4) - 1 ? `1px solid ${DASHBOARD_COLORS.border}` : 'none',
                 '&:hover': {
                   backgroundColor: 'rgba(59, 130, 246, 0.04)'
                 }
@@ -382,17 +382,18 @@ const CategoryOverview = ({ loading }) => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        // Mock category data - replace with actual API call
-        setCategories([
-          { name: 'Electronics', count: 15, color: '#3B82F6' },
-          { name: 'Tools', count: 8, color: '#10B981' },
-          { name: 'Supplies', count: 12, color: '#F59E0B' },
-          { name: 'Equipment', count: 6, color: '#EF4444' },
-          { name: 'Software', count: 4, color: '#8B5CF6' },
-          { name: 'Other', count: 3, color: '#6B7280' }
-        ]);
+        // Fetch real category data from API
+        const response = await fetch('http://localhost:8000/api/categories');
+        if (response.ok) {
+          const categoryData = await response.json();
+          setCategories(categoryData);
+        } else {
+          console.error('Failed to fetch categories');
+          setCategories([]);
+        }
       } catch (error) {
         console.error('Error fetching categories:', error);
+        setCategories([]);
       }
     };
 
@@ -667,7 +668,7 @@ const Dashboard = () => {
             <Grid item xs={12} sm={6} md={3}>
               <StatCard
                 title="Active Students"
-                value={`${stats.active_students} of ${stats.total_students}`}
+                value={stats.total_students}
                 icon={<GroupIcon />}
                 color="info"
                 subtitle="Registered users"

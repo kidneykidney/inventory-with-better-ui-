@@ -31,7 +31,7 @@ const MinimalLoginPage = ({ onLoginSuccess }) => {
     event.preventDefault();
     
     if (!credentials.username || !credentials.password) {
-      setError('Please enter both username and password');
+      setError('Please enter both username/email and password');
       return;
     }
 
@@ -126,7 +126,8 @@ const MinimalLoginPage = ({ onLoginSuccess }) => {
           <Box component="form" onSubmit={handleLogin}>
             <TextField
               fullWidth
-              label="Username"
+              label="Username or Email"
+              placeholder="Enter your username or email"
               value={credentials.username}
               onChange={handleInputChange('username')}
               onKeyPress={handleKeyPress}
@@ -184,7 +185,7 @@ const MinimalLoginPage = ({ onLoginSuccess }) => {
           {/* Footer */}
           <Box sx={{ textAlign: 'center', mt: 4, pt: 3, borderTop: '1px solid #E2E8F0' }}>
             <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-              Inventory Management System v2.0
+              Inventory Management System v1.0
             </Typography>
           </Box>
         </SimpleCard>

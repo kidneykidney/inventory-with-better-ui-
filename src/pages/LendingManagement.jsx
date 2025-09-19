@@ -106,22 +106,14 @@ const LendingManagement = () => {
     },
   ]);
 
-  const [availableProducts] = useState([
-    { id: 1, name: 'Laptop Charger', price: 850, category: 'Electronics', stock: 25 },
-    { id: 2, name: 'Wireless Mouse', price: 450, category: 'Electronics', stock: 30 },
-    { id: 3, name: 'Mechanical Keyboard', price: 2350, category: 'Electronics', stock: 15 },
-    { id: 4, name: 'Arduino Uno Kit', price: 1200, category: 'Hardware', stock: 20 },
-    { id: 5, name: 'Raspberry Pi 4', price: 3500, category: 'Hardware', stock: 12 },
-    { id: 6, name: '3D Printer Filament', price: 800, category: 'Materials', stock: 50 },
-  ]);
-
+  const [availableProducts, setAvailableProducts] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [studentInfo, setStudentInfo] = useState({
     name: '',
     email: '',
     phone: '',
     studentId: '',
-    department: '',
+    course: '',
     year: '',
     semester: '',
     projectTitle: '',
@@ -133,10 +125,15 @@ const LendingManagement = () => {
 
   // Add lender data state
   const [lenders, setLenders] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  // Fetch lenders on component mount
+  // Fetch lenders and orders on component mount
   useEffect(() => {
     fetchLenders();
+    fetchOrders();
+    fetchProducts();
   }, []);
 
   const fetchLenders = async () => {
@@ -148,6 +145,76 @@ const LendingManagement = () => {
       }
     } catch (error) {
       console.error('Error fetching lenders:', error);
+    }
+  };
+
+  const fetchOrders = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/orders');
+      if (response.ok) {
+        const ordersData = await response.json();
+        setOrders(ordersData);
+      } else {
+        console.error('Orders API response not OK:', response.status);
+        // Use mock data as fallback
+        setOrders([
+          {
+            id: 'MOCK001',
+            order_number: 'ORD001',
+            student_name: 'Sample Student',
+            student_email: 'sample@college.edu',
+            course: 'Computer Science',
+            total_amount: 1500,
+            status: 'pending',
+            requested_date: '2025-09-19',
+            lender_name: 'Sample Lender',
+            items: ['Sample Item']
+          }
+        ]);
+      }
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      // Use mock data as fallback
+      setOrders([
+        {
+          id: 'MOCK001',
+          order_number: 'ORD001', 
+          student_name: 'Sample Student',
+          student_email: 'sample@college.edu',
+          course: 'Computer Science',
+          total_amount: 1500,
+          status: 'pending',
+          requested_date: '2025-09-19',
+          lender_name: 'Sample Lender',
+          items: ['Sample Item']
+        }
+      ]);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/products');
+      if (response.ok) {
+        const productsData = await response.json();
+        // Transform products to match expected format
+        const formattedProducts = productsData.map(product => ({
+          id: product.id,
+          name: product.name,
+          price: product.unit_price,
+          category: product.category_name || 'General',
+          stock: product.quantity_available
+        }));
+        setAvailableProducts(formattedProducts);
+      }
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      // Set some fallback products if API fails
+      setAvailableProducts([
+        { id: 1, name: 'Laptop Charger', price: 850, category: 'Electronics', stock: 25 },
+        { id: 2, name: 'Wireless Mouse', price: 450, category: 'Electronics', stock: 30 },
+        { id: 3, name: 'Mechanical Keyboard', price: 2350, category: 'Electronics', stock: 15 },
+      ]);
     }
   };
 
@@ -170,7 +237,7 @@ const LendingManagement = () => {
     },
     {
       title: 'Total Revenue',
-      value: `₹${orders.reduce((sum, order) => sum + order.amount, 0).toLocaleString()}`,
+      value: `₹${orders.reduce((sum, order) => sum + (order.total_value || order.amount || 0), 0).toLocaleString()}`,
       change: '+18%',
       changeType: 'positive',
       icon: MoneyIcon,
@@ -273,8 +340,10 @@ const LendingManagement = () => {
   };
 
   const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.student.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const studentName = order.student_name || order.student || '';
+    const orderId = order.order_number || order.id || '';
+    const matchesSearch = studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         orderId.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterStatus === 'all' || order.status === filterStatus;
     return matchesSearch && matchesFilter;
   });
@@ -496,13 +565,13 @@ const LendingManagement = () => {
                           <TableCell>
                             <Box>
                               <Typography variant="subtitle1" className="font-semibold text-gray-900">
-                                {order.id}
+                                {order.order_number || order.id}
                               </Typography>
                               <Typography variant="body2" className="text-gray-500">
-                                {order.date}
+                                {order.requested_date || order.date}
                               </Typography>
                               <Box className="mt-2 flex flex-wrap gap-1">
-                                {order.items.slice(0, 2).map((item, idx) => (
+                                {(order.items || []).slice(0, 2).map((item, idx) => (
                                   <Chip
                                     key={idx}
                                     label={item}
@@ -514,9 +583,9 @@ const LendingManagement = () => {
                                     }}
                                   />
                                 ))}
-                                {order.items.length > 2 && (
+                                {(order.items || []).length > 2 && (
                                   <Chip
-                                    label={`+${order.items.length - 2} more`}
+                                    label={`+${(order.items || []).length - 2} more`}
                                     size="small"
                                     sx={{ 
                                       backgroundColor: '#f3f4f6', 
@@ -531,20 +600,20 @@ const LendingManagement = () => {
                           <TableCell>
                             <Box>
                               <Typography variant="subtitle1" className="font-semibold text-gray-900">
-                                {order.student}
+                                {order.student_name || order.student}
                               </Typography>
                               <Typography variant="body2" className="text-gray-500">
-                                {order.email}
+                                {order.student_email || order.email}
                               </Typography>
                               <Typography variant="body2" className="text-gray-500">
-                                {order.department} - {order.year}
+                                {order.course || order.department} - {order.year}
                               </Typography>
                             </Box>
                           </TableCell>
                           <TableCell>
                             <Box>
                               <Typography variant="subtitle1" className="font-semibold text-gray-900">
-                                {order.lender || 'Unassigned'}
+                                {order.lender_name || order.lender || 'Unassigned'}
                               </Typography>
                               <Typography variant="body2" className="text-gray-500">
                                 Staff Member
@@ -561,7 +630,7 @@ const LendingManagement = () => {
                           </TableCell>
                           <TableCell>
                             <Typography variant="subtitle1" className="font-semibold text-gray-900">
-                              ₹{order.amount.toLocaleString()}
+                              ₹{(order.total_value || order.amount || 0).toLocaleString()}
                             </Typography>
                           </TableCell>
                           <TableCell>
@@ -648,6 +717,22 @@ const LendingManagement = () => {
         </DialogTitle>
 
         <DialogContent sx={{ p: 0 }}>
+          {/* Error and Success Messages */}
+          {error && (
+            <Box sx={{ p: 2, backgroundColor: '#fef2f2', borderLeft: '4px solid #ef4444' }}>
+              <Typography color="error" variant="body2">
+                {error}
+              </Typography>
+            </Box>
+          )}
+          {success && (
+            <Box sx={{ p: 2, backgroundColor: '#f0fdf4', borderLeft: '4px solid #22c55e' }}>
+              <Typography color="success.main" variant="body2">
+                {success}
+              </Typography>
+            </Box>
+          )}
+          
           {/* Step Indicator */}
           <Box sx={{ p: 3, backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
             <Stepper activeStep={orderStep} alternativeLabel>
@@ -720,11 +805,11 @@ const LendingManagement = () => {
                   <Grid container spacing={2}>
                     <Grid item xs={12} md={4}>
                       <FormControl fullWidth>
-                        <InputLabel>Department</InputLabel>
+                        <InputLabel>Course</InputLabel>
                         <Select
-                          value={studentInfo.department}
-                          label="Department"
-                          onChange={(e) => setStudentInfo({...studentInfo, department: e.target.value})}
+                          value={studentInfo.course}
+                          label="Course"
+                          onChange={(e) => setStudentInfo({...studentInfo, course: e.target.value})}
                         >
                           <MenuItem value="Computer Science">Computer Science</MenuItem>
                           <MenuItem value="Electronics">Electronics</MenuItem>
@@ -1048,7 +1133,7 @@ const LendingManagement = () => {
                       <Typography variant="body2"><strong>Email:</strong> {studentInfo.email}</Typography>
                     </Grid>
                     <Grid item xs={12} md={6}>
-                      <Typography variant="body2"><strong>Department:</strong> {studentInfo.department}</Typography>
+                      <Typography variant="body2"><strong>Course:</strong> {studentInfo.course}</Typography>
                     </Grid>
                     <Grid item xs={12} md={6}>
                       <Typography variant="body2"><strong>Year:</strong> {studentInfo.year}</Typography>
@@ -1118,37 +1203,117 @@ const LendingManagement = () => {
           </Button>
           
           <Button
-            onClick={() => {
+            onClick={async () => {
               if (orderStep < 2) {
                 setOrderStep(orderStep + 1);
               } else {
-                // Submit order
-                const newOrder = {
-                  id: `ORD${String(orders.length + 1).padStart(3, '0')}`,
-                  student: studentInfo.name,
-                  email: studentInfo.email,
-                  department: studentInfo.department,
-                  year: studentInfo.year,
-                  lender: lenders.find(l => l.id === studentInfo.lenderId)?.name || 'Unassigned',
-                  lenderId: studentInfo.lenderId,
-                  amount: calculateTotal(),
-                  status: 'pending',
-                  date: new Date().toISOString().split('T')[0],
-                  items: selectedProducts.map(p => p.name),
-                };
-                setOrders([...orders, newOrder]);
-                setShowCreateOrder(false);
-                setOrderStep(0);
-                setSelectedProducts([]);
-                setStudentInfo({
-                  name: '', email: '', phone: '', studentId: '', department: '', year: '',
-                  semester: '', projectTitle: '', projectDescription: '', mentorName: '', expectedDelivery: '', lenderId: ''
-                });
-                setActiveTab(0);
+                // Submit order to API
+                setLoading(true);
+                setError('');
+                
+                try {
+                  // First, ensure student exists or create one
+                  let studentId = null;
+                  
+                  // Try to find existing student by email or studentId
+                  try {
+                    const existingStudentResponse = await fetch(`http://localhost:8000/api/students/by-student-id/${studentInfo.studentId}`);
+                    if (existingStudentResponse.ok) {
+                      const existingStudent = await existingStudentResponse.json();
+                      studentId = existingStudent.id;
+                    }
+                  } catch {
+                    // Student doesn't exist, we'll create one
+                  }
+                  
+                  // Create student if not found
+                  if (!studentId) {
+                    const studentData = {
+                      student_id: studentInfo.studentId,
+                      name: studentInfo.name,
+                      email: studentInfo.email,
+                      phone: studentInfo.phone,
+                      year_of_study: parseInt(studentInfo.year) || 1,
+                      course: studentInfo.course
+                    };
+                    
+                    const createStudentResponse = await fetch('http://localhost:8000/api/students', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify(studentData),
+                    });
+                    
+                    if (createStudentResponse.ok) {
+                      const newStudent = await createStudentResponse.json();
+                      studentId = newStudent.id;
+                    } else {
+                      throw new Error('Failed to create student');
+                    }
+                  }
+                  
+                  // Prepare order items
+                  const orderItems = selectedProducts.map(product => ({
+                    product_id: product.id,
+                    quantity_requested: product.quantity || 1,
+                    expected_return_date: studentInfo.expectedDelivery || null,
+                    notes: `Project: ${studentInfo.projectTitle || 'N/A'}`
+                  }));
+                  
+                  // Create order
+                  const orderData = {
+                    student_id: studentId,
+                    lender_id: studentInfo.lenderId,
+                    items: orderItems,
+                    notes: `Project: ${studentInfo.projectTitle}\nDescription: ${studentInfo.projectDescription}\nMentor: ${studentInfo.mentorName}`,
+                    expected_return_date: studentInfo.expectedDelivery
+                  };
+                  
+                  const createOrderResponse = await fetch('http://localhost:8000/api/orders', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(orderData),
+                  });
+                  
+                  if (createOrderResponse.ok) {
+                    const newOrder = await createOrderResponse.json();
+                    setSuccess('Order created successfully!');
+                    
+                    // Refresh orders list
+                    await fetchOrders();
+                    
+                    // Reset form and close dialog
+                    setShowCreateOrder(false);
+                    setOrderStep(0);
+                    setSelectedProducts([]);
+                    setStudentInfo({
+                      name: '', email: '', phone: '', studentId: '', course: '', year: '',
+                      semester: '', projectTitle: '', projectDescription: '', mentorName: '', expectedDelivery: '', lenderId: ''
+                    });
+                    setActiveTab(0);
+                    
+                    // Clear success message after 3 seconds
+                    setTimeout(() => setSuccess(''), 3000);
+                  } else {
+                    const errorData = await createOrderResponse.json();
+                    throw new Error(errorData.detail || 'Failed to create order');
+                  }
+                  
+                } catch (error) {
+                  console.error('Error creating order:', error);
+                  setError(error.message || 'Failed to create order. Please try again.');
+                  setTimeout(() => setError(''), 5000);
+                } finally {
+                  setLoading(false);
+                }
               }
             }}
             disabled={
-              (orderStep === 0 && (!studentInfo.name || !studentInfo.email || !studentInfo.department || !studentInfo.lenderId)) ||
+              loading ||
+              (orderStep === 0 && (!studentInfo.name || !studentInfo.email || !studentInfo.course || !studentInfo.lenderId)) ||
               (orderStep === 1 && selectedProducts.length === 0)
             }
             variant="contained"
@@ -1159,7 +1324,7 @@ const LendingManagement = () => {
               },
             }}
           >
-            {orderStep === 2 ? 'Submit Order' : 'Next'}
+            {loading ? 'Creating...' : (orderStep === 2 ? 'Submit Order' : 'Next')}
           </Button>
         </DialogActions>
       </Dialog>

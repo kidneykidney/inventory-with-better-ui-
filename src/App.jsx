@@ -815,7 +815,7 @@ function App() {
             <Divider />
             <Box sx={{ p: 1, textAlign: 'center' }}>
               <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
-                v2.0.0 - Professional Edition
+                v1.0.0 - Professional Edition
               </Typography>
             </Box>
           </Drawer>

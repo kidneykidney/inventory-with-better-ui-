@@ -184,7 +184,7 @@ docker-compose.yml (if using Docker)
 ## 📞 Support Information
 
 **Contact**: [Your contact information]
-**Project Version**: 2.0
+**Project Version**: 1.0
 **Database Version**: PostgreSQL 12+
 **Last Updated**: September 2025
 

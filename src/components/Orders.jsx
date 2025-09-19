@@ -70,6 +70,7 @@ const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [students, setStudents] = useState([]);
+  const [lenders, setLenders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedTab, setSelectedTab] = useState(0);
   const [page, setPage] = useState(0);
@@ -85,6 +86,7 @@ const Orders = () => {
   // Form states
   const [orderForm, setOrderForm] = useState({
     student_id: '',
+    lender_id: '',
     items: [],
     notes: '',
     expected_return_date: ''
@@ -115,7 +117,16 @@ const Orders = () => {
       if (studentFilter) params.push(`student_id=${studentFilter}`);
       if (params.length > 0) url += `?${params.join('&')}`;
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
+        cache: 'no-cache'
+      });
       const data = await response.json();
       setOrders(data);
     } catch (error) {
@@ -137,7 +148,7 @@ const Orders = () => {
 
   const fetchStudents = async () => {
     try {
-      const response = await fetch(`${API_BASE}/students`);
+      const response = await fetch(`${API_BASE}/api/students`);
       const data = await response.json();
       setStudents(data);
     } catch (error) {
@@ -145,10 +156,21 @@ const Orders = () => {
     }
   };
 
+  const fetchLenders = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/lenders`);
+      const data = await response.json();
+      setLenders(data);
+    } catch (error) {
+      showSnackbar('Failed to fetch lenders', 'error');
+    }
+  };
+
   const createOrder = async () => {
     try {
       const orderData = {
         student_id: orderForm.student_id,
+        lender_id: orderForm.lender_id,
         items: selectedItems.map(item => ({
           product_id: item.id,
           quantity_requested: item.requestedQuantity,
@@ -169,7 +191,13 @@ const Orders = () => {
         showSnackbar('Order created successfully', 'success');
         setOpenOrderDialog(false);
         resetOrderForm();
-        fetchOrders();
+        
+        // Force immediate refresh with loading state
+        console.log('Forcing immediate orders refresh after creation...');
+        setLoading(true);
+        await fetchOrders();
+        setLoading(false);
+        console.log('Orders refreshed successfully after creation');
       } else {
         const errorData = await response.json();
         throw new Error(errorData.detail || 'Failed to create order');
@@ -314,6 +342,7 @@ const Orders = () => {
     fetchOrders();
     fetchProducts();
     fetchStudents();
+    fetchLenders();
   }, [statusFilter, studentFilter]);
 
   const handleChangePage = (event, newPage) => {
@@ -700,7 +729,24 @@ const Orders = () => {
                 >
                   {students.map(student => (
                     <MenuItem key={student.id} value={student.id}>
-                      {student.name} - {student.student_id} ({student.department})
+                      {student.name} - {student.student_id} ({student.course})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Select Lender/Staff</InputLabel>
+                <Select
+                  value={orderForm.lender_id}
+                  onChange={(e) => setOrderForm({...orderForm, lender_id: e.target.value})}
+                  label="Select Lender/Staff"
+                >
+                  {lenders.map(lender => (
+                    <MenuItem key={lender.id} value={lender.id}>
+                      {lender.name} - {lender.designation} ({lender.department})
                     </MenuItem>
                   ))}
                 </Select>
@@ -817,7 +863,7 @@ const Orders = () => {
           <Button 
             onClick={createOrder}
             variant="contained"
-            disabled={!orderForm.student_id || selectedItems.length === 0}
+            disabled={!orderForm.student_id || !orderForm.lender_id || selectedItems.length === 0}
             sx={{ bgcolor: '#4caf50', '&:hover': { bgcolor: '#2e7d32' } }}
           >
             Create Lending
@@ -858,7 +904,7 @@ const Orders = () => {
                 <Typography variant="subtitle1" gutterBottom>Student Information:</Typography>
                 <Typography variant="body2">Name: {selectedOrder.student_name}</Typography>
                 <Typography variant="body2">Email: {selectedOrder.student_email}</Typography>
-                <Typography variant="body2">Department: {selectedOrder.department}</Typography>
+                <Typography variant="body2">Course: {selectedOrder.course}</Typography>
               </Grid>
               
               <Grid item xs={12} md={6}>

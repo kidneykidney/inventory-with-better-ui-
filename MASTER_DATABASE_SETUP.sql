@@ -8,7 +8,7 @@
 -- 
 -- Author: College Inventory System
 -- Date: September 2025
--- Version: 2.0
+-- Version: 1.0
 -- ===================================================================
 
 \echo '🚀 Starting Complete Database Setup...'

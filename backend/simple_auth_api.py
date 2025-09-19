@@ -145,7 +145,7 @@ def initialize_database_sync():
 initialize_database_sync()
 
 class LoginRequest(BaseModel):
-    username: str
+    username: str  # Can be username or email
     password: str
     remember_me: bool = False
 
@@ -177,26 +177,59 @@ async def health_check():
 
 @simple_auth_router.post("/login", response_model=LoginResponse)
 async def login(login_data: LoginRequest):
-    """Simple login endpoint"""
+    """Simple login endpoint - supports login with username or email"""
     
-    # Find user in database
     user = None
-    for db_user in users_db:
-        if db_user["username"] == login_data.username:
-            user = db_user
-            break
+    
+    # First try to find and authenticate user in database
+    conn = get_db_connection()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            # Query database for user by username OR email
+            cursor.execute("""
+                SELECT id, username, email, password_hash, full_name, role, status, is_active 
+                FROM users 
+                WHERE (username = %s OR email = %s) AND is_active = true
+            """, (login_data.username, login_data.username))
+            
+            db_result = cursor.fetchone()
+            
+            if db_result:
+                # Check password hash
+                import hashlib
+                input_hash = hashlib.sha256(login_data.password.encode()).hexdigest()
+                
+                if input_hash == db_result[3]:  # Compare with stored password_hash
+                    user = {
+                        "id": db_result[0],
+                        "username": db_result[1],
+                        "email": db_result[2],
+                        "full_name": db_result[4],
+                        "role": db_result[5],
+                        "status": db_result[6]
+                    }
+            
+            cursor.close()
+            conn.close()
+            
+        except Exception as e:
+            print(f"Database authentication error: {e}")
+            if conn:
+                conn.close()
+    
+    # If database authentication failed, try in-memory users (fallback for admin)
+    if not user:
+        for db_user in users_db:
+            if (db_user["username"] == login_data.username or db_user["email"] == login_data.username):
+                if login_data.password == db_user["password"]:  # Plain text comparison
+                    user = db_user
+                    break
     
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid username or password"
-        )
-    
-    # Check password (simple string comparison for now)
-    if login_data.password != user["password"]:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid username or password"
+            detail="Invalid username/email or password"
         )
     
     # Create simple token

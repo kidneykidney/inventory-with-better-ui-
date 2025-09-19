@@ -139,6 +139,6 @@ After database setup:
 5. Visit: http://localhost:3000
 
 ---
-**Database Schema Version**: 2.0  
+**Database Schema Version**: 1.0  
 **Last Updated**: September 2025  
 **Compatibility**: PostgreSQL 12+

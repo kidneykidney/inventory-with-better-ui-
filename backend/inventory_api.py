@@ -8,7 +8,9 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, date
 import uuid
 import time
+import json
 import requests
+import psycopg2
 from database_manager import get_db, DatabaseManager
 from logging_config import api_logger, main_logger, db_logger, log_performance
 import logging
@@ -142,6 +144,7 @@ class ProductCreate(BaseModel):
     image_url: Optional[str] = None
     specifications: Optional[Dict[str, Any]] = None
     tags: Optional[List[str]] = None
+    date_of_purchase: Optional[date] = None
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
@@ -156,6 +159,7 @@ class ProductUpdate(BaseModel):
     image_url: Optional[str] = None
     specifications: Optional[Dict[str, Any]] = None
     tags: Optional[List[str]] = None
+    date_of_purchase: Optional[date] = None
 
 class Product(BaseModel):
     id: str
@@ -174,6 +178,7 @@ class Product(BaseModel):
     specifications: Optional[Dict[str, Any]]
     tags: Optional[List[str]]
     status: str
+    date_of_purchase: Optional[date]
     created_at: datetime
     updated_at: datetime
 
@@ -182,7 +187,7 @@ class StudentCreate(BaseModel):
     name: str
     email: Optional[str] = None  # Made optional to allow flexibility
     phone: Optional[str] = None
-    department: str
+    department: Optional[str] = None  # Made optional since course field is more relevant
     year_of_study: Optional[int] = None
     course: Optional[str] = None
 
@@ -192,7 +197,7 @@ class Student(BaseModel):
     name: str
     email: str
     phone: Optional[str]
-    department: str
+    department: Optional[str] = None  # Made optional since course field is more relevant
     year_of_study: Optional[int]
     course: Optional[str]
     is_active: bool
@@ -234,7 +239,7 @@ class Order(BaseModel):
     student_id: str
     student_name: str
     student_email: str
-    department: str
+    course: str
     lender_id: Optional[str] = None  # Add lender support
     lender_name: Optional[str] = None  # Add lender name
     order_type: str
@@ -551,8 +556,8 @@ async def create_product(product: ProductCreate, db: DatabaseManager = Depends(g
     INSERT INTO products (
         id, name, description, category_id, sku, quantity_total, 
         quantity_available, is_returnable, unit_price, location, 
-        minimum_stock_level, image_url, specifications, tags
-    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s)
+        minimum_stock_level, image_url, specifications, tags, date_of_purchase
+    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)
     """
     
     params = (
@@ -560,7 +565,7 @@ async def create_product(product: ProductCreate, db: DatabaseManager = Depends(g
         product.sku, product.quantity_total, product.quantity_available,
         product.is_returnable, product.unit_price, product.location,
         product.minimum_stock_level, product.image_url,
-        str(specifications_json), tags_array
+        str(specifications_json), tags_array, product.date_of_purchase
     )
     
     try:
@@ -658,8 +663,8 @@ async def delete_product(product_id: str, db: DatabaseManager = Depends(get_db))
 # Student endpoints
 @app.get("/api/students", response_model=List[Student])
 async def get_students(db: DatabaseManager = Depends(get_db)):
-    """Get all active students"""
-    query = "SELECT * FROM students WHERE is_active = true ORDER BY name"
+    """Get all students (both active and inactive)"""
+    query = "SELECT * FROM students ORDER BY name"
     results = db.execute_query(query)
     return results
 
@@ -675,8 +680,7 @@ async def create_student(student: StudentCreate, db: DatabaseManager = Depends(g
     # Validate required fields
     if not student.name or not student.name.strip():
         raise HTTPException(status_code=400, detail="Student name is required")
-    if not student.department or not student.department.strip():
-        raise HTTPException(status_code=400, detail="Department is required")
+    # Department is now optional since course field is more relevant
     
     # If no student_id provided, generate one
     if not student.student_id or not student.student_id.strip():
@@ -705,8 +709,8 @@ async def create_student(student: StudentCreate, db: DatabaseManager = Depends(g
     # Create new student
     student_uuid = str(uuid.uuid4())
     query = """
-    INSERT INTO students (id, student_id, name, email, phone, department, year_of_study, course)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+    INSERT INTO students (id, student_id, name, email, phone, department, year_of_study, course, is_active)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     
     params = (
@@ -715,9 +719,10 @@ async def create_student(student: StudentCreate, db: DatabaseManager = Depends(g
         student.name, 
         student.email,
         student.phone if student.phone and student.phone.strip() else None,
-        student.department,
+        student.department if student.department and student.department.strip() else None,  # Handle optional department
         student.year_of_study,
-        student.course if student.course and student.course.strip() else None
+        student.course if student.course and student.course.strip() else None,
+        True  # Set new students as active by default
     )
     
     try:
@@ -775,7 +780,8 @@ async def update_student(student_db_id: str, student_update: dict, db: DatabaseM
         'phone': 'phone',
         'department': 'department',
         'year_of_study': 'year_of_study',
-        'course': 'course'
+        'course': 'course',
+        'is_active': 'is_active'  # Added support for status toggle
     }
     
     for field, db_column in field_mapping.items():
@@ -901,8 +907,8 @@ class Lender(BaseModel):
 # Lender endpoints
 @app.get("/api/lenders", response_model=List[Lender])
 async def get_lenders(db: DatabaseManager = Depends(get_db)):
-    """Get all active lenders"""
-    query = "SELECT * FROM lenders WHERE is_active = true ORDER BY name"
+    """Get all lenders (both active and inactive)"""
+    query = "SELECT * FROM lenders ORDER BY name"
     results = db.execute_query(query)
     return results
 
@@ -950,8 +956,8 @@ async def create_lender(lender: LenderCreate, db: DatabaseManager = Depends(get_
     query = """
     INSERT INTO lenders (id, lender_id, name, email, phone, department, designation, 
                         employee_id, office_location, authority_level, can_approve_lending, 
-                        can_lend_high_value)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        can_lend_high_value, is_active)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     RETURNING *
     """
     
@@ -968,7 +974,8 @@ async def create_lender(lender: LenderCreate, db: DatabaseManager = Depends(get_
             lender.office_location,
             lender.authority_level,
             lender.can_approve_lending,
-            lender.can_lend_high_value
+            lender.can_lend_high_value,
+            True
         ))
         
         if result:
@@ -1029,10 +1036,11 @@ async def create_lenders_bulk(lenders: List[LenderCreate], db: DatabaseManager =
             lender_uuid = str(uuid.uuid4())
             
             query = """
+            
             INSERT INTO lenders (id, lender_id, name, email, phone, department, designation, 
                                 employee_id, office_location, authority_level, can_approve_lending, 
-                                can_lend_high_value)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                can_lend_high_value, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING *
             """
             
@@ -1048,7 +1056,8 @@ async def create_lenders_bulk(lenders: List[LenderCreate], db: DatabaseManager =
                 lender.office_location,
                 lender.authority_level,
                 lender.can_approve_lending,
-                lender.can_lend_high_value
+                lender.can_lend_high_value,
+                True
             ))
             
             if result:
@@ -1133,6 +1142,61 @@ async def update_lender(lender_db_id: str, lender_update: dict, db: DatabaseMana
         logger.error(f"Database error updating lender: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
+@app.delete("/api/lenders/bulk")
+async def bulk_delete_lenders(request: Request, db: DatabaseManager = Depends(get_db)):
+    """Bulk delete lenders (hard delete for bulk operations)"""
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Parse JSON body manually to get the lender IDs
+        body = await request.json()
+        lender_ids = body if isinstance(body, list) else body.get('lender_ids', [])
+        
+        logger.info(f"Bulk delete request for lender IDs: {lender_ids}")
+        
+        if not lender_ids:
+            raise HTTPException(status_code=400, detail="No lender IDs provided")
+        
+        # Validate that all IDs are strings (UUIDs)
+        if not all(isinstance(id_val, str) for id_val in lender_ids):
+            raise HTTPException(status_code=400, detail="All lender IDs must be strings")
+        
+        # Create placeholders for the IN clause
+        placeholders = ', '.join(['%s'] * len(lender_ids))
+        
+        # Hard delete for bulk operations (since soft delete can be confusing in bulk)
+        query = f"DELETE FROM lenders WHERE id IN ({placeholders})"
+        
+        logger.info(f"Executing query: {query} with params: {lender_ids}")
+        logger.info(f"Parameter types: {[type(id_val) for id_val in lender_ids]}")
+        
+        # Convert to tuple and execute
+        params_tuple = tuple(lender_ids)
+        logger.info(f"Params as tuple: {params_tuple}")
+        
+        result = db.execute_command(query, params_tuple)
+        logger.info(f"Execute command result: {result}")
+        
+        if result:
+            logger.info(f"Successfully deleted {len(lender_ids)} lender(s)")
+            return {"message": f"Successfully deleted {len(lender_ids)} lender(s)"}
+        
+        raise HTTPException(status_code=500, detail="Failed to delete lenders - execute_command returned False")
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decode error: {str(e)}")
+        raise HTTPException(status_code=400, detail="Invalid JSON format")
+    except psycopg2.Error as e:
+        logger.error(f"PostgreSQL error in bulk delete: {str(e)}")
+        logger.error(f"Error code: {e.pgcode}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Database error in bulk delete: {str(e)}")
+        logger.error(f"Exception type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
 @app.delete("/api/lenders/{lender_id}")
 async def delete_lender(lender_id: str, db: DatabaseManager = Depends(get_db)):
     """Soft delete a lender (set is_active = false)"""
@@ -1142,27 +1206,16 @@ async def delete_lender(lender_id: str, db: DatabaseManager = Depends(get_db)):
     
     raise HTTPException(status_code=500, detail="Failed to deactivate lender")
 
-@app.delete("/api/lenders/bulk")
-async def bulk_delete_lenders(lender_ids: List[str], db: DatabaseManager = Depends(get_db)):
-    """Bulk delete lenders (hard delete for bulk operations)"""
+@app.get("/api/users")
+async def get_users(db: DatabaseManager = Depends(get_db)):
+    """Get all users (placeholder endpoint to prevent 404 errors)"""
     try:
-        if not lender_ids:
-            raise HTTPException(status_code=400, detail="No lender IDs provided")
-        
-        # Create placeholders for the IN clause
-        placeholders = ', '.join(['%s'] * len(lender_ids))
-        
-        # Hard delete for bulk operations (since soft delete can be confusing in bulk)
-        query = f"DELETE FROM lenders WHERE id IN ({placeholders})"
-        
-        if db.execute_command(query, tuple(lender_ids)):
-            return {"message": f"Successfully deleted {len(lender_ids)} lender(s)"}
-        
-        raise HTTPException(status_code=500, detail="Failed to delete lenders")
-        
+        query = "SELECT * FROM users ORDER BY created_at DESC"
+        results = db.execute_query(query)
+        return results
     except Exception as e:
-        logger.error(f"Database error in bulk delete: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        # Return empty array if users table doesn't exist or other errors
+        return []
 
 @app.get("/api/lenders/by-lender-id/{lender_id}")
 async def get_lender_by_lender_id(lender_id: str, db: DatabaseManager = Depends(get_db)):
@@ -1290,10 +1343,13 @@ async def get_orders(
 ):
     """Get all orders with optional filtering"""
     query = """
-    SELECT o.*, s.name as student_name, s.email as student_email, s.department,
-           l.name as lender_name
+    SELECT o.*,
+           COALESCE(s.name, 'Unknown Student') as student_name, 
+           COALESCE(s.email, '') as student_email, 
+           COALESCE(s.course, '') as course,
+           COALESCE(l.name, 'No Lender') as lender_name
     FROM orders o
-    JOIN students s ON o.student_id = s.id
+    LEFT JOIN students s ON o.student_id = s.id
     LEFT JOIN lenders l ON o.lender_id = l.id
     WHERE 1=1
     """
@@ -1372,9 +1428,52 @@ async def create_order(order: OrderCreate, db: DatabaseManager = Depends(get_db)
     )
     
     try:
-        # Calculate total items and value
+        # Calculate total items and value, and validate stock availability
         total_items = sum(item.quantity_requested for item in order.items)
         total_value = 0.0
+        stock_warnings = []
+        
+        # First pass: Validate stock availability for all items
+        for item in order.items:
+            # Get product info including current stock
+            product = db.execute_query(
+                "SELECT unit_price, is_returnable, quantity_available, name, minimum_stock_level FROM products WHERE id = %s", 
+                (item.product_id,)
+            )
+            
+            if not product:
+                api_logger.error(f"Product {item.product_id} not found for order {order_id}")
+                raise HTTPException(status_code=400, detail=f"Product {item.product_id} not found")
+            
+            product_info = product[0]
+            available_qty = product_info['quantity_available']
+            product_name = product_info['name']
+            min_stock = product_info.get('minimum_stock_level', 0) or 0
+            
+            # Check if sufficient stock is available
+            if available_qty < item.quantity_requested:
+                if available_qty == 0:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Product '{product_name}' is out of stock. Cannot lend {item.quantity_requested} units."
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Insufficient stock for '{product_name}'. Available: {available_qty}, Requested: {item.quantity_requested}"
+                    )
+            
+            # Check for low stock warnings (after lending)
+            remaining_after_lending = available_qty - item.quantity_requested
+            if remaining_after_lending <= min_stock and remaining_after_lending > 0:
+                stock_warnings.append(f"Warning: '{product_name}' will be low stock after lending ({remaining_after_lending} remaining)")
+            elif remaining_after_lending == 0:
+                stock_warnings.append(f"Warning: '{product_name}' will be out of stock after lending")
+        
+        # Log stock warnings if any
+        if stock_warnings:
+            for warning in stock_warnings:
+                api_logger.warning(warning)
         
         db_logger.info(f"Starting database transaction for order {order_id}")
         
@@ -1391,13 +1490,13 @@ async def create_order(order: OrderCreate, db: DatabaseManager = Depends(get_db)
             api_logger.error(f"Failed to create order {order_id} in database")
             raise HTTPException(status_code=500, detail="Failed to create order")
         
-        # Add order items
+        # Add order items and update product quantities
         for item in order.items:
             item_id = str(uuid.uuid4())
             
-            # Get product info
+            # Get product info again (to ensure consistency)
             product = db.execute_query(
-                "SELECT unit_price, is_returnable FROM products WHERE id = %s", 
+                "SELECT unit_price, is_returnable, quantity_available, name FROM products WHERE id = %s", 
                 (item.product_id,)
             )
             
@@ -1411,6 +1510,7 @@ async def create_order(order: OrderCreate, db: DatabaseManager = Depends(get_db)
             
             db_logger.info(f"Adding item {item.product_id} to order {order_id}: {item.quantity_requested} units @ ${product_info['unit_price']}")
             
+            # Insert order item
             item_query = """
             INSERT INTO order_items (
                 id, order_id, product_id, quantity_requested, 
@@ -1426,6 +1526,20 @@ async def create_order(order: OrderCreate, db: DatabaseManager = Depends(get_db)
             )):
                 api_logger.error(f"Failed to add item {item.product_id} to order {order_id}")
                 raise HTTPException(status_code=500, detail="Failed to add order item")
+            
+            # Update product quantity (reduce available stock)
+            new_quantity = product_info['quantity_available'] - item.quantity_requested
+            update_stock_query = """
+            UPDATE products 
+            SET quantity_available = %s, updated_at = CURRENT_TIMESTAMP 
+            WHERE id = %s
+            """
+            
+            if not db.execute_command(update_stock_query, (new_quantity, item.product_id)):
+                api_logger.error(f"Failed to update stock for product {item.product_id}")
+                raise HTTPException(status_code=500, detail="Failed to update product stock")
+            
+            api_logger.info(f"Updated stock for '{product_info['name']}': {product_info['quantity_available']} -> {new_quantity}")
         
         # Update order total value
         db_logger.info(f"Updating order {order_id} total value to ${total_value}")
@@ -1438,13 +1552,17 @@ async def create_order(order: OrderCreate, db: DatabaseManager = Depends(get_db)
         
         api_logger.info(f"Order {order_id} created successfully with {len(order.items)} items, total value ${total_value}")
         
+        # Log stock warnings summary
+        if stock_warnings:
+            api_logger.info(f"Stock warnings for order {order_id}: {'; '.join(stock_warnings)}")
+        
     except Exception as e:
         api_logger.error(f"Error creating order {order_id}: {str(e)}", exc_info=True)
         raise
     
     # Return the created order
     result = db.execute_query("""
-        SELECT o.*, s.name as student_name, s.email as student_email, s.department
+        SELECT o.*, s.name as student_name, s.email as student_email, s.course
         FROM orders o
         JOIN students s ON o.student_id = s.id
         WHERE o.id = %s
@@ -1978,6 +2096,223 @@ async def delete_order(order_id: str, db: DatabaseManager = Depends(get_db)):
         return {"message": "Order deleted successfully"}
     
     raise HTTPException(status_code=500, detail="Failed to delete order")
+
+# ==============================
+# COURSES API ENDPOINTS
+# ==============================
+
+class CourseModel(BaseModel):
+    name: str
+
+@app.get("/api/courses")
+async def get_courses(db: DatabaseManager = Depends(get_db)):
+    """Get all courses"""
+    try:
+        # Check if courses table exists, if not create it
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS courses (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+        db.execute_command(create_table_query)
+        
+        # Insert default courses if table is empty
+        count_query = "SELECT COUNT(*) as count FROM courses"
+        count_result = db.execute_query(count_query)
+        
+        if count_result and count_result[0]['count'] == 0:
+            # Insert default courses
+            default_courses = [
+                'Computer Science',
+                'Information Technology', 
+                'Software Engineering',
+                'Data Science',
+                'Cybersecurity',
+                'Web Development',
+                'Mobile App Development',
+                'Artificial Intelligence',
+                'Machine Learning',
+                'Database Management'
+            ]
+            
+            insert_query = "INSERT INTO courses (name) VALUES (%s) ON CONFLICT (name) DO NOTHING"
+            for course in default_courses:
+                db.execute_command(insert_query, (course,))
+        
+        # Fetch all courses
+        query = "SELECT id, name FROM courses ORDER BY name"
+        courses = db.execute_query(query)
+        
+        if courses is None:
+            return []
+        
+        return [{"id": course["id"], "name": course["name"]} for course in courses]
+        
+    except Exception as e:
+        api_logger.error(f"Error fetching courses: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch courses")
+
+@app.post("/api/courses")
+async def create_course(course: CourseModel, db: DatabaseManager = Depends(get_db)):
+    """Create a new course"""
+    try:
+        # Ensure courses table exists
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS courses (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+        db.execute_command(create_table_query)
+        
+        # Insert new course
+        insert_query = "INSERT INTO courses (name) VALUES (%s) RETURNING id, name"
+        result = db.execute_query(insert_query, (course.name.strip(),))
+        
+        if result:
+            api_logger.info(f"Course created successfully: {course.name}")
+            return {"id": result[0]["id"], "name": result[0]["name"], "message": "Course created successfully"}
+        else:
+            raise HTTPException(status_code=400, detail="Failed to create course")
+            
+    except Exception as e:
+        api_logger.error(f"Error creating course: {str(e)}")
+        if "duplicate key" in str(e).lower() or "unique constraint" in str(e).lower():
+            raise HTTPException(status_code=400, detail="Course already exists")
+        raise HTTPException(status_code=500, detail="Failed to create course")
+
+@app.delete("/api/courses")
+async def delete_course(course: CourseModel, db: DatabaseManager = Depends(get_db)):
+    """Delete a course by name"""
+    try:
+        # Delete course by name
+        delete_query = "DELETE FROM courses WHERE name = %s RETURNING id, name"
+        result = db.execute_query(delete_query, (course.name,))
+        
+        if result:
+            api_logger.info(f"Course deleted successfully: {course.name}")
+            return {"message": f"Course '{course.name}' deleted successfully"}
+        else:
+            raise HTTPException(status_code=404, detail="Course not found")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        api_logger.error(f"Error deleting course: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to delete course")
+
+# DESIGNATIONS API ENDPOINTS
+# ==============================
+
+class DesignationModel(BaseModel):
+    name: str
+
+@app.get("/api/designations")
+async def get_designations(db: DatabaseManager = Depends(get_db)):
+    """Get all designations"""
+    try:
+        # Check if designations table exists, if not create it
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS designations (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+        db.execute_command(create_table_query)
+        
+        # Insert default designations if table is empty
+        count_query = "SELECT COUNT(*) as count FROM designations"
+        count_result = db.execute_query(count_query)
+        
+        if count_result and count_result[0]['count'] == 0:
+            # Insert default designations
+            default_designations = [
+                'Professor',
+                'Associate Professor', 
+                'Assistant Professor',
+                'Lab Assistant',
+                'Lab Coordinator',
+                'Department Head',
+                'Research Assistant',
+                'Teaching Assistant',
+                'Lab Technician',
+                'Senior Lab Assistant'
+            ]
+            
+            insert_query = "INSERT INTO designations (name) VALUES (%s) ON CONFLICT (name) DO NOTHING"
+            for designation in default_designations:
+                db.execute_command(insert_query, (designation,))
+        
+        # Fetch all designations
+        query = "SELECT id, name FROM designations ORDER BY name"
+        designations = db.execute_query(query)
+        
+        if designations is None:
+            return []
+        
+        return [{"id": designation["id"], "name": designation["name"]} for designation in designations]
+        
+    except Exception as e:
+        api_logger.error(f"Error fetching designations: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch designations")
+
+@app.post("/api/designations")
+async def create_designation(designation: DesignationModel, db: DatabaseManager = Depends(get_db)):
+    """Create a new designation"""
+    try:
+        # Ensure designations table exists
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS designations (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+        db.execute_command(create_table_query)
+        
+        # Insert new designation
+        insert_query = "INSERT INTO designations (name) VALUES (%s) RETURNING id, name"
+        result = db.execute_query(insert_query, (designation.name.strip(),))
+        
+        if result:
+            api_logger.info(f"Designation created successfully: {designation.name}")
+            return {"id": result[0]["id"], "name": result[0]["name"], "message": "Designation created successfully"}
+        else:
+            raise HTTPException(status_code=400, detail="Failed to create designation")
+            
+    except Exception as e:
+        api_logger.error(f"Error creating designation: {str(e)}")
+        if "duplicate key" in str(e).lower() or "unique constraint" in str(e).lower():
+            raise HTTPException(status_code=400, detail="Designation already exists")
+        raise HTTPException(status_code=500, detail="Failed to create designation")
+
+@app.delete("/api/designations")
+async def delete_designation(designation: DesignationModel, db: DatabaseManager = Depends(get_db)):
+    """Delete a designation by name"""
+    try:
+        # Delete designation by name
+        delete_query = "DELETE FROM designations WHERE name = %s RETURNING id, name"
+        result = db.execute_query(delete_query, (designation.name,))
+        
+        if result:
+            api_logger.info(f"Designation deleted successfully: {designation.name}")
+            return {"message": f"Designation '{designation.name}' deleted successfully"}
+        else:
+            raise HTTPException(status_code=404, detail="Designation not found")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        api_logger.error(f"Error deleting designation: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to delete designation")
 
 if __name__ == "__main__":
     import uvicorn

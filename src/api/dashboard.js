@@ -12,17 +12,28 @@ export const dashboardAPI = {
       
       console.log('📊 Dashboard stats received:', stats);
       
-      // Get categories count from products endpoint
+      // Get categories count from categories endpoint
       let categoriesCount = 0;
+      try {
+        const categoriesResponse = await fetch(`${API_BASE_URL}/api/categories`);
+        if (categoriesResponse.ok) {
+          const categories = await categoriesResponse.json();
+          categoriesCount = categories.length;
+        }
+      } catch (err) {
+        console.warn('Could not fetch categories count:', err);
+      }
+      
+      // Get out of stock products count
+      let outOfStockCount = 0;
       try {
         const productsResponse = await fetch(`${API_BASE_URL}/api/products`);
         if (productsResponse.ok) {
           const products = await productsResponse.json();
-          const uniqueCategories = [...new Set(products.map(p => p.category).filter(Boolean))];
-          categoriesCount = uniqueCategories.length;
+          outOfStockCount = products.filter(product => product.quantity_available === 0).length;
         }
       } catch (err) {
-        console.warn('Could not fetch categories count:', err);
+        console.warn('Could not fetch out of stock count:', err);
       }
       
       // Map the backend response to frontend expected format
@@ -30,7 +41,7 @@ export const dashboardAPI = {
         total_products: parseInt(stats.totalProducts) || 0,
         active_products: parseInt(stats.totalProducts) || 0,
         low_stock_count: parseInt(stats.lowStockItems) || 0,
-        out_of_stock_count: 0,
+        out_of_stock_count: outOfStockCount,
         total_value: parseFloat(stats.totalInventoryValue) || 0,
         total_students: parseInt(stats.totalStudents) || 0,
         active_students: parseInt(stats.totalStudents) || 0,
