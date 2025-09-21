@@ -86,7 +86,11 @@ if exist backend\requirements.txt (
     pip install -r backend\requirements.txt >nul 2>&1
 )
 
-echo  ✅ Dependencies ready
+REM Ensure scheduler dependencies are installed
+echo     Installing/updating scheduler dependencies...
+pip install apscheduler pytz >nul 2>&1
+
+echo  ✅ Dependencies ready (including automatic overdue notifications)
 
 echo.
 
@@ -128,6 +132,7 @@ echo  ┌───────────────────────�
 echo  │  📱 Frontend (React):     http://localhost:5173            │
 echo  │  🔧 Backend API:          http://localhost:8000            │
 echo  │  📚 API Documentation:    http://localhost:8000/docs       │
+echo  │  📅 Scheduler Status:     http://localhost:8000/api/admin/scheduler/status │
 echo  └─────────────────────────────────────────────────────────────┘
 echo.
 echo  🔐 Default Admin Login:
@@ -140,6 +145,9 @@ echo     ✅ Real-time data updates
 echo     ✅ Professional CSV formatting
 echo     ✅ Complete inventory management
 echo     ✅ User authentication system
+echo     ✅ Automatic overdue notifications (9:00 AM daily)
+echo     ✅ Email notifications for overdue items
+echo     ✅ Background scheduler system
 echo.
 
 REM Optional: Open browser automatically
@@ -155,6 +163,12 @@ echo.
 echo  💡 To stop the system:
 echo     - Close the Backend and Frontend terminal windows
 echo     - Or run: LOCAL-STOP.bat
+echo     - Or run: npm run local-stop
+echo.
+echo  🔧 Useful npm commands:
+echo     npm run scheduler        - Manually trigger overdue check
+echo     npm run scheduler-status - Check scheduler status
+echo     npm run local-status     - Check system status
 echo.
 echo  🎉 Ready to use! Happy managing! 🎉
 echo.

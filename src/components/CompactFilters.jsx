@@ -721,7 +721,7 @@ const CompactFilters = ({
                   <Autocomplete
                     multiple
                     size="small"
-                    options={['Pending', 'Approved', 'Returned', 'Overdue', 'Cancelled']}
+                    options={['Pending', 'Closed', 'Overdue']}
                     value={filters.status}
                     onChange={(e, value) => handleFilterChange('status', value)}
                     renderInput={(params) => (

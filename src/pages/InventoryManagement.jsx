@@ -366,9 +366,7 @@ function InventoryManagement() {
           }}
           onClick={() => setIsOrderDialogOpen(true)}
         >
-          <Badge badgeContent={orderCart.length} color="error">
-            <ShoppingCart />
-          </Badge>
+          <ShoppingCart />
         </Fab>
       )}
 

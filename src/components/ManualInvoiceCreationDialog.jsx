@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import NotificationService from '../services/notificationService';
 import {
   Dialog,
   DialogTitle,
@@ -35,7 +36,8 @@ import {
   Cancel as CancelIcon,
   PersonAdd as PersonAddIcon,
   Delete as DeleteIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  Clear as ClearIcon
 } from '@mui/icons-material';
 
 const API_BASE_URL = 'http://localhost:8000';
@@ -60,6 +62,20 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
     due_date: '',
     issued_by: 'System Administrator',
     lender_id: '',
+    lending_date: new Date().toISOString().split('T')[0],
+    lending_time: '09:00',
+    
+    // Components/Products
+    components: [{
+      name: '',
+      sku: '',
+      quantity: 1,
+      unit_value: 0,
+      total_value: 0,
+      category: '',
+      description: '',
+      product_id: null
+    }],
     
     // For existing student selection
     useExistingStudent: true,
@@ -68,15 +84,11 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
   
   const [students, setStudents] = useState([]);
   const [lenders, setLenders] = useState([]);
+  const [products, setProducts] = useState([]);
 
-  const steps = ['Student Information', 'Invoice Details', 'Review & Create'];
+  const steps = ['Student Information', 'Invoice Details', 'Components & Products', 'Review & Create'];
 
-  const invoiceTypes = [
-    { value: 'lending', label: 'Lending' },
-    { value: 'return', label: 'Return' },
-    { value: 'damage', label: 'Damage' },
-    { value: 'replacement', label: 'Replacement' }
-  ];
+  // Removed invoiceTypes array - now using fixed "lending" type
 
   const departments = [
     'Computer Science',
@@ -104,6 +116,7 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
     if (open) {
       fetchStudents();
       fetchLenders();
+      fetchProducts();
       resetForm();
     }
   }, [open]);
@@ -132,6 +145,18 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
     }
   };
 
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/products`);
+      const data = await response.json();
+      if (response.ok) {
+        setProducts(data);
+      }
+    } catch (err) {
+      console.error('Error fetching products:', err);
+    }
+  };
+
   const resetForm = () => {
     setCurrentStep(0);
     setInvoices([{
@@ -145,6 +170,18 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
       due_date: '',
       issued_by: 'System Administrator',
       lender_id: '',
+      lending_date: new Date().toISOString().split('T')[0],
+      lending_time: '09:00',
+      components: [{
+        name: '',
+        sku: '',
+        quantity: 1,
+        unit_value: 0,
+        total_value: 0,
+        category: '',
+        description: '',
+        product_id: null
+      }],
       useExistingStudent: true,
       selectedExistingStudent: null
     }]);
@@ -163,9 +200,77 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
       due_date: '',
       issued_by: 'System Administrator',
       lender_id: '',
+      lending_date: new Date().toISOString().split('T')[0],
+      lending_time: '09:00',
+      components: [{
+        name: '',
+        sku: '',
+        quantity: 1,
+        unit_value: 0,
+        total_value: 0,
+        category: '',
+        description: '',
+        product_id: null
+      }],
       useExistingStudent: true,
       selectedExistingStudent: null
     }]);
+  };
+
+  // Component management functions
+  const updateComponentData = (invoiceIndex, componentIndex, field, value) => {
+    const updated = [...invoices];
+    if (!updated[invoiceIndex].components[componentIndex]) {
+      updated[invoiceIndex].components[componentIndex] = {};
+    }
+    updated[invoiceIndex].components[componentIndex][field] = value;
+    
+    // Auto-calculate total value if unit_value or quantity changes
+    if (field === 'unit_value' || field === 'quantity') {
+      const component = updated[invoiceIndex].components[componentIndex];
+      const unitValue = parseFloat(component.unit_value || 0);
+      const quantity = parseInt(component.quantity || 1);
+      updated[invoiceIndex].components[componentIndex].total_value = unitValue * quantity;
+    }
+    
+    setInvoices(updated);
+  };
+
+  const addComponent = (invoiceIndex) => {
+    const updated = [...invoices];
+    updated[invoiceIndex].components.push({
+      name: '',
+      sku: '',
+      quantity: 1,
+      unit_value: 0,
+      total_value: 0,
+      category: '',
+      description: '',
+      product_id: null
+    });
+    setInvoices(updated);
+  };
+
+  const removeComponent = (invoiceIndex, componentIndex) => {
+    const updated = [...invoices];
+    updated[invoiceIndex].components.splice(componentIndex, 1);
+    setInvoices(updated);
+  };
+
+  const selectProduct = (invoiceIndex, componentIndex, product) => {
+    if (product) {
+      updateComponentData(invoiceIndex, componentIndex, 'name', product.name);
+      updateComponentData(invoiceIndex, componentIndex, 'sku', product.sku);
+      updateComponentData(invoiceIndex, componentIndex, 'category', product.category_name || product.category);
+      updateComponentData(invoiceIndex, componentIndex, 'description', product.description);
+      updateComponentData(invoiceIndex, componentIndex, 'unit_value', product.unit_price || product.price || 0);
+      updateComponentData(invoiceIndex, componentIndex, 'product_id', product.id);
+    }
+  };
+
+  const clearProductSelection = (invoiceIndex, componentIndex) => {
+    updateComponentData(invoiceIndex, componentIndex, 'product_id', null);
+    // Keep the manually entered data, just remove the product_id to remove auto-fetch indicators
   };
 
   const removeInvoice = (index) => {
@@ -222,12 +327,41 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
           break;
         case 1: // Invoice Details
           if (!invoice.due_date) {
-            setError(`Invoice ${i + 1}: Due date is required`);
+            setError(`Invoice ${i + 1}: Return date is required`);
+            return false;
+          }
+          if (!invoice.lending_date) {
+            setError(`Invoice ${i + 1}: Lending date is required`);
+            return false;
+          }
+          if (!invoice.lending_time) {
+            setError(`Invoice ${i + 1}: Lending time is required`);
             return false;
           }
           if (!invoice.lender_id) {
             setError(`Invoice ${i + 1}: Staff assignment is required`);
             return false;
+          }
+          break;
+        case 2: // Components & Products
+          if (!invoice.components || invoice.components.length === 0) {
+            setError(`Invoice ${i + 1}: At least one component is required`);
+            return false;
+          }
+          for (let j = 0; j < invoice.components.length; j++) {
+            const component = invoice.components[j];
+            if (!component.name.trim()) {
+              setError(`Invoice ${i + 1}, Component ${j + 1}: Component name is required`);
+              return false;
+            }
+            if (!component.quantity || component.quantity <= 0) {
+              setError(`Invoice ${i + 1}, Component ${j + 1}: Valid quantity is required`);
+              return false;
+            }
+            if (!component.unit_value || component.unit_value < 0) {
+              setError(`Invoice ${i + 1}, Component ${j + 1}: Valid unit value is required`);
+              return false;
+            }
           }
           break;
       }
@@ -247,28 +381,29 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
     setError('');
 
     try {
-      const results = [];
-      let successCount = 0;
-      let failCount = 0;
+      const successfulInvoices = [];
+      const failedInvoices = [];
 
       // Process each invoice
-      for (const [index, invoice] of invoices.entries()) {
+      for (let i = 0; i < invoices.length; i++) {
+        const invoice = invoices[i];
+        
         try {
+          // Calculate total amount from components
+          const totalAmount = invoice.components.reduce((sum, comp) => 
+            sum + (comp.total_value || (comp.quantity * comp.unit_value)), 0
+          );
+
           // Prepare the request data based on API model
           const requestData = {
             invoice_type: invoice.invoice_type,
             notes: invoice.notes || '',
             lender_id: invoice.lender_id,
-            due_date: invoice.due_date ? (() => {
-              // Parse DD/MM/YYYY format and convert to YYYY-MM-DD
-              const parts = invoice.due_date.split('/');
-              if (parts.length === 3) {
-                const [day, month, year] = parts;
-                return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-              }
-              // If it's already in YYYY-MM-DD format or a valid date string
-              return new Date(invoice.due_date).toISOString().split('T')[0];
-            })() : null
+            amount: totalAmount,
+            lending_date: invoice.lending_date,
+            lending_time: invoice.lending_time || null,
+            due_date: invoice.due_date,
+            components: invoice.components
           };
 
           if (invoice.useExistingStudent && invoice.selectedExistingStudent) {
@@ -287,7 +422,7 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
             requestData.year_of_study = invoice.year_of_study ? parseInt(invoice.year_of_study) : null;
           }
 
-          console.log(`Creating invoice ${index + 1} with data:`, requestData);
+          console.log(`Creating invoice ${i + 1} with data:`, requestData);
 
           const response = await fetch(`${API_BASE_URL}/api/invoices/create-with-student`, {
             method: 'POST',
@@ -300,31 +435,87 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
           const responseData = await response.json();
 
           if (response.ok) {
-            results.push({ success: true, data: responseData });
-            successCount++;
+            const createdInvoice = responseData.invoice;
+            
+            // Step 2: Add each component as an invoice item
+            const itemErrors = [];
+            
+            for (const component of invoice.components) {
+              try {
+                const itemData = {
+                  invoice_id: createdInvoice.id,
+                  product_id: component.product_id || null,
+                  order_item_id: null,
+                  product_name: component.name,
+                  product_sku: component.sku || '',
+                  product_category: component.category || '',
+                  product_description: component.description || '',
+                  serial_number: component.serial_number || '',
+                  quantity: parseInt(component.quantity) || 1,
+                  unit_value: parseFloat(component.unit_value) || 0,
+                  total_value: parseFloat(component.total_value) || (component.quantity * component.unit_value),
+                  condition_at_lending: component.condition_at_lending || 'good',
+                  lending_duration_days: 30,
+                  expected_return_date: invoice.due_date,
+                  notes: component.description || ''
+                };
+
+                console.log(`Adding item to invoice ${createdInvoice.id}:`, itemData);
+
+                const itemResponse = await fetch(`${API_BASE_URL}/api/invoices/${createdInvoice.id}/items`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(itemData)
+                });
+
+                if (!itemResponse.ok) {
+                  const itemError = await itemResponse.json();
+                  itemErrors.push(`Item "${component.name}": ${itemError.detail || itemError.message || 'Unknown error'}`);
+                }
+              } catch (error) {
+                itemErrors.push(`Item "${component.name}": ${error.message}`);
+              }
+            }
+
+            if (itemErrors.length > 0) {
+              console.warn(`Invoice ${i + 1} created but some items failed:`, itemErrors);
+            }
+            
+            successfulInvoices.push(i + 1);
           } else {
-            results.push({ success: false, error: responseData.detail });
-            failCount++;
+            failedInvoices.push({ index: i + 1, error: responseData.detail || responseData.error || 'Failed to create invoice' });
           }
         } catch (error) {
-          console.error(`Error creating invoice ${index + 1}:`, error);
-          results.push({ success: false, error: error.message });
-          failCount++;
+          failedInvoices.push({ index: i + 1, error: error.message });
         }
       }
 
-      if (successCount > 0) {
-        const message = successCount === invoices.length 
-          ? `Successfully created ${successCount} invoice(s)!`
-          : `Created ${successCount} invoice(s) successfully. ${failCount} failed.`;
-        onSuccess(message);
-        handleClose();
-      } else {
-        setError('Failed to create any invoices. Please check your data and try again.');
+      // Show results
+      if (successfulInvoices.length > 0) {
+        NotificationService.success(
+          'Invoices Created Successfully', 
+          `Successfully created ${successfulInvoices.length} invoice${successfulInvoices.length > 1 ? 's' : ''}!`
+        );
       }
+
+      if (failedInvoices.length > 0) {
+        const errorMessage = `Failed to create ${failedInvoices.length} invoice${failedInvoices.length > 1 ? 's' : ''}: ${failedInvoices.map(f => `Invoice ${f.index}`).join(', ')}`;
+        NotificationService.error('Invoice Creation Failed', errorMessage);
+        setError(errorMessage);
+      }
+
+      // If all invoices were successful, close the dialog
+      if (failedInvoices.length === 0) {
+        handleClose();
+        if (onSuccess) onSuccess();
+      }
+
     } catch (error) {
       console.error('Error creating invoices:', error);
-      setError('An error occurred while creating invoices');
+      setError(error.message || 'Failed to create invoices. Please try again.');
+      NotificationService.error('Invoice Creation Error', error.message || 'Failed to create invoices');
     } finally {
       setLoading(false);
     }
@@ -336,7 +527,7 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
   };
 
   const getStudentDisplayName = (student) => {
-    return `${student.name} (${student.student_id || 'No ID'}) - ${student.department || 'No Dept'}`;
+    return `${student.name} (${student.student_id || 'No ID'})`;
   };
 
   const renderStepContent = () => {
@@ -364,7 +555,7 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                 }}
               >
                 <Grid container spacing={1} alignItems="center">
-                  <Grid item xs={2}>
+                  <Grid item xs={1}>
                     <FormControlLabel
                       control={
                         <Switch
@@ -376,180 +567,233 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                       label={invoice.useExistingStudent ? "Existing" : "New"}
                       sx={{ 
                         fontSize: '0.75rem', 
-                        '& .MuiFormControlLabel-label': { fontSize: '0.75rem' },
+                        '& .MuiFormControlLabel-label': { fontSize: '0.75rem', fontWeight: 500 },
                         '& .MuiTypography-root': { fontSize: '0.75rem' }
                       }}
                     />
                   </Grid>
 
-                  <Grid item xs={8}>
+                  <Grid item xs={11}>
                     {invoice.useExistingStudent ? (
-                      <Autocomplete
-                        size="small"
-                        fullWidth
-                        options={students}
-                        getOptionLabel={getStudentDisplayName}
-                        value={invoice.selectedExistingStudent}
-                        onChange={(event, newValue) => {
-                          handleInputChange(index, 'selectedExistingStudent', newValue);
-                        }}
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            placeholder="Search and select student..."
-                            required
-                            error={!invoice.selectedExistingStudent}
-                            sx={{ 
-                              '& .MuiOutlinedInput-root': { 
-                                fontSize: '0.8rem', 
-                                height: '32px',
-                                padding: '0 8px'
+                      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                        <Box sx={{ flex: 3, minWidth: '250px' }}>
+                          <Autocomplete
+                            size="small"
+                            fullWidth
+                            options={students}
+                            getOptionLabel={getStudentDisplayName}
+                            value={invoice.selectedExistingStudent}
+                            onChange={(event, newValue) => {
+                              handleInputChange(index, 'selectedExistingStudent', newValue);
+                            }}
+                            renderInput={(params) => (
+                              <TextField
+                                {...params}
+                                placeholder="Search student..."
+                                required
+                                error={!invoice.selectedExistingStudent}
+                                sx={{ 
+                                  '& .MuiOutlinedInput-root': { 
+                                    fontSize: '0.8rem',
+                                    height: '32px'
+                                  }
+                                }}
+                              />
+                            )}
+                            renderOption={(props, option) => {
+                              const { key, ...otherProps } = props;
+                              return (
+                                <Box component="li" key={key} {...otherProps} sx={{ p: 1, minHeight: 40 }}>
+                                  <Box sx={{ width: '100%' }}>
+                                    <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8rem' }}>
+                                      {option.name}
+                                    </Typography>
+                                    <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.7rem' }}>
+                                      {option.student_id} • {option.email} • {option.department || 'No Dept'}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              );
+                            }}
+                            sx={{
+                              '& .MuiAutocomplete-popper': {
+                                width: 'auto !important',
+                                minWidth: '700px'
+                              },
+                              '& .MuiAutocomplete-listbox': {
+                                maxHeight: 160
                               }
                             }}
                           />
-                        )}
-                        renderOption={(props, option) => (
-                          <Box component="li" {...props} sx={{ p: 1.5, minHeight: 48 }}>
-                            <Box sx={{ width: '100%' }}>
-                              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                {option.name}
-                              </Typography>
-                              <Typography variant="caption" color="textSecondary">
-                                {option.student_id} • {option.email} • {option.department}
-                              </Typography>
-                            </Box>
+                        </Box>
+                        
+                        {/* Student Details Display - Right Side */}
+                        {invoice.selectedExistingStudent && (
+                          <Box sx={{ 
+                            flex: 1,
+                            p: 0.25, 
+                            backgroundColor: '#F8FAFC', 
+                            borderRadius: 0.5,
+                            border: '1px solid #E2E8F0',
+                            height: '32px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                            fontSize: '0.7rem'
+                          }}>
+                            <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', fontSize: '0.7rem' }}>
+                              {invoice.selectedExistingStudent.name}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#6B7280', fontSize: '0.65rem' }}>
+                              •
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#6B7280', fontSize: '0.7rem' }}>
+                              {invoice.selectedExistingStudent.student_id}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#6B7280', fontSize: '0.65rem' }}>
+                              •
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#6B7280', fontSize: '0.7rem' }}>
+                              {invoice.selectedExistingStudent.department}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#6B7280', fontSize: '0.7rem' }}>
+                              • Y{invoice.selectedExistingStudent.year_of_study}
+                            </Typography>
                           </Box>
                         )}
-                        sx={{
-                          '& .MuiAutocomplete-popper': {
-                            width: 'auto !important',
-                            minWidth: '600px'
-                          },
-                          '& .MuiAutocomplete-listbox': {
-                            maxHeight: 200
-                          }
-                        }}
-                      />
+                      </Box>
                     ) : (
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Box sx={{ display: 'flex', gap: 0.5, width: '100%' }}>
                         <TextField
                           size="small"
-                          fullWidth
-                          placeholder="Enter full student name"
+                          placeholder="Student name"
                           value={invoice.student_name}
                           onChange={(e) => handleInputChange(index, 'student_name', e.target.value)}
                           required
                           error={!invoice.student_name}
                           sx={{ 
-                            flex: 2,
+                            width: '25%',
                             '& .MuiOutlinedInput-root': { fontSize: '0.8rem', height: '32px' }
                           }}
                         />
                         <TextField
                           size="small"
-                          fullWidth
-                          placeholder="student@college.edu"
+                          placeholder="Student ID"
+                          value={invoice.student_id}
+                          onChange={(e) => handleInputChange(index, 'student_id', e.target.value)}
+                          sx={{ 
+                            width: '15%',
+                            '& .MuiOutlinedInput-root': { fontSize: '0.8rem', height: '32px' }
+                          }}
+                        />
+                        <TextField
+                          size="small"
+                          placeholder="student@email.com"
                           type="email"
                           value={invoice.student_email}
                           onChange={(e) => handleInputChange(index, 'student_email', e.target.value)}
                           required
                           error={!invoice.student_email}
                           sx={{ 
-                            flex: 2,
+                            width: '30%',
                             '& .MuiOutlinedInput-root': { fontSize: '0.8rem', height: '32px' }
                           }}
                         />
-                        <FormControl fullWidth size="small" sx={{ flex: 1 }}>
-                          <Select
-                            value={invoice.department}
-                            onChange={(e) => handleInputChange(index, 'department', e.target.value)}
-                            displayEmpty
-                            sx={{ 
-                              fontSize: '0.8rem', 
-                              height: '32px',
-                              '& .MuiSelect-select': { fontSize: '0.8rem' }
-                            }}
-                          >
-                            <MenuItem value="" disabled>Dept...</MenuItem>
-                            {departments.map((dept) => (
-                              <MenuItem key={dept} value={dept}>{dept}</MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
+                        <Autocomplete
+                          size="small"
+                          fullWidth
+                          freeSolo
+                          options={departments}
+                          value={invoice.department}
+                          onChange={(event, newValue) => handleInputChange(index, 'department', newValue)}
+                          onInputChange={(event, newInputValue) => handleInputChange(index, 'department', newInputValue)}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              placeholder="Department"
+                              required
+                              error={!invoice.department}
+                              sx={{ 
+                                '& .MuiOutlinedInput-root': { 
+                                  fontSize: '0.8rem', 
+                                  height: '32px' 
+                                } 
+                              }}
+                            />
+                          )}
+                          sx={{ width: '30%' }}
+                        />
+                        <Autocomplete
+                          size="small"
+                          fullWidth
+                          freeSolo
+                          options={yearOfStudyOptions}
+                          getOptionLabel={(option) => typeof option === 'object' ? option.label : option.toString()}
+                          value={yearOfStudyOptions.find(year => year.value === invoice.year_of_study) || null}
+                          onChange={(event, newValue) => {
+                            const value = typeof newValue === 'object' ? newValue?.value : newValue;
+                            handleInputChange(index, 'year_of_study', value);
+                          }}
+                          onInputChange={(event, newInputValue) => {
+                            const numValue = parseInt(newInputValue);
+                            if (!isNaN(numValue) && numValue >= 1 && numValue <= 6) {
+                              handleInputChange(index, 'year_of_study', numValue);
+                            }
+                          }}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              placeholder="Year"
+                              sx={{ 
+                                '& .MuiOutlinedInput-root': { 
+                                  fontSize: '0.8rem', 
+                                  height: '32px' 
+                                } 
+                              }}
+                            />
+                          )}
+                          sx={{ width: '20%' }}
+                        />
                       </Box>
                     )}
                   </Grid>
 
-                  <Grid item xs={1}>
-                    {invoice.useExistingStudent ? (
-                      <TextField
-                        size="small"
-                        fullWidth
-                        value={invoice.selectedExistingStudent?.year_of_study || ''}
-                        disabled
-                        sx={{ 
-                          '& .MuiOutlinedInput-root': { 
-                            fontSize: '0.8rem', 
-                            height: '32px' 
-                          } 
-                        }}
-                      />
-                    ) : (
-                      <FormControl fullWidth size="small">
-                        <Select
-                          value={invoice.year_of_study}
-                          onChange={(e) => handleInputChange(index, 'year_of_study', e.target.value)}
-                          displayEmpty
-                          sx={{ 
-                            fontSize: '0.8rem', 
-                            height: '32px',
-                            '& .MuiSelect-select': { fontSize: '0.8rem' }
-                          }}
-                        >
-                          <MenuItem value="">Year...</MenuItem>
-                          {yearOfStudyOptions.map((year) => (
-                            <MenuItem key={year.value} value={year.value}>{year.label}</MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    )}
-                  </Grid>
-
-                  <Grid item xs={1}>
-                    <IconButton
-                      size="small"
-                      onClick={() => removeInvoice(index)}
-                      disabled={invoices.length === 1}
-                      sx={{
-                        color: '#EF4444',
-                        '&:hover': { backgroundColor: 'rgba(239, 68, 68, 0.04)' },
-                        '&:disabled': { color: '#D1D5DB' }
-                      }}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Grid>
+                  {/* Delete Button - Now inline at the end */}
+                  <IconButton
+                    size="small"
+                    onClick={() => removeInvoice(index)}
+                    disabled={invoices.length === 1}
+                    sx={{
+                      color: '#EF4444',
+                      '&:hover': { backgroundColor: 'rgba(239, 68, 68, 0.04)' },
+                      '&:disabled': { color: '#D1D5DB' },
+                      padding: '4px',
+                      ml: 0.5
+                    }}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
                 </Grid>
               </Paper>
             ))}
 
             {/* Add More Button */}
-            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-              <Button
-                variant="outlined"
-                startIcon={<AddIcon />}
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+              <IconButton
+                size="small"
                 onClick={addMoreInvoices}
                 sx={{
-                  borderColor: '#3B82F6',
-                  color: '#3B82F6',
+                  backgroundColor: '#3B82F6',
+                  color: 'white',
+                  width: 32,
+                  height: 32,
                   '&:hover': {
-                    borderColor: '#2563EB',
-                    backgroundColor: 'rgba(59, 130, 246, 0.04)'
+                    backgroundColor: '#2563EB',
                   }
                 }}
               >
-                Add More Invoices
-              </Button>
+                <AddIcon sx={{ fontSize: '1rem' }} />
+              </IconButton>
             </Box>
           </Box>
         );
@@ -575,38 +819,36 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                 }}
               >
                 <Grid container spacing={1} alignItems="center">
-                  <Grid item xs={2.5}>
-                    <FormControl fullWidth size="small">
-                      <Select
-                        value={invoice.invoice_type}
-                        onChange={(e) => handleInputChange(index, 'invoice_type', e.target.value)}
-                        displayEmpty
-                        error={!invoice.invoice_type}
-                        sx={{ 
+                  <Grid item xs={2.4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      value="Lending"
+                      disabled
+                      sx={{ 
+                        '& .MuiOutlinedInput-root': { 
                           fontSize: '0.8rem', 
                           height: '32px',
-                          '& .MuiSelect-select': { fontSize: '0.8rem' }
-                        }}
-                      >
-                        <MenuItem value="" disabled>Select type...</MenuItem>
-                        {invoiceTypes.map((type) => (
-                          <MenuItem key={type.value} value={type.value}>{type.label}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+                          backgroundColor: '#F5F5F5'
+                        } 
+                      }}
+                    />
                   </Grid>
 
-                  <Grid item xs={2}>
+                  <Grid item xs={2.4}>
                     <TextField
                       fullWidth
                       size="small"
                       type="date"
-                      placeholder="Select due date"
+                      placeholder="Select return date"
                       value={invoice.due_date}
                       onChange={(e) => handleInputChange(index, 'due_date', e.target.value)}
                       required
                       error={!invoice.due_date}
                       InputLabelProps={{ shrink: true }}
+                      InputProps={{
+                        placeholder: "Select return date"
+                      }}
                       sx={{ 
                         '& .MuiOutlinedInput-root': { 
                           fontSize: '0.8rem', 
@@ -616,18 +858,19 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                     />
                   </Grid>
 
-                  <Grid item xs={1.5}>
+                  <Grid item xs={2.4}>
                     <TextField
                       fullWidth
                       size="small"
-                      type="number"
-                      placeholder="Amount"
-                      value={invoice.amount}
-                      onChange={(e) => handleInputChange(index, 'amount', e.target.value)}
+                      type="date"
+                      placeholder="Select lending date"
+                      value={invoice.lending_date}
+                      onChange={(e) => handleInputChange(index, 'lending_date', e.target.value)}
                       required
-                      error={!invoice.amount || invoice.amount <= 0}
+                      error={!invoice.lending_date}
+                      InputLabelProps={{ shrink: true }}
                       InputProps={{
-                        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                        placeholder: "Select lending date"
                       }}
                       sx={{ 
                         '& .MuiOutlinedInput-root': { 
@@ -638,49 +881,59 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                     />
                   </Grid>
 
-                  <Grid item xs={2}>
-                    <FormControl fullWidth size="small">
-                      <Select
-                        value={invoice.lender_id}
-                        onChange={(e) => handleInputChange(index, 'lender_id', e.target.value)}
-                        displayEmpty
-                        error={!invoice.lender_id}
-                        sx={{ 
+                  <Grid item xs={2.4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="time"
+                      placeholder="Select time"
+                      value={invoice.lending_time}
+                      onChange={(e) => handleInputChange(index, 'lending_time', e.target.value)}
+                      required
+                      error={!invoice.lending_time}
+                      InputLabelProps={{ shrink: true }}
+                      InputProps={{
+                        placeholder: "Select time"
+                      }}
+                      sx={{ 
+                        '& .MuiOutlinedInput-root': { 
                           fontSize: '0.8rem', 
-                          height: '32px',
-                          '& .MuiSelect-select': { fontSize: '0.8rem' }
-                        }}
-                      >
-                        <MenuItem value="" disabled>Select staff...</MenuItem>
-                        {lenders.map((lender) => (
-                          <MenuItem key={lender.id} value={lender.id}>
-                            {lender.name}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+                          height: '32px' 
+                        } 
+                      }}
+                    />
                   </Grid>
 
-                  <Grid item xs={3}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <PersonIcon sx={{ color: '#6B7280', fontSize: '0.9rem' }} />
-                      <Typography variant="body2" sx={{ 
-                        color: '#374151', 
-                        fontSize: '0.75rem',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {invoice.selectedExistingStudent ? 
-                          invoice.selectedExistingStudent.name || 'Selected Student' : 
-                          invoice.useExistingStudent ? 'No student selected' : 
-                          invoice.student_name || 'New Student'
-                        }
-                      </Typography>
-                    </Box>
+                  <Grid item xs={2.4}>
+                    <Autocomplete
+                      size="small"
+                      fullWidth
+                      freeSolo
+                      options={lenders}
+                      getOptionLabel={(option) => typeof option === 'object' ? option.name : option}
+                      value={lenders.find(lender => lender.id === invoice.lender_id) || null}
+                      onChange={(event, newValue) => {
+                        const value = typeof newValue === 'object' ? newValue?.id : newValue;
+                        handleInputChange(index, 'lender_id', value);
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          placeholder="Select staff..."
+                          required
+                          error={!invoice.lender_id}
+                          sx={{ 
+                            '& .MuiOutlinedInput-root': { 
+                              fontSize: '0.8rem', 
+                              height: '32px' 
+                            } 
+                          }}
+                        />
+                      )}
+                    />
                   </Grid>
 
-                  <Grid item xs={1}>
+                  <Grid item xs={0.6}>
                     <IconButton
                       size="small"
                       onClick={() => removeInvoice(index)}
@@ -699,27 +952,271 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
             ))}
 
             {/* Add More Button */}
-            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-              <Button
-                variant="outlined"
-                startIcon={<AddIcon />}
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+              <IconButton
+                size="small"
                 onClick={addMoreInvoices}
                 sx={{
-                  borderColor: '#3B82F6',
-                  color: '#3B82F6',
+                  backgroundColor: '#3B82F6',
+                  color: 'white',
+                  width: 32,
+                  height: 32,
                   '&:hover': {
-                    borderColor: '#2563EB',
-                    backgroundColor: 'rgba(59, 130, 246, 0.04)'
+                    backgroundColor: '#2563EB',
                   }
                 }}
               >
-                Add More Invoices
-              </Button>
+                <AddIcon sx={{ fontSize: '1rem' }} />
+              </IconButton>
             </Box>
           </Box>
         );
 
-      case 2: // Review & Create
+      case 2: // Components & Products
+        return (
+          <Box>
+            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <ReceiptIcon color="primary" />
+              Components & Products
+            </Typography>
+
+            {invoices.map((invoice, invoiceIndex) => (
+              <Card key={invoiceIndex} sx={{ mb: 2, border: '1px solid #E5E7EB' }}>
+                <CardContent sx={{ p: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold', color: '#1F2937', mb: 1 }}>
+                    Invoice #{invoiceIndex + 1} - {invoice.selectedExistingStudent?.name || invoice.student_name || 'New Student'}
+                  </Typography>
+
+                  {invoice.components.map((component, componentIndex) => (
+                    <Paper key={componentIndex} sx={{ p: 1, mb: 1, bgcolor: '#FAFAFA', border: '1px solid #E0E0E0' }}>
+                      <Grid container spacing={0.5} sx={{ alignItems: 'center', minHeight: '40px' }}>
+                        <Grid item xs={2.2}>
+                          <Autocomplete
+                            size="small"
+                            options={products}
+                            getOptionLabel={(option) => option.name || ''}
+                            value={products.find(p => p.id === component.product_id) || null}
+                            onChange={(event, newValue) => selectProduct(invoiceIndex, componentIndex, newValue)}
+                            renderInput={(params) => (
+                              <TextField
+                                {...params}
+                                placeholder="Select Product"
+                                variant="outlined"
+                                size="small"
+                                fullWidth
+                                sx={{ 
+                                  '& .MuiOutlinedInput-root': { 
+                                    fontSize: '0.75rem', 
+                                    height: '36px'
+                                  },
+                                  '& .MuiInputBase-input': {
+                                    padding: '8px 12px'
+                                  }
+                                }}
+                              />
+                            )}
+                            renderOption={(props, option) => {
+                              const { key, ...otherProps } = props;
+                              return (
+                                <Box component="li" key={key} {...otherProps} sx={{ p: 1, minHeight: 32 }}>
+                                  <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                                    {option.name} - {option.sku}
+                                  </Typography>
+                                </Box>
+                              );
+                            }}
+                          />
+                        </Grid>
+                        <Grid item xs={1.6}>
+                          <TextField
+                            fullWidth
+                            placeholder="Component"
+                            value={component.name || ''}
+                            onChange={(e) => updateComponentData(invoiceIndex, componentIndex, 'name', e.target.value)}
+                            variant="outlined"
+                            size="small"
+                            required
+                            error={!component.name}
+                            sx={{ 
+                              '& .MuiOutlinedInput-root': { 
+                                fontSize: '0.75rem', 
+                                height: '36px',
+                                '&.Mui-error': {
+                                  '& fieldset': {
+                                    borderColor: '#EF4444',
+                                    borderWidth: '2px'
+                                  }
+                                }
+                              },
+                              '& .MuiInputBase-input': {
+                                padding: '8px 12px'
+                              }
+                            }}
+                          />
+                        </Grid>
+                        <Grid item xs={0.9}>
+                          <TextField
+                            fullWidth
+                            placeholder="SKU"
+                            value={component.sku || ''}
+                            onChange={(e) => updateComponentData(invoiceIndex, componentIndex, 'sku', e.target.value)}
+                            variant="outlined"
+                            size="small"
+                            sx={{ 
+                              '& .MuiOutlinedInput-root': { 
+                                fontSize: '0.75rem', 
+                                height: '36px'
+                              },
+                              '& .MuiInputBase-input': {
+                                padding: '8px 12px'
+                              }
+                            }}
+                          />
+                        </Grid>
+                        <Grid item xs={0.9}>
+                          <TextField
+                            fullWidth
+                            placeholder="Category"
+                            value={component.category || ''}
+                            onChange={(e) => updateComponentData(invoiceIndex, componentIndex, 'category', e.target.value)}
+                            variant="outlined"
+                            size="small"
+                            sx={{ 
+                              '& .MuiOutlinedInput-root': { 
+                                fontSize: '0.75rem', 
+                                height: '36px'
+                              },
+                              '& .MuiInputBase-input': {
+                                padding: '8px 12px'
+                              }
+                            }}
+                          />
+                        </Grid>
+                        <Grid item xs={0.6}>
+                          <TextField
+                            fullWidth
+                            placeholder="Qty"
+                            type="number"
+                            value={component.quantity || 1}
+                            onChange={(e) => updateComponentData(invoiceIndex, componentIndex, 'quantity', parseInt(e.target.value) || 1)}
+                            variant="outlined"
+                            size="small"
+                            required
+                            error={!component.quantity || component.quantity <= 0}
+                            inputProps={{ min: 1 }}
+                            sx={{ 
+                              '& .MuiOutlinedInput-root': { 
+                                fontSize: '0.75rem', 
+                                height: '36px',
+                                '&.Mui-error': {
+                                  '& fieldset': {
+                                    borderColor: '#EF4444',
+                                    borderWidth: '2px'
+                                  }
+                                }
+                              },
+                              '& .MuiInputBase-input': {
+                                padding: '8px 12px'
+                              }
+                            }}
+                          />
+                        </Grid>
+                        <Grid item xs={0.9}>
+                          <TextField
+                            fullWidth
+                            placeholder="Unit ₹"
+                            type="number"
+                            value={component.unit_value || 0}
+                            onChange={(e) => updateComponentData(invoiceIndex, componentIndex, 'unit_value', parseFloat(e.target.value) || 0)}
+                            variant="outlined"
+                            size="small"
+                            required
+                            error={!component.unit_value || component.unit_value < 0}
+                            inputProps={{ min: 0, step: 0.01 }}
+                            sx={{ 
+                              '& .MuiOutlinedInput-root': { 
+                                fontSize: '0.75rem', 
+                                height: '36px',
+                                '&.Mui-error': {
+                                  '& fieldset': {
+                                    borderColor: '#EF4444',
+                                    borderWidth: '2px'
+                                  }
+                                }
+                              },
+                              '& .MuiInputBase-input': {
+                                padding: '8px 12px'
+                              }
+                            }}
+                          />
+                        </Grid>
+                        <Grid item xs={1.0}>
+                          <TextField
+                            fullWidth
+                            placeholder="Total ₹"
+                            type="number"
+                            value={component.total_value || (component.quantity * component.unit_value)}
+                            onChange={(e) => updateComponentData(invoiceIndex, componentIndex, 'total_value', parseFloat(e.target.value) || 0)}
+                            variant="outlined"
+                            size="small"
+                            disabled
+                            sx={{ 
+                              '& .MuiOutlinedInput-root': { 
+                                fontSize: '0.75rem', 
+                                height: '36px',
+                                backgroundColor: '#F5F5F5'
+                              },
+                              '& .MuiInputBase-input': {
+                                padding: '8px 12px'
+                              }
+                            }}
+                          />
+                        </Grid>
+                        <Grid item xs={0.4}>
+                          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '36px' }}>
+                            <IconButton
+                              color="error"
+                              size="small"
+                              onClick={() => removeComponent(invoiceIndex, componentIndex)}
+                              disabled={invoice.components.length === 1}
+                              sx={{ 
+                                p: 0.5,
+                                height: '32px',
+                                width: '32px'
+                              }}
+                            >
+                              <DeleteIcon sx={{ fontSize: '1rem' }} />
+                            </IconButton>
+                          </Box>
+                        </Grid>
+                      </Grid>
+                    </Paper>
+                  ))}
+
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                    <IconButton
+                      size="small"
+                      onClick={() => addComponent(invoiceIndex)}
+                      sx={{
+                        backgroundColor: '#1976d2',
+                        color: 'white',
+                        width: 32,
+                        height: 32,
+                        '&:hover': {
+                          backgroundColor: '#1565c0',
+                        }
+                      }}
+                    >
+                      <AddIcon sx={{ fontSize: '1rem' }} />
+                    </IconButton>
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+        );
+
+      case 3: // Review & Create
         return (
           <Box>
             <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -761,7 +1258,7 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                       </Box>
                       
                       <Grid container spacing={2}>
-                        <Grid item xs={12} md={6}>
+                        <Grid item xs={12} md={8}>
                           <Typography variant="subtitle2" color="primary" gutterBottom>
                             Student Information
                           </Typography>
@@ -773,13 +1270,14 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                           </Typography>
                         </Grid>
                         
-                        <Grid item xs={12} md={6}>
+                        <Grid item xs={12} md={4}>
                           <Typography variant="subtitle2" color="primary" gutterBottom>
                             Invoice Details
                           </Typography>
                           <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
                             <strong>Type:</strong> {invoice.invoice_type}<br />
-                            <strong>Amount:</strong> ₹{invoice.amount}<br />
+                            <strong>Lending Date:</strong> {new Date(invoice.lending_date).toLocaleDateString()}<br />
+                            <strong>Lending Time:</strong> {invoice.lending_time}<br />
                             <strong>Due Date:</strong> {new Date(invoice.due_date).toLocaleDateString()}<br />
                             <strong>Assigned Staff:</strong> {lenders.find(l => l.id === invoice.lender_id)?.name || 'Not specified'}<br />
                             {invoice.notes && (
@@ -787,6 +1285,54 @@ const ManualInvoiceCreationDialog = ({ open, onClose, onSuccess }) => {
                                 <strong>Notes:</strong> {invoice.notes}
                               </>
                             )}
+                          </Typography>
+                        </Grid>
+                        
+                        <Grid item xs={12}>
+                          <Typography variant="subtitle2" color="primary" gutterBottom sx={{ mt: 2 }}>
+                            Components ({invoice.components.length})
+                          </Typography>
+                          {invoice.components.map((component, compIndex) => (
+                            <Box key={compIndex} sx={{ 
+                              p: 2, 
+                              mb: 1, 
+                              backgroundColor: '#F8F9FA', 
+                              borderRadius: 1,
+                              border: '1px solid #E9ECEF'
+                            }}>
+                              <Grid container spacing={1}>
+                                <Grid item xs={12} md={5}>
+                                  <Typography variant="body2">
+                                    <strong>{component.name || 'Unnamed Component'}</strong>
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    SKU: {component.sku || 'N/A'}
+                                  </Typography>
+                                </Grid>
+                                <Grid item xs={12} md={2}>
+                                  <Typography variant="body2">
+                                    <strong>Qty:</strong> {component.quantity}
+                                  </Typography>
+                                </Grid>
+                                <Grid item xs={12} md={2}>
+                                  <Typography variant="body2">
+                                    <strong>Unit:</strong> ₹{component.unit_value}
+                                  </Typography>
+                                </Grid>
+                                <Grid item xs={12} md={3}>
+                                  <Typography variant="body2">
+                                    <strong>Total:</strong> ₹{component.total_value || (component.quantity * component.unit_value)}
+                                  </Typography>
+                                </Grid>
+                              </Grid>
+                            </Box>
+                          ))}
+                          <Typography variant="body2" sx={{ mt: 1, fontWeight: 'bold' }}>
+                            <strong>Invoice Total: ₹{
+                              invoice.components.reduce((sum, comp) => 
+                                sum + (comp.total_value || (comp.quantity * comp.unit_value)), 0
+                              ).toFixed(2)
+                            }</strong>
                           </Typography>
                         </Grid>
                       </Grid>

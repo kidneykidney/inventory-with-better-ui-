@@ -501,7 +501,11 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
                     <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
-                        label="Student Name"
+                        label={
+                          <span>
+                            Student Name<span style={{ color: '#EF4444' }}> *</span>
+                          </span>
+                        }
                         value={manualData.student_name}
                         onChange={(e) => handleManualDataChange('student_name', e.target.value)}
                         required
@@ -510,7 +514,11 @@ const OCRInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
                     <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
-                        label="Student ID"
+                        label={
+                          <span>
+                            Student ID<span style={{ color: '#EF4444' }}> *</span>
+                          </span>
+                        }
                         value={manualData.student_id}
                         onChange={(e) => handleManualDataChange('student_id', e.target.value)}
                         required

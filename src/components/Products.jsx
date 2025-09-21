@@ -795,7 +795,11 @@ const Products = () => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Product Name *"
+                  label={
+                    <span>
+                      Product Name<span style={{ color: '#EF4444' }}> *</span>
+                    </span>
+                  }
                   value={productForm.name}
                   onChange={(e) => setProductForm({...productForm, name: e.target.value})}
                   required
@@ -806,7 +810,11 @@ const Products = () => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="SKU *"
+                  label={
+                    <span>
+                      SKU<span style={{ color: '#EF4444' }}> *</span>
+                    </span>
+                  }
                   value={productForm.sku}
                   onChange={(e) => setProductForm({...productForm, sku: e.target.value})}
                   required
@@ -817,7 +825,11 @@ const Products = () => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Price *"
+                  label={
+                    <span>
+                      Price<span style={{ color: '#EF4444' }}> *</span>
+                    </span>
+                  }
                   type="number"
                   step="0.01"
                   value={productForm.unit_price}
@@ -828,7 +840,9 @@ const Products = () => {
               </Grid>
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
-                  <InputLabel>Category *</InputLabel>
+                  <InputLabel>
+                    Category<span style={{ color: '#EF4444' }}> *</span>
+                  </InputLabel>
                   <Select
                     value={productForm.category_id}
                     onChange={(e) => setProductForm({...productForm, category_id: e.target.value})}
@@ -846,7 +860,11 @@ const Products = () => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Total Stock *"
+                  label={
+                    <span>
+                      Total Stock<span style={{ color: '#EF4444' }}> *</span>
+                    </span>
+                  }
                   type="number"
                   value={productForm.quantity_total}
                   onChange={(e) => setProductForm({...productForm, quantity_total: parseInt(e.target.value) || 0})}

@@ -340,12 +340,12 @@ async def create_invoice_with_student(
         
         invoice_query = """
         INSERT INTO invoices (
-            student_id, invoice_type, status, due_date, issued_by, notes, lender_id, issued_by_lender
-        ) VALUES (%s, %s, 'issued', %s, %s, %s, %s, %s)
+            student_id, invoice_type, status, due_date, issued_by, notes, lender_id, issued_by_lender, total_value
+        ) VALUES (%s, %s, 'issued', %s, %s, %s, %s, %s, %s)
         RETURNING *
         """
         
-        query_params = (actual_student_id, request.invoice_type, request.due_date, request.issued_by, request.notes, lender_id, issued_by_lender)
+        query_params = (actual_student_id, request.invoice_type, request.due_date, request.issued_by, request.notes, lender_id, issued_by_lender, request.amount or 0.0)
         api_logger.info(f"DEBUG - Query parameters: {query_params}")
         
         invoice_result = db.execute_query(invoice_query, query_params)
@@ -1470,17 +1470,45 @@ async def process_invoice_with_ocr(
             ocr_text = ""
             
             if OCR_AVAILABLE:
-                api_logger.info(f"Processing {file.filename} with OCR from path: {temp_file_path}")
-                ocr_text = extract_text_from_image(temp_file_path)
-                api_logger.info(f"OCR extracted text length: {len(ocr_text) if ocr_text else 0}")
-                
-                if ocr_text and len(ocr_text.strip()) > 10:
-                    # Use our enhanced parse_text_simple function for comprehensive extraction
-                    extracted_data = parse_text_simple(ocr_text)
-                    confidence_score = min(extracted_data.get('confidence_score', 95), 95) / 100.0
-                else:
+                try:
+                    api_logger.info(f"Processing {file.filename} with OCR from path: {temp_file_path}")
+                    ocr_text = extract_text_from_image(temp_file_path)
+                    api_logger.info(f"OCR extracted text length: {len(ocr_text) if ocr_text else 0}")
+                    
+                    if ocr_text and len(ocr_text.strip()) > 10:
+                        # Use our enhanced parse_text_simple function for comprehensive extraction
+                        try:
+                            extracted_data = parse_text_simple(ocr_text)
+                            confidence_score = min(extracted_data.get('confidence_score', 95), 95) / 100.0
+                            api_logger.info(f"✅ Data extraction successful with confidence: {confidence_score}")
+                        except Exception as parse_error:
+                            api_logger.error(f"❌ Error in parse_text_simple: {parse_error}")
+                            # Fallback to basic extraction
+                            try:
+                                api_logger.info("🔄 Trying fallback parser...")
+                                extracted_data = parse_text_simple_fallback(ocr_text)
+                                confidence_score = extracted_data.get('confidence_score', 30) / 100.0
+                                api_logger.info(f"✅ Fallback parser successful")
+                            except Exception as fallback_error:
+                                api_logger.error(f"❌ Even fallback parser failed: {fallback_error}")
+                                extracted_data = {
+                                    "student_name": "",
+                                    "student_id": "",
+                                    "student_email": "",
+                                    "department": "",
+                                    "due_date": "",
+                                    "items": [],
+                                    "confidence_score": 0
+                                }
+                                confidence_score = 0.0
+                    else:
+                        api_logger.warning("⚠️ OCR text too short or empty")
+                        confidence_score = 0.0
+                except Exception as ocr_error:
+                    api_logger.error(f"❌ OCR processing failed: {ocr_error}")
                     confidence_score = 0.0
             else:
+                api_logger.warning("⚠️ OCR not available")
                 confidence_score = 0.0
             
             # Determine invoice ID for image storage
@@ -2419,10 +2447,37 @@ def clean_extracted_text(text: str, field_type: str = "general") -> str:
     
     return cleaned
 
+def preprocess_ocr_text(text):
+    """
+    Preprocess OCR text to improve extraction accuracy
+    """
+    # Fix common OCR errors for numbers
+    text = re.sub(r'QTY:\s*I\b', 'QTY: 1', text)  # Fix QTY: I -> QTY: 1
+    text = re.sub(r'QTY:\s*l\b', 'QTY: 1', text)  # Fix QTY: l -> QTY: 1
+    text = re.sub(r'QTY\s*I\b', 'QTY 1', text)    # Fix QTY I -> QTY 1
+    text = re.sub(r'QTY\s*l\b', 'QTY 1', text)    # Fix QTY l -> QTY 1
+    
+    # Fix other common OCR errors
+    text = re.sub(r'\b0(?=[A-Z])', 'O', text)  # Replace 0 with O before uppercase letters
+    
+    # DON'T collapse multiple spaces entirely - preserve some structure
+    # Clean up excessive spacing but preserve line breaks
+    text = re.sub(r'[ \t]+', ' ', text)  # Multiple spaces/tabs to single space
+    text = re.sub(r'\n\s*\n', '\n', text)  # Multiple newlines to single
+    
+    # Fix common field separators
+    text = re.sub(r'[:|;]\s*', ': ', text)  # Standardize colons
+    text = re.sub(r'\s*\|\s*', ' | ', text)  # Standardize pipes
+    
+    return text
+
 def parse_text_simple(text: str) -> dict:
     """
     Enhanced text parsing to extract comprehensive lending invoice fields
     """
+    # Preprocess text for better extraction
+    text = preprocess_ocr_text(text)
+    
     lines = [line.strip() for line in text.split('\n') if line.strip()]
     extracted = {
         # Basic student information
@@ -2447,36 +2502,21 @@ def parse_text_simple(text: str) -> dict:
         "lending_purpose": "",
         "lending_location": "",
         "project_name": "",
+        
+        # Additional fields needed for logging and functionality
+        "issued_by": "",
+        "due_date": "",
         "supervisor_name": "",
         "supervisor_email": "",
-        
-        # Timeline information
-        "due_date": "",
-        "requested_start_date": "",
-        "expected_return_date": "",
-        "grace_period_days": 7,
-        
-        # Notes and additional info
-        "notes": "",
-        
-        # Authority information
-        "issued_by": "",
-        "issuer_designation": "",
-        "approved_by": "",
-        
-        # Financial information
-        "security_deposit": 0.0,
-        "late_return_fee": 0.0,
-        
-        # Additional information
         "invoice_number": "",
         "notes": "",
-        "special_instructions": "",
-        "risk_assessment": "low",
-        
-        # Items array
-        "items": []
+        "items": [],
+        "confidence_score": 0
     }
+    
+    # Create a clean version for better pattern matching
+    full_text = text
+    api_logger.info(f"📄 Processing text length: {len(text)} characters")
     
     # Enhanced patterns to look for
     import re
@@ -2503,7 +2543,12 @@ def parse_text_simple(text: str) -> dict:
         r'ID[#:]?\s*([A-Z0-9\-]{5,15})',
         r'Student\s+ID[#:]?\s*([A-Z0-9]+)',
         r'STUD([0-9]{6,8})',
-        r'Borrower\s+ID[#:]?\s*([A-Z0-9\-]+)'
+        r'Borrower\s+ID[#:]?\s*([A-Z0-9\-]+)',
+        # Extract from email patterns
+        r'([a-z]+\.[a-z]+)@[a-z0-9.-]+\.(?:edu|ac\.uk|university)',
+        r'([A-Z]{3}\d{4,8})',  # Match patterns like STU2023078
+        # More flexible ID patterns
+        r'(?:^|\s)([A-Z]{2,4}\d{4,8})(?:\s|$)',
     ]
     for pattern in student_id_patterns:
         match = re.search(pattern, full_text, re.IGNORECASE)
@@ -2513,20 +2558,20 @@ def parse_text_simple(text: str) -> dict:
                 extracted["student_id"] = student_id
                 break
     
-    # Look for student name patterns
+    # Look for student name patterns (enhanced with more flexible matching)
     name_patterns = [
-        r'[@]?\s*Full\s+Name[#:]?\s*([A-Za-z\s]+?)(?:@|Student\s+ID|Email|Department|Phone|\n)',
-        r'[@]?\s*Student\s+Name[#:]?\s*([A-Za-z\s]+?)(?:@|Student\s+ID|Email|Department|Phone|\n)',
-        r'[@]?\s*Borrower\s+Name[#:]?\s*([A-Za-z\s]+?)(?:@|Student\s+ID|Email|Department|Phone|\n)',
-        r'[@]?\s*Name[#:]?\s*([A-Za-z\s]+?)(?:@|Student\s+ID|Email|Department|Phone|\n)',
-        # Handle cases where name continues on next line
-        r'[@]?\s*Full\s+Name[#:]?\s*([A-Za-z\s]+)',
+        r'(?:Full\s+Name|Student\s+Name|Name|Borrower)[:\s]*([A-Za-z][A-Za-z\s]{2,30}?)(?:\s*\n|\s*Student\s+ID|\s*Email|\s*Department|\s*Phone|$)',
+        r'Name[:\s]+([A-Za-z][A-Za-z\s]{2,30})',
+        r'([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(?:STU|ID|Email|Department)',
+        r'Student[:\s]+([A-Za-z][A-Za-z\s]{2,30}?)(?:\s|$)',
+        # Handle cases where the name appears before other fields
+        r'^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*$',
     ]
     for i, pattern in enumerate(name_patterns):
-        match = re.search(pattern, full_text, re.IGNORECASE)
+        match = re.search(pattern, full_text, re.IGNORECASE | re.MULTILINE)
         if match and not extracted["student_name"]:
             name = clean_extracted_text(match.group(1), "name")
-            if len(name) > 2:
+            if len(name) > 2 and not any(char.isdigit() for char in name):
                 extracted["student_name"] = name
                 api_logger.info(f"👤 Extracted student name with pattern {i+1}: {name}")
                 break
@@ -2555,6 +2600,7 @@ def parse_text_simple(text: str) -> dict:
             lender_name = clean_extracted_text(match.group(1), "name")
             if len(lender_name) >= 3 and not any(char.isdigit() for char in lender_name):
                 extracted["lender_name"] = lender_name
+                extracted["issued_by"] = lender_name  # Map to issued_by for consistency
                 api_logger.info(f"👥 Extracted lender name with pattern {i+1}: {lender_name}")
                 break
 
@@ -2749,84 +2795,188 @@ def parse_text_simple(text: str) -> dict:
     
     # Extract equipment items with enhanced parsing for lending context
     try:
-        # Look for equipment section with more keywords
-        equipment_section = ""
-        in_equipment = False
+        # Look for equipment/items section using multiple approaches
+        equipment_lines = []
+        full_text_lines = text.split('\n')
         
-        for line in lines:
-            if re.search(r'(BORROWED|EQUIPMENT|ITEMS?|COMPONENTS?|MATERIALS?)', line, re.IGNORECASE):
-                in_equipment = True
-                continue
-            elif re.search(r'(TERMS|TOTAL|SIGNATURE|CONDITIONS)', line, re.IGNORECASE):
-                in_equipment = False
-                break
-            elif in_equipment:
-                equipment_section += line + "\n"
-        
-        # Parse equipment items from the section
-        if equipment_section:
-            item_lines = [line.strip() for line in equipment_section.split('\n') if line.strip()]
+        # Approach 1: Look for table-like structures and "Items:" sections
+        in_items_section = False
+        for i, line in enumerate(full_text_lines):
+            line_clean = line.strip()
             
-            for line in item_lines:
-                # Skip header lines
-                if re.search(r'(Item|SKU|Unit|Value|Return|Date|Component|Serial)', line, re.IGNORECASE) and not re.search(r'^\w+\s+[A-Z0-9-]+', line):
-                    continue
-                
-                # Enhanced item patterns for lending context
-                item_patterns = [
-                    # Enhanced format: Name SKU Serial Qty $Value Condition
-                    r'^([A-Za-z\s]+?)\s+([A-Z0-9-]+)\s+([A-Z0-9-]*)\s+(\d+)\s*[,]?\s*\$?([\d,]+\.?\d*)\s+([A-Za-z]+)',
-                    # Standard format: Name SKU Qty $Value $Total
-                    r'^([A-Za-z\s]+?)\s+([A-Z0-9-]+)\s+(\d+)\s*[,]?\s*\$?([\d,]+\.?\d*)\s+\$?([\d,]+\.?\d*)',
-                    # Alternative format: Name SKU Qty, $Value $Total
-                    r'^([A-Za-z\s]+?)\s+([A-Z0-9-]+)\s+(\d+)\s*,\s*[«»]?\$?([\d,]+\.?\d*)\s+\$?([\d,]+\.?\d*)',
-                    # Simplified format: Name SKU Qty Value
-                    r'^([A-Za-z\s]+?)\s+([A-Z0-9-]+)\s+(\d+)\s*[,]?\s*[«»]?\$?([\d,]+\.?\d*)',
-                    # Just name and SKU for basic extraction
-                    r'^([A-Za-z\s]+?)\s+([A-Z0-9-]+)'
-                ]
-                
-                item = None
-                for pattern in item_patterns:
-                    item_match = re.search(pattern, line)
-                    if item_match:
-                        groups = item_match.groups()
-                        item = {
-                            "name": groups[0].strip(),
-                            "sku": groups[1],
-                            "serial_number": groups[2] if len(groups) > 5 else "",
-                            "quantity": int(groups[3] if len(groups) > 3 else groups[2]) if len(groups) > 2 else 1,
-                            "unit_value": float(groups[4 if len(groups) > 5 else 3].replace(',', '')) if len(groups) > 3 and groups[3 if len(groups) <= 5 else 4] else 0.0,
-                            "total_value": float(groups[5 if len(groups) > 5 else 4].replace(',', '')) if len(groups) > 4 else 0.0,
-                            "condition_at_lending": groups[5] if len(groups) > 5 else "good",
-                            "risk_level": "low",
-                            "safety_requirements": "",
-                            "usage_purpose": extracted.get("lending_purpose", ""),
-                            "usage_location": extracted.get("lending_location", "")
-                        }
-                        break
-                
-                if item:
-                    extracted["items"].append(item)
+            # Detect start of items section (enhanced to catch "Items:")
+            if re.search(r'^Items:\s*$', line_clean, re.IGNORECASE):
+                in_items_section = True
+                api_logger.info(f"📋 Found items section start: {line_clean}")
+                continue
+            elif re.search(r'(TOTAL|SIGNATURE|TERMS|CONDITIONS|NOTES)', line_clean, re.IGNORECASE):
+                in_items_section = False
+                api_logger.info(f"📋 Items section end: {line_clean}")
+            
+            if in_items_section and line_clean and not re.search(r'^(Items|Item|Name|SKU|Code|Qty|Quantity|Price|Value|Total|Condition)(\s|:|$)', line_clean, re.IGNORECASE):
+                equipment_lines.append(line_clean)
+                api_logger.info(f"📦 Adding to equipment lines: {line_clean}")
+        
+        api_logger.info(f"📋 Found {len(equipment_lines)} lines in items section")
+        
+        # Approach 2: Look for table patterns in the entire text (enhanced for test invoice format)
+        table_patterns = [
+            # Pattern: Name | SKU | Qty | Unit Price | Total
+            r'([A-Za-z\s\-]+)\s*\|\s*([A-Z0-9\-]+)\s*\|\s*(\d+)\s*\|\s*\$?([\d,.]+)\s*\|\s*\$?([\d,.]+)',
+            # Pattern: Name SKU Qty $Price $Total (tabular)
+            r'([A-Za-z\s\-]{3,})\s+([A-Z0-9\-]{2,})\s+(\d+)\s+\$?([\d,.]+)\s+\$?([\d,.]+)',
+            # Pattern: Name, SKU, Qty, Price, Total (comma separated)
+            r'([A-Za-z\s\-]{3,}),\s*([A-Z0-9\-]+),\s*(\d+),\s*\$?([\d,.]+),\s*\$?([\d,.]+)',
+            # Pattern: Detect items with clearer boundaries
+            r'(\d+)\.\s*([A-Za-z\s\-]+)\s+([A-Z0-9\-]+)\s+(\d+)\s+\$?([\d,.]+)',
+            # Note: Removed the duplicate Item Name - QTY: # - $Price patterns since they're handled in enhanced_patterns
+        ]
+        
+        # Process equipment lines first
+        for line in equipment_lines:
+            # Skip obvious header lines
+            if re.search(r'^(Item|Name|SKU|Code|Qty|Quantity|Price|Value|Total|Condition)(\s|$)', line, re.IGNORECASE):
+                continue
+            
+            item = extract_item_from_line(line)
+            if item:
+                extracted["items"].append(item)
+        
+        # If no items found in equipment section, scan entire text (enhanced with specific patterns)
+        if not extracted["items"]:
+            api_logger.info("🔍 Scanning entire text for items with specific patterns...")
+            
+            # Add the specific patterns for our test invoice format first
+            enhanced_patterns = [
+                # Pattern: Item Name - QTY: # - $Price (improved to capture full names including "Digital 6-inch")
+                r'([A-Za-z][A-Za-z\s\-\d]{2,30}?)\s*-\s*QTY:\s*(\d+)\s*-\s*\$?([\d,.]+)',
+                # Pattern: Item Name QTY # $Price (improved)
+                r'([A-Za-z][A-Za-z\s\-\d]{3,30}?)\s+QTY:\s*(\d+)\s+\$?([\d,.]+)',
+            ] + table_patterns  # Add the existing patterns after
+            
+            for pattern_idx, pattern in enumerate(enhanced_patterns):
+                matches = re.finditer(pattern, text, re.IGNORECASE | re.MULTILINE)
+                for match in matches:
+                    groups = match.groups()
+                    if len(groups) >= 3:
+                        try:
+                            name = groups[0].strip()
+                            
+                            # Skip invalid names
+                            if (not name or len(name) < 3 or 
+                                name.lower() in ['item', 'name', 'product', 'component', 'equipment', 'qty', 'quantity', 'price', 'total', 'sku', 'code']):
+                                continue
+                            
+                            if pattern_idx < 2:  # Our enhanced patterns
+                                sku = f"AUTO{len(extracted['items'])+1:03d}"
+                                qty = int(groups[1])
+                                unit_price = float(groups[2].replace(',', ''))
+                                total = qty * unit_price
+                                api_logger.info(f"🎯 Enhanced pattern {pattern_idx+1} matched: {name}, QTY: {qty}, Price: ${unit_price}")
+                            else:
+                                # Handle original patterns
+                                if len(groups) >= 5:  # Full pattern with name, sku, qty, unit_price, total
+                                    if groups[0].startswith(tuple('0123456789')):  # Number at start
+                                        name = groups[1].strip()
+                                        sku = groups[2]
+                                        qty = int(groups[3])
+                                        unit_price = float(groups[4].replace(',', ''))
+                                        total = qty * unit_price
+                                    else:
+                                        name = groups[0].strip()
+                                        sku = groups[1]
+                                        qty = int(groups[2])
+                                        unit_price = float(groups[3].replace(',', ''))
+                                        total = float(groups[4].replace(',', ''))
+                                elif len(groups) == 3:  # Handle Item Name - QTY: # - $Price format
+                                    sku = f"AUTO{len(extracted['items'])+1:03d}"
+                                    qty = int(groups[1])
+                                    unit_price = float(groups[2].replace(',', ''))
+                                    total = qty * unit_price
+                                    api_logger.info(f"🎯 Matched 3-group pattern (idx {pattern_idx}): {name}, QTY: {qty}, Price: ${unit_price}")
+                                else:
+                                    sku = groups[1] if len(groups) > 1 else f"AUTO{len(extracted['items'])+1:03d}"
+                                    qty = int(groups[2]) if len(groups) > 2 else 1
+                                    unit_price = float(groups[3].replace(',', '')) if len(groups) > 3 else 0.0
+                                    total = qty * unit_price
+                            
+                            # Validate item data and check for duplicates
+                            if (len(name) > 2 and name.lower() not in ['item', 'name', 'product', 'component'] and
+                                not any(existing_item['name'].lower() == name.lower() for existing_item in extracted["items"])):
+                                item = {
+                                    "name": name,
+                                    "sku": sku,
+                                    "serial_number": "",
+                                    "quantity": qty,
+                                    "unit_value": unit_price,
+                                    "total_value": total,
+                                    "condition_at_lending": "good",
+                                    "risk_level": "low",
+                                    "safety_requirements": "",
+                                    "usage_purpose": extracted.get("lending_purpose", ""),
+                                    "usage_location": extracted.get("lending_location", "")
+                                }
+                                extracted["items"].append(item)
+                                api_logger.info(f"✅ Successfully extracted item: {name}")
+                            elif any(existing_item['name'].lower() == name.lower() for existing_item in extracted["items"]):
+                                api_logger.info(f"🔄 Skipping duplicate item: {name}")
+                        except (ValueError, IndexError) as e:
+                            api_logger.debug(f"Failed to parse item match: {e}")
+                            continue
+        
+        # Fallback: Extract any product-like words if still no items (enhanced)
+        if not extracted["items"]:
+            api_logger.info("🔍 No items found in structured data, trying fallback extraction...")
+            
+            # Look for equipment names in text (expanded list)
+            equipment_words = re.findall(r'\b(Oscilloscope|Multimeter|Microscope|Caliper|Micrometer|Generator|Analyzer|Sensor|Breadboard|Arduino|Resistor|Capacitor|Inductor|Transistor|IC|Chip|Module|Board|Kit|Tool|Meter|Probe|Cable|Wire|Component|Computer|Laptop|Monitor|Keyboard|Mouse|Tablet|Phone|Camera|Lens|Tripod|Battery|Charger|Adapter|Switch|Router|Hub|Speaker|Headphone|Microphone|Projector|Screen|Printer|Scanner|Drive|Disk|Memory|Card|Reader)\b', text, re.IGNORECASE)
+            
+            for i, equipment in enumerate(set(equipment_words)):
+                if i >= 5:  # Limit to 5 items to avoid spam
+                    break
+                item = {
+                    "name": equipment.title(),
+                    "sku": f"AUTO{i+1:03d}",
+                    "serial_number": "",
+                    "quantity": 1,
+                    "unit_value": 0.0,
+                    "total_value": 0.0,
+                    "condition_at_lending": "good",
+                    "risk_level": "low",
+                    "safety_requirements": "",
+                    "usage_purpose": extracted.get("lending_purpose", ""),
+                    "usage_location": extracted.get("lending_location", "")
+                }
+                extracted["items"].append(item)
+                api_logger.info(f"🎯 Fallback extracted equipment: {equipment}")
+            
+            # Try to extract from any line that looks like it might contain items
+            if not extracted["items"]:
+                api_logger.info("🔍 Trying line-by-line extraction as final fallback...")
+                lines = text.split('\n')
+                for line in lines:
+                    line = line.strip()
+                    if len(line) < 3 or not line:
+                        continue
+                    
+                    # Skip obvious non-item lines
+                    if re.search(r'^(date|time|total|signature|terms|conditions|notes|email|phone|address|department)', line, re.IGNORECASE):
+                        continue
+                    
+                    # Look for lines that might contain items
+                    if (re.search(r'\b(equipment|tool|device|component|item|product)\b', line, re.IGNORECASE) or
+                        re.search(r'\b[A-Z]{2,}[\d\-]+\b', line) or  # SKU-like patterns
+                        re.search(r'\d+\s*x\s*[A-Za-z]', line, re.IGNORECASE) or  # Quantity patterns
+                        re.search(r'\$\d+', line)):  # Price patterns
+                        
+                        item = extract_item_from_line(line)
+                        if item and len(extracted["items"]) < 10:  # Limit to avoid spam
+                            extracted["items"].append(item)
+                            api_logger.info(f"📦 Line extraction found: {item['name']}")
+    
     except Exception as e:
         api_logger.warning(f"Failed to parse equipment items: {e}")
-    
-    # Extract notes or comments
-    notes_patterns = [
-        r'Notes[#:]?\s*([A-Za-z0-9\s,.\-]+?)(?:\n\n|\n@|$)',
-        r'Comments[#:]?\s*([A-Za-z0-9\s,.\-]+?)(?:\n\n|\n@|$)',
-        r'Special\s+Instructions[#:]?\s*([A-Za-z0-9\s,.\-]+?)(?:\n\n|\n@|$)',
-        r'Purpose[#:]?\s*([A-Za-z0-9\s,.\-]+?)(?:\n\n|\n@|$)'
-    ]
-    for i, pattern in enumerate(notes_patterns):
-        match = re.search(pattern, full_text, re.IGNORECASE | re.DOTALL)
-        if match and not extracted["notes"]:
-            notes_text = clean_extracted_text(match.group(1), "text")
-            if len(notes_text) > 5:
-                extracted["notes"] = notes_text[:200]  # Limit notes length
-                api_logger.info(f"📝 Extracted notes with pattern {i+1}: {notes_text[:50]}...")
-                break
-    
+
     # Set sensible defaults for missing but important fields
     if not extracted["lending_time"]:
         extracted["lending_time"] = "09:00"  # Default to 9 AM
@@ -2854,59 +3004,243 @@ def parse_text_simple(text: str) -> dict:
     
     extracted["confidence_score"] = min(confidence, 100)
     
-    # Enhanced logging with comprehensive data validation
-    api_logger.info(f"✨ Enhanced lending invoice parsing completed. Confidence: {extracted['confidence_score']}%")
-    api_logger.info(f"📋 Extracted Lending Data Summary:")
-    api_logger.info(f"   👤 Borrower: '{extracted['student_name']}' (ID: {extracted['student_id']})")
-    api_logger.info(f"   📧 Contact: {extracted['student_email']} | {extracted['borrower_phone']}")
-    api_logger.info(f"   🏫 Department: '{extracted['department']}'")
-    api_logger.info(f"   📁 Project: '{extracted['project_name']}' (Supervisor: {extracted['supervisor_name']})")
-    api_logger.info(f"   🎯 Purpose: '{extracted['lending_purpose'][:50]}...' (Location: {extracted['lending_location']})")
-    api_logger.info(f"   📅 Due Date: {extracted['due_date']}")
-    api_logger.info(f"   👨‍💼 Issued By: '{extracted['issued_by']}'")
-    api_logger.info(f"   📦 Components: {len(extracted['items'])} extracted")
+    # Enhanced logging with comprehensive data validation (fixed for safety)
+    try:
+        api_logger.info(f"✨ Enhanced lending invoice parsing completed. Confidence: {extracted.get('confidence_score', 0)}%")
+        api_logger.info(f"📋 Extracted Lending Data Summary:")
+        api_logger.info(f"   👤 Borrower: '{extracted.get('student_name', '')}' (ID: {extracted.get('student_id', '')})")
+        api_logger.info(f"   📧 Contact: {extracted.get('student_email', '')} | {extracted.get('borrower_phone', '')}")
+        api_logger.info(f"   🏫 Department: '{extracted.get('department', '')}'")
+        api_logger.info(f"   📁 Project: '{extracted.get('project_name', '')}' (Supervisor: {extracted.get('supervisor_name', '')})")
+        
+        # Safe string slicing
+        purpose = extracted.get('lending_purpose', '')
+        purpose_display = purpose[:50] + "..." if len(purpose) > 50 else purpose
+        api_logger.info(f"   🎯 Purpose: '{purpose_display}' (Location: {extracted.get('lending_location', '')})")
+        
+        api_logger.info(f"   📅 Due Date: {extracted.get('due_date', '')}")
+        api_logger.info(f"   👨‍💼 Issued By: '{extracted.get('issued_by', '')}'")
+        api_logger.info(f"   📦 Components: {len(extracted.get('items', []))} extracted")
+    except Exception as log_error:
+        api_logger.warning(f"Logging error (non-critical): {log_error}")
     
-    # Enhanced validation warnings
-    if len(extracted['student_name']) < 3:
-        api_logger.warning("⚠️  Student name seems too short")
-    if len(extracted['student_id']) < 4:
-        api_logger.warning("⚠️  Student ID seems invalid")
-    if not extracted['student_email'] and extracted['confidence_score'] > 50:
-        api_logger.warning("⚠️  No valid email found despite good OCR")
-    if not extracted['lending_purpose'] and extracted['confidence_score'] > 60:
-        api_logger.warning("⚠️  No lending purpose found - manual entry may be needed")
-    if not extracted['project_name'] and extracted['confidence_score'] > 70:
-        api_logger.warning("⚠️  No project information found")
+    # Enhanced validation warnings (also made safe)
+    try:
+        if len(extracted.get('student_name', '')) < 3:
+            api_logger.warning("⚠️  Student name seems too short")
+        if len(extracted.get('student_id', '')) < 4:
+            api_logger.warning("⚠️  Student ID seems invalid")
+        if not extracted.get('student_email') and extracted.get('confidence_score', 0) > 50:
+            api_logger.warning("⚠️  No valid email found despite good OCR")
+        if not extracted.get('lending_purpose') and extracted.get('confidence_score', 0) > 60:
+            api_logger.warning("⚠️  No lending purpose found - manual entry may be needed")
+        if not extracted.get('project_name') and extracted.get('confidence_score', 0) > 70:
+            api_logger.warning("⚠️  No project information found")
+    except Exception as validation_error:
+        api_logger.warning(f"Validation error (non-critical): {validation_error}")
     
+    api_logger.info("🎯 About to return extracted data...")
+    api_logger.info(f"🔧 DEBUG: extracted type = {type(extracted)}")
+    api_logger.info(f"🔧 DEBUG: extracted keys = {list(extracted.keys()) if extracted else 'None'}")
     return extracted
-    if extracted["student_name"]: confidence += 20
-    if extracted["student_id"]: confidence += 20
-    if extracted["student_email"]: confidence += 15
-    if extracted["department"]: confidence += 15
-    if extracted["due_date"]: confidence += 15
-    if extracted["invoice_number"]: confidence += 10
-    if extracted["items"]: confidence += 5 * len(extracted["items"])
+
+def extract_item_from_line(line):
+    """Helper function to extract item information from a single line"""
+    try:
+        # Enhanced patterns to handle more formats
+        patterns = [
+            # Pattern 1: Name SKU Qty Price Total
+            r'^([A-Za-z\s\-]+?)\s+([A-Z0-9\-]{2,})\s+(\d+)\s+\$?([\d,.]+)\s+\$?([\d,.]+)',
+            # Pattern 2: Name | SKU | Qty | Price | Total
+            r'^([A-Za-z\s\-]+?)\s*\|\s*([A-Z0-9\-]+)\s*\|\s*(\d+)\s*\|\s*\$?([\d,.]+)\s*\|\s*\$?([\d,.]+)',
+            # Pattern 3: Name, SKU, Qty, Price
+            r'^([A-Za-z\s\-]{3,}),\s*([A-Z0-9\-]+),\s*(\d+),\s*\$?([\d,.]+)',
+            # Pattern 4: Just name and basic info
+            r'^([A-Za-z\s\-]{3,})\s+([A-Z0-9\-]{2,})',
+            # Pattern 5: Detect equipment/component names with numbers
+            r'^(\d+)[\.\)]\s*([A-Za-z\s\-]{3,})(?:\s+([A-Z0-9\-]+))?\s*(?:(\d+))?\s*(?:\$?([\d,.]+))?',
+            # Pattern 6: Simple component name detection
+            r'^([A-Za-z][A-Za-z\s\-]{2,50})(?:\s+(\d+))?\s*(?:\$?([\d,.]+))?',
+            # Pattern 7: Tab or multiple space separated
+            r'^([A-Za-z\s\-]{3,})\s{2,}([A-Z0-9\-]+)\s{2,}(\d+)\s{2,}\$?([\d,.]+)',
+            # Pattern 8: Item Name - QTY: # - $Price (NEW - for test invoice format)
+            r'^([A-Za-z\s\-]+?)\s*-\s*QTY:\s*(\d+)\s*-\s*\$?([\d,.]+)',
+            # Pattern 9: Item Name - Quantity: # - Price: $#
+            r'^([A-Za-z\s\-]+?)\s*-\s*Quantity:\s*(\d+)\s*-\s*Price:\s*\$?([\d,.]+)',
+            # Pattern 10: Item Name QTY # $Price
+            r'^([A-Za-z\s\-]+?)\s+QTY\s+(\d+)\s+\$?([\d,.]+)',
+        ]
+        
+        for i, pattern in enumerate(patterns):
+            match = re.search(pattern, line.strip())
+            if match:
+                groups = match.groups()
+                
+                # Extract name (always first group)
+                name = groups[0].strip() if groups[0] else ""
+                
+                # Skip header-like entries and invalid names
+                if (not name or len(name) < 3 or 
+                    name.lower() in ['item', 'name', 'product', 'component', 'equipment', 'qty', 'quantity', 'price', 'total', 'sku', 'code']):
+                    continue
+                
+                # Extract other fields based on pattern
+                sku = ""
+                quantity = 1
+                unit_value = 0.0
+                total_value = 0.0
+                
+                if i == 4:  # Pattern 5 (numbered list)
+                    name = groups[1].strip() if groups[1] else ""
+                    sku = groups[2] if groups[2] else f"AUTO{random.randint(100,999)}"
+                    quantity = int(groups[3]) if groups[3] else 1
+                    unit_value = float(groups[4].replace(',', '')) if groups[4] else 0.0
+                elif i == 5:  # Pattern 6 (simple detection)
+                    sku = f"AUTO{random.randint(100,999)}"
+                    quantity = int(groups[1]) if groups[1] else 1
+                    unit_value = float(groups[2].replace(',', '')) if groups[2] else 0.0
+                elif i == 7:  # Pattern 8 (Item Name - QTY: # - $Price)
+                    sku = f"AUTO{random.randint(100,999)}"
+                    quantity = int(groups[1]) if groups[1] else 1
+                    unit_value = float(groups[2].replace(',', '')) if groups[2] else 0.0
+                elif i == 8:  # Pattern 9 (Item Name - Quantity: # - Price: $#)
+                    sku = f"AUTO{random.randint(100,999)}"
+                    quantity = int(groups[1]) if groups[1] else 1
+                    unit_value = float(groups[2].replace(',', '')) if groups[2] else 0.0
+                elif i == 9:  # Pattern 10 (Item Name QTY # $Price)
+                    sku = f"AUTO{random.randint(100,999)}"
+                    quantity = int(groups[1]) if groups[1] else 1
+                    unit_value = float(groups[2].replace(',', '')) if groups[2] else 0.0
+                else:  # Other patterns
+                    sku = groups[1] if len(groups) > 1 and groups[1] else f"AUTO{random.randint(100,999)}"
+                    quantity = int(groups[2]) if len(groups) > 2 and groups[2] else 1
+                    unit_value = float(groups[3].replace(',', '')) if len(groups) > 3 and groups[3] else 0.0
+                    total_value = float(groups[4].replace(',', '')) if len(groups) > 4 and groups[4] else 0.0
+                
+                # Skip if name still invalid
+                if not name or len(name) < 3:
+                    continue
+                
+                item = {
+                    "name": name,
+                    "sku": sku,
+                    "serial_number": "",
+                    "quantity": quantity,
+                    "unit_value": unit_value,
+                    "total_value": total_value if total_value > 0 else (quantity * unit_value),
+                    "condition_at_lending": "good",
+                    "risk_level": "low",
+                    "safety_requirements": "",
+                    "usage_purpose": "",
+                    "usage_location": ""
+                }
+                
+                api_logger.info(f"🔧 Extracted item with pattern {i+1}: {name} (SKU: {sku}, Qty: {quantity})")
+                return item
+                
+    except Exception as e:
+        api_logger.debug(f"Failed to extract item from line '{line}': {e}")
     
-    extracted["confidence_score"] = min(confidence, 100)
+    return None
+
+def extract_item_from_line(line):
+    """Helper function to extract item information from a single line"""
+    try:
+        # Enhanced patterns to handle more formats
+        patterns = [
+            # Pattern 1: Name SKU Qty Price Total
+            r'^([A-Za-z\s\-]+?)\s+([A-Z0-9\-]{2,})\s+(\d+)\s+\$?([\d,.]+)\s+\$?([\d,.]+)',
+            # Pattern 2: Name | SKU | Qty | Price | Total
+            r'^([A-Za-z\s\-]+?)\s*\|\s*([A-Z0-9\-]+)\s*\|\s*(\d+)\s*\|\s*\$?([\d,.]+)\s*\|\s*\$?([\d,.]+)',
+            # Pattern 3: Name, SKU, Qty, Price
+            r'^([A-Za-z\s\-]{3,}),\s*([A-Z0-9\-]+),\s*(\d+),\s*\$?([\d,.]+)',
+            # Pattern 4: Just name and basic info
+            r'^([A-Za-z\s\-]{3,})\s+([A-Z0-9\-]{2,})',
+            # Pattern 5: Detect equipment/component names with numbers
+            r'^(\d+)[\.\)]\s*([A-Za-z\s\-]{3,})(?:\s+([A-Z0-9\-]+))?\s*(?:(\d+))?\s*(?:\$?([\d,.]+))?',
+            # Pattern 6: Simple component name detection
+            r'^([A-Za-z][A-Za-z\s\-]{2,50})(?:\s+(\d+))?\s*(?:\$?([\d,.]+))?',
+            # Pattern 7: Tab or multiple space separated
+            r'^([A-Za-z\s\-]{3,})\s{2,}([A-Z0-9\-]+)\s{2,}(\d+)\s{2,}\$?([\d,.]+)',
+            # Pattern 8: Item Name - QTY: # - $Price (NEW - for test invoice format)
+            r'^([A-Za-z\s\-]+?)\s*-\s*QTY:\s*(\d+)\s*-\s*\$?([\d,.]+)',
+            # Pattern 9: Item Name - Quantity: # - Price: $#
+            r'^([A-Za-z\s\-]+?)\s*-\s*Quantity:\s*(\d+)\s*-\s*Price:\s*\$?([\d,.]+)',
+            # Pattern 10: Item Name QTY # $Price
+            r'^([A-Za-z\s\-]+?)\s+QTY\s+(\d+)\s+\$?([\d,.]+)',
+        ]
+        
+        for i, pattern in enumerate(patterns):
+            match = re.search(pattern, line.strip())
+            if match:
+                groups = match.groups()
+                
+                # Extract name (always first group)
+                name = groups[0].strip() if groups[0] else ""
+                
+                # Skip header-like entries and invalid names
+                if (not name or len(name) < 3 or 
+                    name.lower() in ['item', 'name', 'product', 'component', 'equipment', 'qty', 'quantity', 'price', 'total', 'sku', 'code']):
+                    continue
+                
+                # Extract other fields based on pattern
+                sku = ""
+                quantity = 1
+                unit_value = 0.0
+                total_value = 0.0
+                
+                if i == 4:  # Pattern 5 (numbered list)
+                    name = groups[1].strip() if groups[1] else ""
+                    sku = groups[2] if groups[2] else f"AUTO{random.randint(100,999)}"
+                    quantity = int(groups[3]) if groups[3] else 1
+                    unit_value = float(groups[4].replace(',', '')) if groups[4] else 0.0
+                elif i == 5:  # Pattern 6 (simple detection)
+                    sku = f"AUTO{random.randint(100,999)}"
+                    quantity = int(groups[1]) if groups[1] else 1
+                    unit_value = float(groups[2].replace(',', '')) if groups[2] else 0.0
+                elif i == 7:  # Pattern 8 (Item Name - QTY: # - $Price)
+                    sku = f"AUTO{random.randint(100,999)}"
+                    quantity = int(groups[1]) if groups[1] else 1
+                    unit_value = float(groups[2].replace(',', '')) if groups[2] else 0.0
+                elif i == 8:  # Pattern 9 (Item Name - Quantity: # - Price: $#)
+                    sku = f"AUTO{random.randint(100,999)}"
+                    quantity = int(groups[1]) if groups[1] else 1
+                    unit_value = float(groups[2].replace(',', '')) if groups[2] else 0.0
+                elif i == 9:  # Pattern 10 (Item Name QTY # $Price)
+                    sku = f"AUTO{random.randint(100,999)}"
+                    quantity = int(groups[1]) if groups[1] else 1
+                    unit_value = float(groups[2].replace(',', '')) if groups[2] else 0.0
+                else:  # Other patterns
+                    sku = groups[1] if len(groups) > 1 and groups[1] else f"AUTO{random.randint(100,999)}"
+                    quantity = int(groups[2]) if len(groups) > 2 and groups[2] else 1
+                    unit_value = float(groups[3].replace(',', '')) if len(groups) > 3 and groups[3] else 0.0
+                    total_value = float(groups[4].replace(',', '')) if len(groups) > 4 and groups[4] else 0.0
+                
+                # Skip if name still invalid
+                if not name or len(name) < 3:
+                    continue
+                
+                item = {
+                    "name": name,
+                    "sku": sku,
+                    "serial_number": "",
+                    "quantity": quantity,
+                    "unit_value": unit_value,
+                    "total_value": total_value if total_value > 0 else (quantity * unit_value),
+                    "condition_at_lending": "good",
+                    "risk_level": "low",
+                    "safety_requirements": "",
+                    "usage_purpose": "",
+                    "usage_location": ""
+                }
+                
+                api_logger.info(f"🔧 Extracted item with pattern {i+1}: {name} (SKU: {sku}, Qty: {quantity})")
+                return item
+                
+    except Exception as e:
+        api_logger.debug(f"Failed to extract item from line '{line}': {e}")
     
-    # Enhanced logging with data validation
-    api_logger.info(f"✨ Enhanced parsing completed. Confidence: {extracted['confidence_score']}%")
-    api_logger.info(f"📋 Extracted Data Summary:")
-    api_logger.info(f"   👤 Name: '{extracted['student_name']}' (Length: {len(extracted['student_name'])})")
-    api_logger.info(f"   🆔 ID: '{extracted['student_id']}' (Length: {len(extracted['student_id'])})")
-    api_logger.info(f"   📧 Email: '{extracted['student_email']}' (Valid: {bool(extracted['student_email'])})")
-    api_logger.info(f"   🏫 Department: '{extracted['department']}' (Length: {len(extracted['department'])})")
-    api_logger.info(f"   📦 Items: {len(extracted['items'])} extracted")
-    
-    # Validation warnings
-    if len(extracted['student_name']) < 3:
-        api_logger.warning("⚠️  Student name seems too short")
-    if len(extracted['student_id']) < 4:
-        api_logger.warning("⚠️  Student ID seems invalid")
-    if not extracted['student_email'] and extracted['confidence_score'] > 50:
-        api_logger.warning("⚠️  No valid email found despite good OCR")
-    
-    return extracted
+    return None
 
 def calculate_confidence_score(extracted_data: dict) -> float:
     """
@@ -2915,3 +3249,49 @@ def calculate_confidence_score(extracted_data: dict) -> float:
     fields = ["student_name", "student_id", "student_email", "department"]
     filled_fields = sum(1 for field in fields if extracted_data.get(field))
     return min(0.9, filled_fields / len(fields))
+
+def parse_text_simple_fallback(text: str) -> dict:
+    """
+    Simple fallback parsing function if the main one fails
+    """
+    try:
+        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        extracted = {
+            "student_name": "",
+            "student_id": "",
+            "student_email": "",
+            "department": "",
+            "due_date": "",
+            "items": [],
+            "confidence_score": 30
+        }
+        
+        full_text = ' '.join(lines)
+        
+        # Basic name extraction
+        name_match = re.search(r'(?:Name|Student)[:\s]+([A-Za-z\s]+)', full_text, re.IGNORECASE)
+        if name_match:
+            extracted["student_name"] = name_match.group(1).strip()
+        
+        # Basic ID extraction
+        id_match = re.search(r'(?:ID|Student\s+ID)[:\s]+([A-Z0-9]+)', full_text, re.IGNORECASE)
+        if id_match:
+            extracted["student_id"] = id_match.group(1).strip()
+        
+        # Basic email extraction
+        email_match = re.search(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', full_text)
+        if email_match:
+            extracted["student_email"] = email_match.group(1)
+        
+        return extracted
+    except Exception as e:
+        api_logger.error(f"Even fallback parsing failed: {e}")
+        return {
+            "student_name": "",
+            "student_id": "",
+            "student_email": "",
+            "department": "",
+            "due_date": "",
+            "items": [],
+            "confidence_score": 0
+        }

@@ -31,7 +31,16 @@ import {
   Checkbox,
   CircularProgress,
   List,
-  ListItem
+  ListItem,
+  Grid,
+  FormControl,
+  InputLabel,
+  Select,
+  InputAdornment,
+  Slider,
+  Divider,
+  Collapse,
+  Autocomplete
 } from '@mui/material';
 import {
   Visibility as ViewIcon,
@@ -56,7 +65,21 @@ import {
   Search as SearchIcon,
   Clear as ClearIcon,
   Receipt as ReceiptIcon,
-  TableChart as TableChartIcon
+  TableChart as TableChartIcon,
+  Create as CreateIcon,
+  AutoFixHigh as MagicIcon,
+  DocumentScanner as ScannerIcon,
+  NoteAdd as NoteAddIcon,
+  Star as StarIcon,
+  Diamond as DiamondIcon,
+  LocalFireDepartment as FireIcon,
+  FilterList as FilterIcon,
+  CalendarMonth as CalendarIcon,
+  Person as PersonIcon,
+  Business as BusinessIcon,
+  Category as CategoryIcon,
+  Close as CloseIcon,
+  TrendingUp as TrendingUpIcon
 } from '@mui/icons-material';
 import CameraUploadDialog from './CameraUploadDialog';
 import CreateInvoiceDialog from './CreateInvoiceDialog';
@@ -82,8 +105,23 @@ const InvoiceManagement = () => {
   const [filters, setFilters] = useState({
     status: '',
     invoice_type: '',
-    student_id: ''
+    student_id: '',
+    staff_name: '',
+    department: '',
+    dateFrom: '',
+    dateTo: '',
+    amountMin: 0,
+    amountMax: 10000,
+    component: '',
+    invoiceNumber: ''
   });
+  
+  // Enhanced filter state
+  const [filterExpanded, setFilterExpanded] = useState(false);
+  const [students, setStudents] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [staffMembers, setStaffMembers] = useState([]);
+  const [components, setComponents] = useState([]);
   
   // Bulk selection states
   const [selectedInvoices, setSelectedInvoices] = useState([]);
@@ -104,6 +142,8 @@ const InvoiceManagement = () => {
   const [invoiceToDelete, setInvoiceToDelete] = useState(null);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [selectedInvoiceForImages, setSelectedInvoiceForImages] = useState(null);
+  const [itemsDialogOpen, setItemsDialogOpen] = useState(false);
+  const [selectedInvoiceForItems, setSelectedInvoiceForItems] = useState(null);
   
   // Summary stats
   const [summary, setSummary] = useState({
@@ -119,15 +159,68 @@ const InvoiceManagement = () => {
   useEffect(() => {
     fetchInvoices();
     fetchSummary();
-  }, [filters]);
+    fetchFilterData();
+  }, []);
 
-  // Search filtering effect
+  // Enhanced filtering effect
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredInvoices(invoices);
-    } else {
+    applyFilters();
+  }, [searchQuery, invoices, filters]);
+
+  // Fetch additional data for filters
+  const fetchFilterData = async () => {
+    try {
+      console.log('Fetching filter data...');
+      
+      // Fetch students for filter dropdown
+      const studentsResponse = await fetch(`${API_BASE_URL}/api/students`);
+      if (studentsResponse.ok) {
+        const studentsData = await studentsResponse.json();
+        console.log('Students loaded:', studentsData.length);
+        setStudents(studentsData);
+      }
+      
+      // Fetch staff/lenders for departments dropdown
+      const lendersResponse = await fetch(`${API_BASE_URL}/api/lenders`);
+      if (lendersResponse.ok) {
+        const lendersData = await lendersResponse.json();
+        console.log('Lenders loaded:', lendersData.length);
+        
+        // Extract unique departments from staff/lenders
+        const uniqueDepartments = [...new Set(lendersData.map(lender => lender.department).filter(Boolean))];
+        console.log('Staff departments loaded:', uniqueDepartments);
+        setDepartments(uniqueDepartments);
+      }
+      
+      // Fetch components for filter dropdown
+      const componentsResponse = await fetch(`${API_BASE_URL}/api/products`);
+      if (componentsResponse.ok) {
+        const componentsData = await componentsResponse.json();
+        console.log('Components loaded:', componentsData.length);
+        console.log('Sample component data:', componentsData[0]);
+        if (componentsData.length > 0) {
+          console.log('Component fields:', Object.keys(componentsData[0]));
+        }
+        setComponents(componentsData);
+      } else {
+        console.error('Failed to fetch components:', componentsResponse.status);
+      }
+    } catch (err) {
+      console.error('Failed to fetch filter data:', err);
+    }
+  };
+
+  // Enhanced filtering function
+  const applyFilters = () => {
+    let filtered = [...invoices];
+    
+    console.log('Applying filters:', filters);
+    console.log('Total invoices before filtering:', invoices.length);
+
+    // Apply search query
+    if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      const filtered = invoices.filter(invoice => {
+      filtered = filtered.filter(invoice => {
         return (
           (invoice.invoice_number && invoice.invoice_number.toLowerCase().includes(query)) ||
           (invoice.student_name && invoice.student_name.toLowerCase().includes(query)) ||
@@ -135,12 +228,131 @@ const InvoiceManagement = () => {
           (invoice.invoice_type && invoice.invoice_type.toLowerCase().includes(query)) ||
           (invoice.notes && invoice.notes.toLowerCase().includes(query)) ||
           (invoice.lender_name && invoice.lender_name.toLowerCase().includes(query)) ||
-          (invoice.issued_by_lender && invoice.issued_by_lender.toLowerCase().includes(query))
+          (invoice.issued_by_lender && invoice.issued_by_lender.toLowerCase().includes(query)) ||
+          (invoice.department && invoice.department.toLowerCase().includes(query))
         );
       });
-      setFilteredInvoices(filtered);
+      console.log('After search filter:', filtered.length);
     }
-  }, [searchQuery, invoices]);
+
+    // Apply status filter
+    if (filters.status) {
+      console.log('Applying status filter:', filters.status);
+      filtered = filtered.filter(invoice => {
+        console.log('Invoice status:', invoice.status, 'Filter:', filters.status);
+        return invoice.status === filters.status;
+      });
+      console.log('After status filter:', filtered.length);
+    }
+
+    // Apply invoice type filter
+    if (filters.invoice_type) {
+      console.log('Applying invoice type filter:', filters.invoice_type);
+      filtered = filtered.filter(invoice => invoice.invoice_type === filters.invoice_type);
+      console.log('After invoice type filter:', filtered.length);
+    }
+
+    // Apply student filter
+    if (filters.student_id) {
+      console.log('Applying student filter:', filters.student_id);
+      filtered = filtered.filter(invoice => {
+        const studentMatch = invoice.student_id === parseInt(filters.student_id) || 
+                           invoice.student_id === filters.student_id;
+        console.log('Student ID match:', invoice.student_id, 'vs', filters.student_id, '=', studentMatch);
+        return studentMatch;
+      });
+      console.log('After student filter:', filtered.length);
+    }
+
+    // Apply staff/lender filter
+    if (filters.staff_name) {
+      console.log('Applying staff filter:', filters.staff_name);
+      filtered = filtered.filter(invoice => 
+        (invoice.issued_by_lender && invoice.issued_by_lender.includes(filters.staff_name)) ||
+        (invoice.lender_name && invoice.lender_name.includes(filters.staff_name))
+      );
+      console.log('After staff filter:', filtered.length);
+    }
+
+    // Apply department filter
+    if (filters.department) {
+      console.log('Applying department filter:', filters.department);
+      filtered = filtered.filter(invoice => invoice.department === filters.department);
+      console.log('After department filter:', filtered.length);
+    }
+
+    // Apply date range filter
+    if (filters.dateFrom) {
+      console.log('Applying date from filter:', filters.dateFrom);
+      filtered = filtered.filter(invoice => {
+        const invoiceDate = new Date(invoice.issue_date);
+        const fromDate = new Date(filters.dateFrom);
+        return invoiceDate >= fromDate;
+      });
+      console.log('After date from filter:', filtered.length);
+    }
+    if (filters.dateTo) {
+      console.log('Applying date to filter:', filters.dateTo);
+      filtered = filtered.filter(invoice => {
+        const invoiceDate = new Date(invoice.issue_date);
+        const toDate = new Date(filters.dateTo);
+        return invoiceDate <= toDate;
+      });
+      console.log('After date to filter:', filtered.length);
+    }
+
+    // Apply amount range filter
+    if (filters.amountMin > 0 || (filters.amountMax && filters.amountMax < 10000)) {
+      console.log('Applying amount filter:', filters.amountMin, 'to', filters.amountMax);
+      filtered = filtered.filter(invoice => {
+        const amount = parseFloat(invoice.total_amount || 0);
+        const minAmount = parseFloat(filters.amountMin) || 0;
+        const maxAmount = parseFloat(filters.amountMax) || 10000;
+        const inRange = amount >= minAmount && amount <= maxAmount;
+        console.log('Amount check:', amount, 'in range', minAmount, '-', maxAmount, '=', inRange);
+        return inRange;
+      });
+      console.log('After amount filter:', filtered.length);
+    }
+
+    // Apply component filter
+    if (filters.component) {
+      console.log('Applying component filter:', filters.component);
+      filtered = filtered.filter(invoice => {
+        // Check if invoice has components and search within them
+        if (invoice.components && Array.isArray(invoice.components)) {
+          return invoice.components.some(component => 
+            (component.name && component.name === filters.component) ||
+            (component.sku && component.sku === filters.component) ||
+            (component.product_name && component.product_name === filters.component)
+          );
+        }
+        return false;
+      });
+      console.log('After component filter:', filtered.length);
+    }
+
+    // Apply department filter
+    if (filters.department) {
+      console.log('Applying department filter:', filters.department);
+      filtered = filtered.filter(invoice => 
+        invoice.department && invoice.department === filters.department
+      );
+      console.log('After department filter:', filtered.length);
+    }
+
+    // Apply invoice number filter
+    if (filters.invoiceNumber) {
+      console.log('Applying invoice number filter:', filters.invoiceNumber);
+      filtered = filtered.filter(invoice => 
+        invoice.invoice_number && invoice.invoice_number.toLowerCase().includes(filters.invoiceNumber.toLowerCase())
+      );
+      console.log('After invoice number filter:', filtered.length);
+    }
+
+    console.log('Final filtered count:', filtered.length);
+    setFilteredInvoices(filtered);
+  };
 
   // Search handlers
   const handleSearchChange = (event) => {
@@ -149,6 +361,57 @@ const InvoiceManagement = () => {
 
   const handleClearSearch = () => {
     setSearchQuery('');
+  };
+
+  // Filter handlers
+  const handleFilterChange = (filterName) => (event) => {
+    let value = event.target.value;
+    
+    // Handle numeric fields
+    if (filterName === 'amountMin' || filterName === 'amountMax') {
+      value = value === '' ? (filterName === 'amountMin' ? 0 : 10000) : parseFloat(value);
+    }
+    
+    setFilters(prev => ({
+      ...prev,
+      [filterName]: value
+    }));
+  };
+
+  const handleAmountRangeChange = (event, newValue) => {
+    setFilters(prev => ({
+      ...prev,
+      amountMin: newValue[0],
+      amountMax: newValue[1]
+    }));
+  };
+
+  const clearAllFilters = () => {
+    setFilters({
+      status: '',
+      invoice_type: '',
+      student_id: '',
+      staff_name: '',
+      department: '',
+      dateFrom: '',
+      dateTo: '',
+      amountMin: 0,
+      amountMax: 10000,
+      component: '',
+      invoiceNumber: ''
+    });
+    setSearchQuery('');
+  };
+
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (searchQuery) count++;
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value && !(key === 'amountMin' && value === 0) && !(key === 'amountMax' && value === 10000)) {
+        count++;
+      }
+    });
+    return count;
   };
 
   const fetchInvoices = async () => {
@@ -165,6 +428,20 @@ const InvoiceManagement = () => {
       if (response.ok) {
         setInvoices(data);
         setFilteredInvoices(data);
+        
+        // Debug: Log invoice data to see available fields
+        console.log('Sample invoice data:', data[0]);
+        console.log('All invoice fields:', data.length > 0 ? Object.keys(data[0]) : 'No invoices');
+        
+        // Extract unique staff members from loaded invoices - use lender_name instead of ID
+        const staffFields = data.map(inv => {
+          return inv.lender_name || inv.issued_by_lender_name || inv.issued_by;
+        }).filter(Boolean);
+        
+        console.log('Raw staff fields:', staffFields);
+        const uniqueStaff = [...new Set(staffFields)];
+        console.log('Staff members loaded from invoices:', uniqueStaff);
+        setStaffMembers(uniqueStaff);
       } else {
         setError('Failed to fetch invoices');
       }
@@ -221,6 +498,106 @@ const InvoiceManagement = () => {
       }
     } catch (err) {
       setError('Network error while fetching invoice details');
+    }
+  };
+
+  const handleViewItems = async (invoiceId) => {
+    try {
+      // First get the invoice details
+      const response = await fetch(`${API_BASE_URL}/api/invoices/${invoiceId}`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        console.log('Invoice data:', data); // Debug log
+        
+        // If invoice has items, use them directly
+        if (data.items && data.items.length > 0) {
+          setSelectedInvoiceForItems(data);
+          setItemsDialogOpen(true);
+          return;
+        }
+        
+        // If no items but has order_id, try to get items from the order
+        if (data.order_id) {
+          console.log('No direct items, checking order:', data.order_id);
+          try {
+            const orderResponse = await fetch(`${API_BASE_URL}/api/orders/${data.order_id}`);
+            const orderData = await orderResponse.json();
+            
+            if (orderResponse.ok && orderData.items && orderData.items.length > 0) {
+              // Convert order items to invoice item format
+              const convertedItems = orderData.items.map(orderItem => ({
+                id: orderItem.id,
+                product_id: orderItem.product_id,
+                product_name: orderItem.product_name,
+                product_sku: orderItem.product_sku || orderItem.sku,
+                product_category: orderItem.product_category || orderItem.category,
+                product_description: orderItem.product_description || orderItem.description,
+                quantity: orderItem.quantity,
+                unit_value: orderItem.unit_price || orderItem.price || 0,
+                total_value: orderItem.total_price || (orderItem.quantity * (orderItem.unit_price || orderItem.price || 0)),
+                expected_return_date: orderItem.expected_return_date || data.expected_return_date,
+                actual_return_date: null,
+                condition_at_lending: 'good',
+                notes: orderItem.notes,
+                // Add source indicator
+                _source: 'order'
+              }));
+              
+              // Add converted items to invoice data
+              const enhancedData = {
+                ...data,
+                items: convertedItems,
+                _itemsSource: 'order'
+              };
+              
+              setSelectedInvoiceForItems(enhancedData);
+              setItemsDialogOpen(true);
+              return;
+            }
+          } catch (orderError) {
+            console.error('Error fetching order items:', orderError);
+          }
+        }
+        
+        // Try to fetch items using the dedicated items endpoint
+        try {
+          const itemsResponse = await fetch(`${API_BASE_URL}/api/invoices/${invoiceId}/items`);
+          if (itemsResponse.ok) {
+            const itemsData = await itemsResponse.json();
+            if (itemsData && itemsData.length > 0) {
+              const enhancedData = {
+                ...data,
+                items: itemsData,
+                _itemsSource: 'items_endpoint'
+              };
+              setSelectedInvoiceForItems(enhancedData);
+              setItemsDialogOpen(true);
+              return;
+            }
+          }
+        } catch (itemsError) {
+          console.error('Error fetching items from items endpoint:', itemsError);
+        }
+        
+        // If still no items found, show empty dialog with creation info
+        const enhancedData = {
+          ...data,
+          items: [],
+          _itemsSource: 'none',
+          _creationMethod: data.notes?.includes('manual') ? 'manual' : 
+                           data.notes?.includes('OCR') ? 'ocr' : 
+                           data.order_id ? 'order' : 'unknown'
+        };
+        setSelectedInvoiceForItems(enhancedData);
+        setItemsDialogOpen(true);
+        
+      } else {
+        setError('Failed to fetch invoice items');
+      }
+    } catch (err) {
+      console.error('Error in handleViewItems:', err);
+      setError('Network error while fetching invoice items');
     }
   };
 
@@ -818,78 +1195,306 @@ const InvoiceManagement = () => {
         </Box>
       </Box>
 
-      {/* Filters */}
-      <Card 
-        sx={{ 
-          mb: 0.5,
-          background: '#FFFFFF',
-          
-          borderRadius: '6px'
-        }}
-      >
-          <CardContent sx={{ py: 0.5, px: 1, '&:last-child': { pb: 0.5 } }}>
-            {/* Search Bar */}
-            <Box sx={{ mb: 0.5 }}>
+      {/* Enhanced Filters - Exactly like Products Management */}
+      <Paper sx={{ mb: 2, borderRadius: 2 }}>
+        {/* Compact Search and Filter Header */}
+        <Box sx={{ p: 1.5 }}>
+          <Grid container spacing={1.5} alignItems="center">
+            {/* Search Field - Takes up most space (same as products) */}
+            <Grid item xs={12} md={5}>
               <TextField
                 fullWidth
-                placeholder="Search invoices by number, student, status, or type..."
+                size="small"
+                variant="outlined"
+                placeholder="Search invoices by number, student, status..."
                 value={searchQuery}
                 onChange={handleSearchChange}
-                variant="outlined"
-                size="small"
                 InputProps={{
                   startAdornment: (
-                    <SearchIcon sx={{ 
-                      color: '#6B7280', 
-                      mr: 1,
-                      fontSize: '16px'
-                    }} />
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: 'action.active', fontSize: '1.1rem' }} />
+                    </InputAdornment>
                   ),
                   endAdornment: searchQuery && (
-                    <IconButton
-                      size="small"
-                      onClick={handleClearSearch}
-                      sx={{ 
-                        color: '#6B7280',
-                        p: 0.5,
-                        '&:hover': {
-                          color: '#3B82F6',
-                          backgroundColor: 'rgba(59, 130, 246, 0.08)'
-                        }
-                      }}
-                    >
-                      <ClearIcon fontSize="small" />
-                    </IconButton>
-                  ),
-                  sx: {
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: '6px',
-                    height: '32px',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      border: '1px solid #3B82F6',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      border: '2px solid #3B82F6',
-                      boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
-                    },
-                    '& input': {
-                      color: '#1F2937',
-                      fontSize: '13px',
-                      padding: '4px 0',
-                      '&::placeholder': {
-                        color: '#9CA3AF',
-                        opacity: 1,
-                      },
-                    },
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={handleClearSearch}>
+                        <CloseIcon sx={{ fontSize: '1rem' }} />
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }}
+                sx={{
+                  '& .MuiInputBase-input': { fontSize: '0.8rem', py: 0.75 },
+                  '& .MuiInputLabel-root': { fontSize: '0.8rem' },
+                  '& .MuiOutlinedInput-root': {
+                    minHeight: '32px',
+                    height: '32px'
                   }
                 }}
               />
+            </Grid>
+            
+            {/* Filter Toggle and Clear */}
+            <Grid item xs={12} md={7}>
+              <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+                <Button
+                  size="small"
+                  variant={filterExpanded ? "contained" : "outlined"}
+                  startIcon={<FilterIcon sx={{ fontSize: '1rem' }} />}
+                  endIcon={filterExpanded ? '▲' : '▼'}
+                  onClick={() => setFilterExpanded(!filterExpanded)}
+                  sx={{ 
+                    minWidth: 'auto', 
+                    fontSize: '0.75rem',
+                    py: 0.5,
+                    px: 1
+                  }}
+                >
+                  More
+                </Button>
+                {getActiveFilterCount() > 0 && (
+                  <Button
+                    size="small" 
+                    variant="outlined"
+                    color="error"
+                    onClick={clearAllFilters} 
+                    startIcon={<CloseIcon sx={{ fontSize: '1rem' }} />}
+                    sx={{ 
+                      minWidth: 'auto',
+                      fontSize: '0.75rem',
+                      py: 0.5,
+                      px: 1,
+                      borderColor: 'error.main',
+                      '&:hover': { 
+                        backgroundColor: 'error.lighter',
+                        borderColor: 'error.dark'
+                      }
+                    }}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </Box>
+            </Grid>
+          </Grid>
+
+          {/* Active Filters Display */}
+          {getActiveFilterCount() > 0 && (
+            <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+              {searchQuery && (
+                <Chip 
+                  size="small" 
+                  label={`"${searchQuery}"`} 
+                  onDelete={handleClearSearch}
+                  sx={{ fontSize: '0.7rem', height: 22 }}
+                />
+              )}
             </Box>
-          </CardContent>
-        </Card>
+          )}
+        </Box>
+
+        {/* Advanced Filters - Collapsible (exactly like products) */}
+        <Collapse in={filterExpanded}>
+          <Box sx={{ px: 1.5, pb: 1.5, borderTop: 1, borderColor: 'divider', pt: 1.5 }}>
+            <Grid container spacing={1.5}>
+              {/* Row 1: Amount Range (like Min/Max Price in products) */}
+              <Grid item xs={12} md={3}>
+                <TextField
+                  size="small"
+                  type="number"
+                  label="Min Amount"
+                  placeholder="₹0"
+                  value={filters.amountMin || ''}
+                  onChange={handleFilterChange('amountMin')}
+                  sx={{
+                    '& .MuiInputBase-input': { fontSize: '0.8rem' },
+                    '& .MuiInputLabel-root': { fontSize: '0.8rem' }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  size="small"
+                  type="number"
+                  label="Max Amount"
+                  placeholder="₹999999"
+                  value={filters.amountMax === 10000 ? '' : filters.amountMax}
+                  onChange={handleFilterChange('amountMax')}
+                  sx={{
+                    '& .MuiInputBase-input': { fontSize: '0.8rem' },
+                    '& .MuiInputLabel-root': { fontSize: '0.8rem' }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Autocomplete
+                  size="small"
+                  freeSolo
+                  options={students.map(student => ({
+                    id: student.id,
+                    name: student.name,
+                    label: student.name
+                  }))}
+                  value={students.find(student => student.id === filters.student_id) || null}
+                  onInputChange={(event, newInputValue) => {
+                    // If typing, try to find matching student
+                    const matchingStudent = students.find(student => 
+                      student.name.toLowerCase().includes(newInputValue.toLowerCase())
+                    );
+                    setFilters(prev => ({ ...prev, student_id: matchingStudent?.id || '' }));
+                  }}
+                  onChange={(event, newValue) => {
+                    setFilters(prev => ({ ...prev, student_id: newValue?.id || '' }));
+                  }}
+                  getOptionLabel={(option) => option.label || option.name || ''}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Student"
+                      sx={{
+                        '& .MuiInputBase-input': { fontSize: '0.8rem' },
+                        '& .MuiInputLabel-root': { fontSize: '0.8rem' }
+                      }}
+                    />
+                  )}
+                  isOptionEqualToValue={(option, value) => option.id === value?.id}
+                />
+              </Grid>
+
+              {/* Row 3: Department, Staff, and Component Search */}
+              <Grid item xs={12} md={3}>
+                <Autocomplete
+                  size="small"
+                  freeSolo
+                  options={departments}
+                  value={filters.department || ''}
+                  onInputChange={(event, newInputValue) => {
+                    setFilters(prev => ({ ...prev, department: newInputValue || '' }));
+                  }}
+                  onChange={(event, newValue) => {
+                    setFilters(prev => ({ ...prev, department: newValue || '' }));
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Department"
+                      sx={{
+                        '& .MuiInputBase-input': { fontSize: '0.8rem' },
+                        '& .MuiInputLabel-root': { fontSize: '0.8rem' }
+                      }}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Autocomplete
+                  size="small"
+                  freeSolo
+                  options={staffMembers}
+                  value={filters.staff_name || ''}
+                  onInputChange={(event, newInputValue) => {
+                    setFilters(prev => ({ ...prev, staff_name: newInputValue || '' }));
+                  }}
+                  onChange={(event, newValue) => {
+                    setFilters(prev => ({ ...prev, staff_name: newValue || '' }));
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Staff Member"
+                      sx={{
+                        '& .MuiInputBase-input': { fontSize: '0.8rem' },
+                        '& .MuiInputLabel-root': { fontSize: '0.8rem' }
+                      }}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Autocomplete
+                  size="small"
+                  freeSolo
+                  options={components.map(component => {
+                    const componentName = component.name || component.description || `Component ${component.id}`;
+                    return `${componentName}${component.sku ? ` (${component.sku})` : ''}`;
+                  })}
+                  value={filters.component || ''}
+                  onInputChange={(event, newInputValue) => {
+                    // Extract just the component name part before the SKU
+                    const componentName = newInputValue ? newInputValue.split(' (')[0] : '';
+                    setFilters(prev => ({ ...prev, component: componentName }));
+                  }}
+                  onChange={(event, newValue) => {
+                    // Extract just the component name part before the SKU
+                    const componentName = newValue ? newValue.split(' (')[0] : '';
+                    setFilters(prev => ({ ...prev, component: componentName }));
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Component"
+                      sx={{
+                        '& .MuiInputBase-input': { fontSize: '0.8rem' },
+                        '& .MuiInputLabel-root': { fontSize: '0.8rem' }
+                      }}
+                    />
+                  )}
+                />
+              </Grid>
+
+              {/* Row 4: Date Range and Invoice Number Pattern */}
+              <Grid item xs={12} md={3}>
+                <TextField
+                  size="small"
+                  type="date"
+                  label="From Date"
+                  value={filters.dateFrom || ''}
+                  onChange={handleFilterChange('dateFrom')}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{
+                    '& .MuiInputBase-input': { fontSize: '0.8rem' },
+                    '& .MuiInputLabel-root': { fontSize: '0.8rem' }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  size="small"
+                  type="date"
+                  label="To Date"
+                  value={filters.dateTo || ''}
+                  onChange={handleFilterChange('dateTo')}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{
+                    '& .MuiInputBase-input': { fontSize: '0.8rem' },
+                    '& .MuiInputLabel-root': { fontSize: '0.8rem' }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  size="small"
+                  label="Invoice Number Pattern"
+                  placeholder="Search by invoice number..."
+                  value={filters.invoiceNumber || ''}
+                  onChange={handleFilterChange('invoiceNumber')}
+                  sx={{
+                    '& .MuiInputBase-input': { fontSize: '0.8rem' },
+                    '& .MuiInputLabel-root': { fontSize: '0.8rem' }
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <ReceiptIcon sx={{ color: 'action.active', fontSize: '1rem' }} />
+                      </InputAdornment>
+                    )
+                  }}
+                />
+              </Grid>
+            </Grid>
+          </Box>
+        </Collapse>
+      </Paper>
 
       {/* Invoices Table */}
       <Card sx={{ borderRadius: '6px' }}>
@@ -966,13 +1571,6 @@ const InvoiceManagement = () => {
                     fontWeight: 700,
                     fontSize: '0.75rem'
                   }}>
-                    Type
-                  </TableCell>
-                  <TableCell sx={{ 
-                    color: '#1F2937', 
-                    fontWeight: 700,
-                    fontSize: '0.75rem'
-                  }}>
                     Student
                   </TableCell>
                   <TableCell sx={{ 
@@ -980,7 +1578,21 @@ const InvoiceManagement = () => {
                     fontWeight: 700,
                     fontSize: '0.75rem'
                   }}>
-                    Status
+                    Total Value
+                  </TableCell>
+                  <TableCell sx={{ 
+                    color: '#1F2937', 
+                    fontWeight: 700,
+                    fontSize: '0.75rem'
+                  }}>
+                    Items Count
+                  </TableCell>
+                  <TableCell sx={{ 
+                    color: '#1F2937', 
+                    fontWeight: 700,
+                    fontSize: '0.75rem'
+                  }}>
+                    Expected Return
                   </TableCell>
                   <TableCell sx={{ 
                     color: '#1F2937', 
@@ -988,13 +1600,6 @@ const InvoiceManagement = () => {
                     fontSize: '0.75rem'
                   }}>
                     Issue Date
-                  </TableCell>
-                  <TableCell sx={{ 
-                    color: '#1F2937', 
-                    fontWeight: 700,
-                    fontSize: '0.75rem'
-                  }}>
-                    Items
                   </TableCell>
                   <TableCell sx={{ 
                     color: '#1F2937', 
@@ -1100,16 +1705,6 @@ const InvoiceManagement = () => {
                         
                         color: '#1F2937'
                       }}>
-                        <Chip 
-                          label={invoice.invoice_type}
-                          size="small"
-                          variant="outlined"
-                        />
-                      </TableCell>
-                      <TableCell sx={{ 
-                        
-                        color: '#1F2937'
-                      }}>
                         <Box>
                           <Typography variant="body2" sx={{ color: '#1F2937' }}>{invoice.student_name}</Typography>
                           <Typography variant="caption" sx={{ color: '#6B7280' }}>
@@ -1118,27 +1713,64 @@ const InvoiceManagement = () => {
                         </Box>
                       </TableCell>
                       <TableCell sx={{ 
-                        
                         color: '#1F2937'
                       }}>
-                        <Chip 
-                          label={invoice.status}
-                          color={getStatusColor(invoice.status)}
-                          size="small"
-                        />
+                        <Box>
+                          <Typography variant="body2" sx={{ color: '#1F2937', fontWeight: 600 }}>
+                            ${(() => {
+                              // Try to get total from invoice level first
+                              const invoiceTotal = parseFloat(invoice.total_amount || invoice.total_value || 0);
+                              if (invoiceTotal > 0) return invoiceTotal.toFixed(2);
+                              
+                              // If no invoice total, calculate from items if available
+                              if (invoice.items && invoice.items.length > 0) {
+                                const itemsTotal = invoice.items.reduce((sum, item) => {
+                                  return sum + (parseFloat(item.total_value) || (parseFloat(item.unit_value || 0) * parseInt(item.quantity || 1)));
+                                }, 0);
+                                return itemsTotal.toFixed(2);
+                              }
+                              
+                              // Default to 0.00
+                              return '0.00';
+                            })()}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#6B7280' }}>
+                            Total Value
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell sx={{ 
+                        color: '#1F2937'
+                      }}>
+                        <Box display="flex" alignItems="center" justifyContent="center">
+                          <Chip 
+                            label={invoice.items_count || invoice.item_count || '0'}
+                            size="small"
+                            variant="outlined"
+                            sx={{
+                              backgroundColor: invoice.items_count > 0 ? '#EEF2FF' : '#F3F4F6',
+                              borderColor: invoice.items_count > 0 ? '#3B82F6' : '#D1D5DB',
+                              color: invoice.items_count > 0 ? '#3B82F6' : '#6B7280'
+                            }}
+                          />
+                        </Box>
+                      </TableCell>
+                      <TableCell sx={{ 
+                        color: '#1F2937'
+                      }}>
+                        <Box>
+                          <Typography variant="body2" sx={{ 
+                            color: (invoice.expected_return_date || invoice.due_date) ? '#1F2937' : '#9CA3AF',
+                            fontWeight: (invoice.expected_return_date || invoice.due_date) ? 500 : 400
+                          }}>
+                            {(invoice.expected_return_date || invoice.due_date) ? formatDate(invoice.expected_return_date || invoice.due_date) : 'Not Set'}
+                          </Typography>
+                        </Box>
                       </TableCell>
                       <TableCell sx={{ 
                         
                         color: '#1F2937'
                       }}>{formatDate(invoice.issue_date)}</TableCell>
-                      <TableCell sx={{ 
-                        
-                        color: '#1F2937'
-                      }}>
-                        <Badge badgeContent={invoice.item_count} color="primary">
-                          <AssignmentIcon />
-                        </Badge>
-                      </TableCell>
                       <TableCell sx={{ 
                         color: '#1F2937'
                       }}>
@@ -1359,7 +1991,7 @@ const InvoiceManagement = () => {
               }}
               
             >
-              <SpeedDialIcon 
+              <AddIcon 
                 sx={{ 
                   fontSize: '2rem',
                   color: '#FFFFFF'
@@ -1377,39 +2009,12 @@ const InvoiceManagement = () => {
                 
                 
               >
-                <AddIcon sx={{ fontSize: '1.5rem' }} />
+                <CreateIcon sx={{ fontSize: '1.5rem' }} />
               </Box>
             }
             tooltipTitle="Create Invoice Manually"
             onClick={() => {
               setManualInvoiceDialogOpen(true);
-              setSpeedDialOpen(false);
-            }}
-          />
-          <SpeedDialAction
-            icon={
-              <Box
-                animate={{ 
-                  rotate: [0, 10, -10, 0],
-                  scale: [1, 1.1, 1]
-                }}
-                transition={{ 
-                  duration: 2,
-                  repeat: Infinity,
-                  repeatDelay: 2
-                }}
-                whileHover={{ 
-                  rotate: 360, 
-                  scale: 1.3,
-                  transition: { duration: 0.5 }
-                }}
-              >
-                <SmartToyIcon sx={{ fontSize: '1.5rem' }} />
-              </Box>
-            }
-            tooltipTitle="AI-Powered OCR Upload"
-            onClick={() => {
-              setOcrInvoiceDialogOpen(true);
               setSpeedDialOpen(false);
             }}
           />
@@ -1457,7 +2062,7 @@ const InvoiceManagement = () => {
                   transition: { duration: 0.3 }
                 }}
               >
-                <TableChartIcon sx={{ fontSize: '1.5rem' }} />
+                <NoteAddIcon sx={{ fontSize: '1.5rem' }} />
               </Box>
             }
             tooltipTitle="Bulk CSV Upload"
@@ -1584,6 +2189,200 @@ const InvoiceManagement = () => {
         invoiceId={selectedInvoiceForImages?.id}
         invoiceNumber={selectedInvoiceForImages?.invoice_number}
       />
+
+      {/* Invoice Items Dialog */}
+      <Dialog
+        open={itemsDialogOpen}
+        onClose={() => setItemsDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6">
+              📋 Invoice Items - {selectedInvoiceForItems?.invoice_number}
+            </Typography>
+            <IconButton onClick={() => setItemsDialogOpen(false)}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {selectedInvoiceForItems?.items && selectedInvoiceForItems.items.length > 0 ? (
+            <Box>
+              <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>
+                Total Items: {selectedInvoiceForItems.total_items || selectedInvoiceForItems.items.length} | 
+                Total Value: ₹{(selectedInvoiceForItems.total_value || 
+                  selectedInvoiceForItems.items.reduce((sum, item) => sum + (item.total_value || (item.unit_value * item.quantity) || 0), 0) || 0).toFixed(2)}
+                {selectedInvoiceForItems._itemsSource && selectedInvoiceForItems._itemsSource !== 'invoice' && (
+                  <Chip 
+                    label={`Items from ${selectedInvoiceForItems._itemsSource}`} 
+                    size="small" 
+                    color="info" 
+                    sx={{ ml: 1 }}
+                  />
+                )}
+              </Typography>
+              <Box sx={{ mb: 2, p: 2, backgroundColor: '#f8fafc', borderRadius: 1 }}>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>📅 Lending Date:</strong> {selectedInvoiceForItems.issue_date ? 
+                    new Date(selectedInvoiceForItems.issue_date).toLocaleDateString() : 'N/A'}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>🔄 Expected Return:</strong> {selectedInvoiceForItems.expected_return_date ? 
+                    new Date(selectedInvoiceForItems.expected_return_date).toLocaleDateString() : 'N/A'}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>⏰ Due Date:</strong> {selectedInvoiceForItems.due_date ? 
+                    new Date(selectedInvoiceForItems.due_date).toLocaleDateString() : 'N/A'}
+                </Typography>
+              </Box>
+              <TableContainer component={Paper} elevation={1}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                      <TableCell><strong>Product</strong></TableCell>
+                      <TableCell><strong>Category</strong></TableCell>
+                      <TableCell align="center"><strong>Quantity</strong></TableCell>
+                      <TableCell align="right"><strong>Unit Price</strong></TableCell>
+                      <TableCell align="right"><strong>Total</strong></TableCell>
+                      <TableCell align="center"><strong>Expected Return</strong></TableCell>
+                      <TableCell align="center"><strong>Days</strong></TableCell>
+                      <TableCell align="center"><strong>Status</strong></TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {selectedInvoiceForItems.items.map((item, index) => {
+                      // Use item-specific return date if available, otherwise use invoice return date
+                      const returnDate = item.expected_return_date || selectedInvoiceForItems.expected_return_date;
+                      const daysFromIssue = returnDate && selectedInvoiceForItems.issue_date ? 
+                        Math.ceil((new Date(returnDate) - new Date(selectedInvoiceForItems.issue_date)) / (1000 * 60 * 60 * 24)) : 
+                        'N/A';
+                      
+                      // Determine status based on return dates and current date
+                      const isOverdue = returnDate && new Date(returnDate) < new Date();
+                      const isReturned = item.actual_return_date;
+                      const status = isReturned ? 'Returned' : isOverdue ? 'Overdue' : 'Active';
+                      
+                      return (
+                        <TableRow key={index} hover>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight="medium">
+                              {item.product_name || 'N/A'}
+                              {item._source && (
+                                <Chip 
+                                  label={item._source} 
+                                  size="small" 
+                                  variant="outlined" 
+                                  color="secondary"
+                                  sx={{ ml: 1, fontSize: '0.7rem', height: 18 }}
+                                />
+                              )}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              SKU: {item.product_sku || 'N/A'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={item.product_category || 'Uncategorized'} 
+                              size="small" 
+                              variant="outlined"
+                              color={item.product_category ? 'primary' : 'default'}
+                            />
+                          </TableCell>
+                          <TableCell align="center">
+                            <Typography variant="body2" fontWeight="bold">
+                              {item.quantity || 0}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2">
+                              ₹{(item.unit_value || 0).toFixed(2)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2" fontWeight="bold">
+                              ₹{(item.total_value || (item.unit_value * item.quantity) || 0).toFixed(2)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Typography variant="body2" color={
+                              isOverdue && !isReturned ? 'error' : 'textPrimary'
+                            }>
+                              {returnDate 
+                                ? new Date(returnDate).toLocaleDateString()
+                                : 'Not Set'
+                              }
+                            </Typography>
+                            {item.actual_return_date && (
+                              <Typography variant="caption" color="success.main" display="block">
+                                Returned: {new Date(item.actual_return_date).toLocaleDateString()}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell align="center">
+                            <Chip 
+                              label={daysFromIssue} 
+                              size="small"
+                              color={
+                                daysFromIssue === 'N/A' ? 'default' :
+                                daysFromIssue > 30 ? 'error' :
+                                daysFromIssue > 14 ? 'warning' : 'success'
+                              }
+                            />
+                          </TableCell>
+                          <TableCell align="center">
+                            <Chip 
+                              label={status}
+                              size="small"
+                              color={
+                                status === 'Returned' ? 'success' :
+                                status === 'Overdue' ? 'error' : 'primary'
+                              }
+                              variant={status === 'Active' ? 'outlined' : 'filled'}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          ) : (
+            <Box display="flex" flexDirection="column" alignItems="center" py={4}>
+              <AssignmentIcon sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />
+              <Typography variant="h6" color="grey.600" gutterBottom>
+                No items found for this invoice
+              </Typography>
+              {selectedInvoiceForItems?._creationMethod && (
+                <Typography variant="body2" color="grey.500" sx={{ mb: 2 }}>
+                  Creation method: {selectedInvoiceForItems._creationMethod}
+                  {selectedInvoiceForItems._itemsSource && ` | Data source: ${selectedInvoiceForItems._itemsSource}`}
+                </Typography>
+              )}
+              <Typography variant="body2" color="grey.500" align="center">
+                This could happen if:<br/>
+                • Invoice was created manually without adding items<br/>
+                • Items were added through OCR but not processed<br/>
+                • Invoice is pending item assignment<br/>
+                • Items were deleted or moved
+              </Typography>
+              {selectedInvoiceForItems?.order_id && (
+                <Typography variant="body2" color="primary.main" sx={{ mt: 2 }}>
+                  💡 This invoice is linked to order {selectedInvoiceForItems.order_number || selectedInvoiceForItems.order_id}
+                </Typography>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setItemsDialogOpen(false)} variant="contained">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
       </Box>
     </ErrorBoundary>
   );

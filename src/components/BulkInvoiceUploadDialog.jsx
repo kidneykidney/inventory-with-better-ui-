@@ -144,6 +144,44 @@ const BulkInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
     setExtractedData(updated);
   };
 
+  // Component management functions
+  const updateComponentData = (fileIndex, componentIndex, field, value) => {
+    const updated = [...extractedData];
+    if (!updated[fileIndex].data.items) {
+      updated[fileIndex].data.items = [];
+    }
+    if (!updated[fileIndex].data.items[componentIndex]) {
+      updated[fileIndex].data.items[componentIndex] = {};
+    }
+    updated[fileIndex].data.items[componentIndex][field] = value;
+    setExtractedData(updated);
+  };
+
+  const addComponent = (fileIndex) => {
+    const updated = [...extractedData];
+    if (!updated[fileIndex].data.items) {
+      updated[fileIndex].data.items = [];
+    }
+    updated[fileIndex].data.items.push({
+      name: '',
+      sku: '',
+      quantity: 1,
+      unit_value: 0,
+      total_value: 0,
+      serial_number: '',
+      condition_at_lending: 'good'
+    });
+    setExtractedData(updated);
+  };
+
+  const removeComponent = (fileIndex, componentIndex) => {
+    const updated = [...extractedData];
+    if (updated[fileIndex].data.items) {
+      updated[fileIndex].data.items.splice(componentIndex, 1);
+    }
+    setExtractedData(updated);
+  };
+
   const retryExtraction = async (index) => {
     const file = extractedData[index].file;
     const formData = new FormData();
@@ -569,19 +607,152 @@ const BulkInvoiceUploadDialog = ({ open, onClose, onSuccess }) => {
                 </Grid>
 
                 {/* Product Information Note */}
-                <Grid item xs={12}>
-                  <Typography variant="body2" sx={{ 
-                    color: 'text.secondary', 
-                    fontStyle: 'italic',
-                    bgcolor: 'rgba(25, 118, 210, 0.1)',
-                    p: 1.5,
-                    borderRadius: 1,
-                    border: '1px solid rgba(25, 118, 210, 0.2)'
-                  }}>
-                    <strong>Product Details:</strong> Products will be linked from the existing Product Management module. 
-                    Use the Products module to manage item details, specifications, pricing, and inventory levels.
-                  </Typography>
-                </Grid>
+                {/* Product/Component Information */}
+                {item.data.items && item.data.items.length > 0 && (
+                  <>
+                    <Grid item xs={12}>
+                      <Typography variant="h6" sx={{ color: '#1976d2', mb: 1, mt: 2 }}>
+                        Extracted Components ({item.data.items.length})
+                      </Typography>
+                    </Grid>
+                    {item.data.items.map((component, componentIndex) => (
+                      <Grid item xs={12} key={componentIndex}>
+                        <Card variant="outlined" sx={{ p: 2, bgcolor: 'rgba(76, 175, 80, 0.05)' }}>
+                          <Grid container spacing={2}>
+                            <Grid item xs={12} md={4}>
+                              <TextField
+                                fullWidth
+                                label={`Component ${componentIndex + 1} Name`}
+                                value={component.name || ''}
+                                onChange={(e) => updateComponentData(index, componentIndex, 'name', e.target.value)}
+                                variant="outlined"
+                                size="small"
+                              />
+                            </Grid>
+                            <Grid item xs={12} md={2}>
+                              <TextField
+                                fullWidth
+                                label="SKU/Code"
+                                value={component.sku || ''}
+                                onChange={(e) => updateComponentData(index, componentIndex, 'sku', e.target.value)}
+                                variant="outlined"
+                                size="small"
+                              />
+                            </Grid>
+                            <Grid item xs={12} md={2}>
+                              <TextField
+                                fullWidth
+                                label="Quantity"
+                                type="number"
+                                value={component.quantity || 1}
+                                onChange={(e) => updateComponentData(index, componentIndex, 'quantity', parseInt(e.target.value) || 1)}
+                                variant="outlined"
+                                size="small"
+                                inputProps={{ min: 1 }}
+                              />
+                            </Grid>
+                            <Grid item xs={12} md={2}>
+                              <TextField
+                                fullWidth
+                                label="Unit Value"
+                                type="number"
+                                value={component.unit_value || 0}
+                                onChange={(e) => updateComponentData(index, componentIndex, 'unit_value', parseFloat(e.target.value) || 0)}
+                                variant="outlined"
+                                size="small"
+                                inputProps={{ min: 0, step: 0.01 }}
+                                InputProps={{
+                                  startAdornment: <Typography variant="caption" sx={{ mr: 0.5 }}>$</Typography>
+                                }}
+                              />
+                            </Grid>
+                            <Grid item xs={12} md={2}>
+                              <TextField
+                                fullWidth
+                                label="Total Value"
+                                type="number"
+                                value={component.total_value || (component.quantity * component.unit_value)}
+                                onChange={(e) => updateComponentData(index, componentIndex, 'total_value', parseFloat(e.target.value) || 0)}
+                                variant="outlined"
+                                size="small"
+                                InputProps={{
+                                  startAdornment: <Typography variant="caption" sx={{ mr: 0.5 }}>$</Typography>
+                                }}
+                              />
+                            </Grid>
+                            {component.serial_number && (
+                              <Grid item xs={12} md={6}>
+                                <TextField
+                                  fullWidth
+                                  label="Serial Number"
+                                  value={component.serial_number || ''}
+                                  onChange={(e) => updateComponentData(index, componentIndex, 'serial_number', e.target.value)}
+                                  variant="outlined"
+                                  size="small"
+                                />
+                              </Grid>
+                            )}
+                            <Grid item xs={12} md={5}>
+                              <FormControl fullWidth size="small">
+                                <InputLabel>Condition</InputLabel>
+                                <Select
+                                  value={component.condition_at_lending || 'good'}
+                                  onChange={(e) => updateComponentData(index, componentIndex, 'condition_at_lending', e.target.value)}
+                                  label="Condition"
+                                >
+                                  <MenuItem value="excellent">Excellent</MenuItem>
+                                  <MenuItem value="good">Good</MenuItem>
+                                  <MenuItem value="fair">Fair</MenuItem>
+                                  <MenuItem value="poor">Poor</MenuItem>
+                                </Select>
+                              </FormControl>
+                            </Grid>
+                            <Grid item xs={12} md={1} sx={{ display: 'flex', alignItems: 'center' }}>
+                              <IconButton
+                                color="error"
+                                size="small"
+                                onClick={() => removeComponent(index, componentIndex)}
+                                title="Remove Component"
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Grid>
+                          </Grid>
+                        </Card>
+                      </Grid>
+                    ))}
+                    <Grid item xs={12}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => addComponent(index)}
+                        sx={{ mt: 1 }}
+                      >
+                        Add Component
+                      </Button>
+                    </Grid>
+                  </>
+                )}
+
+                {/* Component Detection Info for files without extracted components */}
+                {(!item.data.items || item.data.items.length === 0) && (
+                  <Grid item xs={12}>
+                    <Alert severity="info" sx={{ mt: 2 }}>
+                      <Typography variant="body2">
+                        <strong>No components detected automatically.</strong> You can manually add components using the Products module after invoice creation, 
+                        or the OCR may not have detected tabular component data in this invoice.
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => addComponent(index)}
+                        sx={{ mt: 1 }}
+                      >
+                        Add Component Manually
+                      </Button>
+                    </Alert>
+                  </Grid>
+                )}
 
                 {/* Raw OCR Text - Always show at the bottom */}
                 {item.rawText && (

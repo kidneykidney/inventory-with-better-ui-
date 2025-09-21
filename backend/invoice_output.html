@@ -1,0 +1,241 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Equipment Lending Invoice</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .invoice {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #2196F3;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #1976D2;
+            margin: 0;
+            font-size: 28px;
+        }
+        .header h2 {
+            color: #666;
+            margin: 5px 0 0 0;
+            font-weight: normal;
+        }
+        .info-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+        .info-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            width: 48%;
+        }
+        .info-box h3 {
+            color: #1976D2;
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            border-bottom: 2px solid #2196F3;
+            padding-bottom: 5px;
+        }
+        .info-row {
+            margin-bottom: 10px;
+        }
+        .label {
+            font-weight: bold;
+            color: #333;
+            display: inline-block;
+            width: 120px;
+        }
+        .value {
+            color: #666;
+        }
+        .components-section {
+            margin-top: 30px;
+        }
+        .components-title {
+            color: #1976D2;
+            font-size: 20px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #2196F3;
+            padding-bottom: 5px;
+        }
+        .components-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .components-table th {
+            background: #1976D2;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: bold;
+        }
+        .components-table td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+        .components-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        .total-section {
+            text-align: right;
+            margin-top: 20px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 6px;
+        }
+        .total-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1976D2;
+        }
+        .notes-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            border-radius: 0 6px 6px 0;
+        }
+        .notes-title {
+            color: #e65100;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+        .status-badge {
+            display: inline-block;
+            background: #4caf50;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice">
+        <div class="header">
+            <h1>Equipment Lending Invoice</h1>
+            <h2>College Incubation Inventory System</h2>
+            <p style="margin: 10px 0; color: #666;">Invoice Date: 2025-09-20</p>
+        </div>
+        
+        <div class="info-section">
+            <div class="info-box">
+                <h3>👤 Student Information</h3>
+                <div class="info-row">
+                    <span class="label">Name:</span>
+                    <span class="value">Alex Rodriguez</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Student ID:</span>
+                    <span class="value">STU2023078</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Email:</span>
+                    <span class="value">alex.rodriguez@university.edu</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Type:</span>
+                    <span class="value status-badge">LENDING</span>
+                </div>
+            </div>
+            
+            <div class="info-box">
+                <h3>👨‍💼 Lending Information</h3>
+                <div class="info-row">
+                    <span class="label">Issued By:</span>
+                    <span class="value">Ms Lisa Thompson</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Lending Date:</span>
+                    <span class="value">2025-09-20</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Lending Time:</span>
+                    <span class="value">09:00</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Due Date:</span>
+                    <span class="value">2025-10-20</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="components-section">
+            <h3 class="components-title">📦 Extracted Components (2)</h3>
+            <table class="components-table">
+                <thead>
+                    <tr>
+                        <th>Component Name</th>
+                        <th>SKU/Code</th>
+                        <th>Quantity</th>
+                        <th>Unit Value</th>
+                        <th>Total Value</th>
+                        <th>Condition</th>
+                    </tr>
+                </thead>
+                <tbody>
+
+                    <tr>
+                        <td>Caliper Digital 6-inch</td>
+                        <td>AUTO001</td>
+                        <td>1</td>
+                        <td>$45.00</td>
+                        <td>$45.00</td>
+                        <td>Good</td>
+                    </tr>
+
+                    <tr>
+                        <td>Micrometer Set</td>
+                        <td>AUTO002</td>
+                        <td>1</td>
+                        <td>$89.50</td>
+                        <td>$89.50</td>
+                        <td>Good</td>
+                    </tr>
+
+                </tbody>
+            </table>
+            
+            <div class="total-section">
+                <p><strong>Total Equipment Value: <span class="total-value">$134.50</span></strong></p>
+            </div>
+        </div>
+        
+        <div class="notes-section">
+            <div class="notes-title">📝 Notes:</div>
+            <p>Equipment lending - see attached invoice for details</p>
+        </div>
+        
+        <div class="footer">
+            <p><strong>College Incubation Inventory System</strong></p>
+            <p>Generated on 2025-09-20 19:50:24 | Invoice processed via OCR</p>
+        </div>
+    </div>
+</body>
+</html>

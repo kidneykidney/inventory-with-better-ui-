@@ -522,10 +522,10 @@ const Orders = () => {
           sx={{ borderBottom: 1, borderColor: 'divider' }}
         >
           <Tab label={`All Orders (${orders.length})`} />
-          <Tab label={<Badge badgeContent={getTabCount('pending')} color="warning">Pending</Badge>} />
-          <Tab label={<Badge badgeContent={getTabCount('approved')} color="info">Approved</Badge>} />
-          <Tab label={<Badge badgeContent={getTabCount('completed')} color="success">Completed</Badge>} />
-          <Tab label={<Badge badgeContent={getTabCount('overdue')} color="error">Overdue</Badge>} />
+          <Tab label="Pending" />
+          <Tab label="Approved" />
+          <Tab label="Completed" />
+          <Tab label="Overdue" />
         </Tabs>
 
         {loading && <LinearProgress />}

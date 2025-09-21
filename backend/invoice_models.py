@@ -155,6 +155,7 @@ class InvoiceCreateWithStudent(InvoiceBase):
     year_of_study: Optional[int] = None
     issued_by: str = "OCR System"
     due_date: Optional[Union[str, datetime, date]] = None
+    amount: Optional[float] = 0.0  # Total amount for the invoice
     
     @field_validator('due_date')
     @classmethod

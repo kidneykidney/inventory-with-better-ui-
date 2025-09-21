@@ -210,7 +210,7 @@ const ListView = ({ type = 'products' }) => {
         { key: 'lender_name', label: 'Assigned Lender', type: 'text' },
         { key: 'total_items', label: 'Items', type: 'number' },
         { key: 'total_value', label: 'Value', type: 'number', prefix: '$' },
-        { key: 'requested_date', label: 'Date', type: 'date' },
+        { key: 'requested_date', label: 'Lending & Return Dates', type: 'date' },
         { key: 'status', label: 'Status', type: 'status' }
       ]
     }
@@ -322,7 +322,10 @@ const ListView = ({ type = 'products' }) => {
       const result = await response.json();
       console.log(`Fetched ${type} data:`, result);
       
-      const dataArray = Array.isArray(result) ? result : [];
+      // Check for overdue orders and update automatically
+      const updatedResult = await checkAndUpdateOverdueOrders(result);
+      
+      const dataArray = Array.isArray(updatedResult) ? updatedResult : [];
       setData(dataArray);
       setFilteredData(dataArray); // Initialize filtered data
       console.log(`Updated ${type} state with ${dataArray.length} items`);
@@ -334,6 +337,145 @@ const ListView = ({ type = 'products' }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Check and update overdue orders automatically (optimized)
+  const checkAndUpdateOverdueOrders = async (ordersData) => {
+    if (type !== 'orders') return ordersData;
+    
+    // Skip overdue check if it was done recently (cache for 5 minutes)
+    const lastCheck = localStorage.getItem('lastOverdueCheck');
+    const now = Date.now();
+    if (lastCheck && (now - parseInt(lastCheck)) < 300000) { // 5 minutes
+      return ordersData;
+    }
+    
+    const currentDate = new Date();
+    const overdueOrders = [];
+    
+    ordersData.forEach(order => {
+      // Only check orders that are not already closed
+      if (order.status !== 'closed' && order.expected_return_date) {
+        const returnDate = new Date(order.expected_return_date);
+        // If return date has passed and status is not overdue, mark it as overdue
+        if (returnDate < currentDate && order.status !== 'overdue') {
+          overdueOrders.push(order.id);
+        }
+      }
+    });
+    
+    // Update overdue orders in the backend and send email notifications
+    if (overdueOrders.length > 0) {
+      try {
+        // Batch process overdue orders for better performance
+        console.log(`Processing ${overdueOrders.length} overdue orders...`);
+        
+        // Update all orders to overdue status first
+        const statusUpdates = await Promise.allSettled(
+          overdueOrders.map(async (orderId) => {
+            const statusResponse = await fetch(`${API_BASE_URL}/api/orders/${orderId}/status`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'overdue' })
+            });
+            
+            if (statusResponse.ok) {
+              console.log(`Order ${orderId} automatically marked as overdue`);
+              return { orderId, statusUpdated: true };
+            } else {
+              console.warn(`Failed to update status for order ${orderId}`);
+              return { orderId, statusUpdated: false };
+            }
+          })
+        );
+        
+        // Then send email notifications for successfully updated orders
+        const successfulUpdates = statusUpdates
+          .filter(result => result.status === 'fulfilled' && result.value.statusUpdated)
+          .map(result => result.value.orderId);
+        
+        if (successfulUpdates.length > 0) {
+          // Send emails with a small delay between each to avoid overwhelming the server
+          const emailResults = [];
+          for (const orderId of successfulUpdates) {
+            try {
+              const emailResponse = await fetch(`${API_BASE_URL}/api/orders/${orderId}/send-overdue-notification`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+              });
+              
+              if (emailResponse.ok) {
+                const emailResult = await emailResponse.json();
+                console.log(`Overdue email notifications sent for order ${orderId}:`, emailResult);
+                emailResults.push({
+                  orderId,
+                  success: true,
+                  student_sent: emailResult.results?.student_email_sent,
+                  admin_sent: emailResult.results?.admin_email_sent,
+                  errors: emailResult.results?.errors || []
+                });
+              } else {
+                console.warn(`Failed to send overdue email for order ${orderId}`);
+                emailResults.push({
+                  orderId,
+                  success: false,
+                  error: 'Email API request failed'
+                });
+              }
+              
+              // Small delay to prevent overwhelming the server
+              await new Promise(resolve => setTimeout(resolve, 100));
+              
+            } catch (emailError) {
+              console.error(`Error sending overdue email for order ${orderId}:`, emailError);
+              emailResults.push({
+                orderId,
+                success: false,
+                error: emailError.message
+              });
+            }
+          }
+        
+        // Update timestamp for overdue check caching
+        localStorage.setItem('lastOverdueCheck', now.toString());
+        
+        // Show summary alert for automatic overdue detection
+        if (emailResults.length > 0) {
+          const successfulEmails = emailResults.filter(r => r.success && (r.student_sent || r.admin_sent));
+          const failedEmails = emailResults.filter(r => !r.success || (!r.student_sent && !r.admin_sent));
+          const configErrors = emailResults.some(r => r.errors && r.errors.some(e => e.includes('not configured')));
+          
+          if (configErrors) {
+            setError(`${overdueOrders.length} order(s) automatically marked as overdue but email service is not configured. Please contact administrator.`);
+          } else if (successfulEmails.length > 0 && failedEmails.length === 0) {
+            setSuccess(`${overdueOrders.length} order(s) automatically marked as overdue and email notifications sent successfully!`);
+          } else if (successfulEmails.length > 0 && failedEmails.length > 0) {
+            setSuccess(`${overdueOrders.length} order(s) marked as overdue. ${successfulEmails.length} email(s) sent successfully, ${failedEmails.length} failed - check email configuration.`);
+          } else if (failedEmails.length > 0) {
+            setError(`${overdueOrders.length} order(s) marked as overdue but all email notifications failed. Please check email configuration.`);
+          }
+        }
+        }
+        
+        // Refresh data to get updated statuses (only if updates were made)
+        if (successfulUpdates.length > 0) {
+          const response = await fetch(`${API_BASE_URL}${currentConfig.endpoint}?_t=${Date.now()}`, {
+            headers: { 'Cache-Control': 'no-cache' }
+          });
+          if (response.ok) {
+            return await response.json();
+          }
+        }
+      } catch (error) {
+        console.error('Error updating overdue orders:', error);
+        setError(`Error processing overdue orders: ${error.message}`);
+      }
+    } else {
+      // Update timestamp even if no overdue orders found
+      localStorage.setItem('lastOverdueCheck', now.toString());
+    }
+    
+    return ordersData;
   };
 
   // Fetch categories for products
@@ -1552,7 +1694,7 @@ const ListView = ({ type = 'products' }) => {
     setSearchQuery('');
   };
 
-  // Status update function with duplicate prevention
+  // Status update function with duplicate prevention (optimized)
   const handleStatusUpdate = async (itemId, newStatus) => {
     if (type !== 'orders') return; // Only allow status updates for orders
     
@@ -1563,6 +1705,10 @@ const ListView = ({ type = 'products' }) => {
     }
     
     setUpdatingStatus(true);
+    
+    // Show immediate feedback to user
+    setSuccess(`Updating order status to ${newStatus}...`);
+    
     try {
       const response = await fetch(`${API_BASE_URL}/api/orders/${itemId}/status`, {
         method: 'PUT',
@@ -1576,14 +1722,57 @@ const ListView = ({ type = 'products' }) => {
         throw new Error('Failed to update status');
       }
 
+      console.log(`Status updated to ${newStatus} for order ${itemId}`);
+      
+      // If status is changed to overdue, send email notification (non-blocking)
+      if (newStatus === 'overdue') {
+        // Show immediate success for status update
+        setSuccess(`Order marked as ${newStatus}. Sending email notifications...`);
+        
+        // Send email notification asynchronously
+        fetch(`${API_BASE_URL}/api/orders/${itemId}/send-overdue-notification`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        })
+        .then(emailResponse => {
+          if (emailResponse.ok) {
+            return emailResponse.json();
+          }
+          throw new Error('Email notification failed');
+        })
+        .then(emailResult => {
+          console.log(`Overdue email notifications sent for order ${itemId}:`, emailResult);
+          
+          // Update success message with email results
+          if (emailResult.results?.errors?.some(error => error.includes('not configured'))) {
+            setError('Order marked as overdue but email service is not configured. Please contact administrator to set up email notifications.');
+          }
+          else if (emailResult.results?.student_email_sent && emailResult.results?.admin_email_sent) {
+            setSuccess('Order marked as overdue and email notifications sent to student and admin successfully!');
+          } else if (emailResult.results?.student_email_sent || emailResult.results?.admin_email_sent) {
+            const sentTo = emailResult.results?.student_email_sent ? 'student' : 'admin';
+            const errors = emailResult.results?.errors || [];
+            setSuccess(`Order marked as overdue and email notification sent to ${sentTo}. ${errors.length > 0 ? 'Some notifications failed - check configuration.' : ''}`);
+          } else {
+            const errors = emailResult.results?.errors || ['Unknown error'];
+            setError(`Order marked as overdue but email notifications failed: ${errors[0]}. Please check email configuration.`);
+          }
+        })
+        .catch(emailError => {
+          console.error(`Error sending overdue email for order ${itemId}:`, emailError);
+          setError('Order marked as overdue but email notification failed due to network error.');
+        });
+        
+      } else {
+        setSuccess(`Order status updated to ${newStatus} successfully!`);
+      }
+
       // Refresh data to show the updated status
       await fetchData();
       
       // Close the menu
       setStatusMenuAnchor(null);
       setSelectedItemForStatus(null);
-      
-      console.log(`Status updated to ${newStatus} for order ${itemId}`);
       
     } catch (err) {
       setError(`Failed to update status: ${err.message}`);
@@ -1732,9 +1921,12 @@ const ListView = ({ type = 'products' }) => {
       
       // Order statuses
       if (statusLower === 'pending') return 'warning';
+      if (statusLower === 'closed') return 'success';
+      if (statusLower === 'overdue') return 'error';
+      
+      // Legacy statuses for backward compatibility
       if (statusLower === 'approved') return 'info';
       if (statusLower === 'completed') return 'success';
-      if (statusLower === 'overdue') return 'error';
       
       // General statuses
       if (statusLower.includes('active') || statusLower.includes('in stock')) return 'success';
@@ -1748,9 +1940,12 @@ const ListView = ({ type = 'products' }) => {
       const statusLower = status.toLowerCase();
       
       if (statusLower === 'pending') return <ScheduleIcon sx={{ fontSize: '16px', mr: 0.5 }} />;
+      if (statusLower === 'closed') return <CheckCircleIcon sx={{ fontSize: '16px', mr: 0.5 }} />;
+      if (statusLower === 'overdue') return <CancelIcon sx={{ fontSize: '16px', mr: 0.5 }} />;
+      
+      // Legacy icons for backward compatibility
       if (statusLower === 'approved') return <CheckIcon sx={{ fontSize: '16px', mr: 0.5 }} />;
       if (statusLower === 'completed') return <CheckCircleIcon sx={{ fontSize: '16px', mr: 0.5 }} />;
-      if (statusLower === 'overdue') return <CancelIcon sx={{ fontSize: '16px', mr: 0.5 }} />;
       
       return null;
     };
@@ -1848,6 +2043,21 @@ const ListView = ({ type = 'products' }) => {
           </Typography>
         );
       case 'date':
+        // Special handling for orders to show both lending and return dates
+        if (type === 'orders' && column.key === 'requested_date') {
+          const lendingDate = item.requested_date ? new Date(item.requested_date).toLocaleDateString() : '-';
+          const returnDate = item.expected_return_date ? new Date(item.expected_return_date).toLocaleDateString() : '-';
+          return (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+              <Typography variant="body2" sx={{ fontSize: '0.7rem', color: '#374151', fontWeight: 600 }}>
+                Lent: {lendingDate}
+              </Typography>
+              <Typography variant="body2" sx={{ fontSize: '0.7rem', color: '#6B7280' }}>
+                Due: {returnDate}
+              </Typography>
+            </Box>
+          );
+        }
         return value ? new Date(value).toLocaleDateString() : '-';
       case 'email':
         return (
@@ -1922,14 +2132,7 @@ const ListView = ({ type = 'products' }) => {
             }}>
               {currentConfig.title}
             </Typography>
-            <Badge badgeContent={data.length} color="primary" sx={{
-              '& .MuiBadge-badge': {
-                backgroundColor: '#3B82F6',
-                color: '#374151'
-              }
-            }}>
-              <Box />
-            </Badge>
+            <Box />
           </Box>
           
           <Box sx={{ 
@@ -2193,7 +2396,8 @@ const ListView = ({ type = 'products' }) => {
                       borderBottom: '1px solid #E5E7EB',
                       py: 0.25,  // Reduced padding
                       px: 0.5,   // Reduced padding
-                      fontSize: '0.7rem'  // Smaller font size
+                      fontSize: '0.7rem',  // Smaller font size
+                      minWidth: column.key === 'requested_date' && type === 'orders' ? '150px' : 'auto'
                     }}
                   >
                     {column.label}
@@ -2265,7 +2469,8 @@ const ListView = ({ type = 'products' }) => {
                             py: 0.1,  // Reduced padding
                             px: 0.5,  // Reduced padding
                             fontSize: '0.75rem',  // Smaller font size
-                            lineHeight: 1.2  // Tighter line height
+                            lineHeight: 1.2,  // Tighter line height
+                            minWidth: column.key === 'requested_date' && type === 'orders' ? '150px' : 'auto'
                           }}
                         >
                           {renderCellContent(item, column)}
@@ -2523,22 +2728,21 @@ const ListView = ({ type = 'products' }) => {
                   </MuiTable>
                 </MuiTableContainer>
 
-                <Box sx={{ mt: 2 }}>
-                  <Button
-                    startIcon={<AddIcon />}
+                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                  <IconButton
                     onClick={addBulkItem}
-                    variant="outlined"
                     sx={{ 
-                      color: '#3B82F6', 
-                      borderColor: '#3B82F6', 
+                      backgroundColor: '#3B82F6',
+                      color: 'white',
+                      width: 32,
+                      height: 32,
                       '&:hover': { 
-                        backgroundColor: '#EFF6FF',
-                        borderColor: '#2563EB'
+                        backgroundColor: '#2563EB'
                       } 
                     }}
                   >
-                    Add More {type.charAt(0).toUpperCase() + type.slice(1)}
-                  </Button>
+                    <AddIcon sx={{ fontSize: '1rem' }} />
+                  </IconButton>
                 </Box>
               </Box>
             )}
@@ -2628,18 +2832,7 @@ const ListView = ({ type = 'products' }) => {
               Pending
             </MenuItem>
             <MenuItem 
-              onClick={() => handleStatusUpdate(selectedItemForStatus?.id, 'approved')}
-              disabled={updatingStatus}
-              sx={{ 
-                color: '#374151',
-                '&:hover': { backgroundColor: '#E5E7EB' }
-              }}
-            >
-              <CheckIcon sx={{ mr: 1, color: '#2196F3' }} />
-              Approved
-            </MenuItem>
-            <MenuItem 
-              onClick={() => handleStatusUpdate(selectedItemForStatus?.id, 'completed')}
+              onClick={() => handleStatusUpdate(selectedItemForStatus?.id, 'closed')}
               disabled={updatingStatus}
               sx={{ 
                 color: '#374151',
@@ -2647,7 +2840,7 @@ const ListView = ({ type = 'products' }) => {
               }}
             >
               <CheckCircleIcon sx={{ mr: 1, color: '#4CAF50' }} />
-              Completed
+              Closed
             </MenuItem>
             <MenuItem 
               onClick={() => handleStatusUpdate(selectedItemForStatus?.id, 'overdue')}

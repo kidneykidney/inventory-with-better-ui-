@@ -72,7 +72,6 @@ const menuItems = [
     label: 'Order Management',
     icon: <OrdersIcon />,
     path: '/orders',
-    badge: 5, // Pending lending count
     subItems: [
       { id: 'pending-orders', label: 'Pending Lending', icon: <OrdersIcon />, path: '/orders/pending' },
       { id: 'active-orders', label: 'Active Lending', icon: <OrdersIcon />, path: '/orders/active' },
@@ -182,13 +181,7 @@ function Sidebar({ activeModule, onModuleChange, mobileOpen, onMobileToggle }) {
             fontSize: '0.8rem'
           }
         }}>
-          {item.badge ? (
-            <Badge badgeContent={item.badge} color="error">
-              {item.icon}
-            </Badge>
-          ) : (
-            item.icon
-          )}
+          {item.icon}
         </ListItemIcon>
         <ListItemText 
           primary={item.label} 

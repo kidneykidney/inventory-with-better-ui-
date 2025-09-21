@@ -186,7 +186,7 @@ function App() {
     
     setNotifications(systemNotifications);
     const unread = systemNotifications.filter(n => !n.read).length;
-    setUnreadCount(unread);
+    setUnreadCount(0); // Force badge count to 0
   };
 
   // Simulate loading sequence
@@ -334,15 +334,15 @@ function App() {
   }, []);
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, badge: 0, roles: ['main_admin', 'sub_admin', 'viewer'] },
-    { id: 'products', label: 'Products Management', icon: <InventoryIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
-    { id: 'students', label: 'Student Management', icon: <PeopleIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
-    { id: 'lenders', label: 'Staff Management', icon: <SupervisorAccountIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
-    { id: 'orders', label: 'Lending Management', icon: <StoreIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
-    { id: 'invoicing', label: 'Invoicing & Billing', icon: <ReceiptIcon />, badge: 0, roles: ['main_admin', 'sub_admin'] },
-    { id: 'reports', label: 'Reports & Analytics', icon: <BarChartIcon />, badge: 0, roles: ['main_admin', 'sub_admin', 'viewer'] },
-    { id: 'users', label: 'User Management', icon: <ManageAccountsIcon />, badge: 0, roles: ['main_admin'] },
-    { id: 'settings', label: 'System Settings', icon: <SettingsIcon />, badge: 0, roles: ['main_admin'] },
+    { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, roles: ['main_admin', 'sub_admin', 'viewer'] },
+    { id: 'products', label: 'Products Management', icon: <InventoryIcon />, roles: ['main_admin', 'sub_admin'] },
+    { id: 'students', label: 'Student Management', icon: <PeopleIcon />, roles: ['main_admin', 'sub_admin'] },
+    { id: 'lenders', label: 'Staff Management', icon: <SupervisorAccountIcon />, roles: ['main_admin', 'sub_admin'] },
+    { id: 'orders', label: 'Lending Management', icon: <StoreIcon />, roles: ['main_admin', 'sub_admin'] },
+    { id: 'invoicing', label: 'Invoicing & Billing', icon: <ReceiptIcon />, roles: ['main_admin', 'sub_admin'] },
+    { id: 'reports', label: 'Reports & Analytics', icon: <BarChartIcon />, roles: ['main_admin', 'sub_admin', 'viewer'] },
+    { id: 'users', label: 'User Management', icon: <ManageAccountsIcon />, roles: ['main_admin'] },
+    { id: 'settings', label: 'System Settings', icon: <SettingsIcon />, roles: ['main_admin'] },
   ];
 
   // Filter menu items based on user role
@@ -490,22 +490,7 @@ function App() {
                 size="small"
                 sx={{ position: 'relative' }}
               >
-                <Badge 
-                  badgeContent={unreadCount} 
-                  color="error"
-                  sx={{
-                    '& .MuiBadge-badge': {
-                      backgroundColor: '#EF4444',
-                      color: '#FFFFFF',
-                      fontWeight: 'bold',
-                      fontSize: '0.65rem',
-                      height: '16px',
-                      minWidth: '16px'
-                    }
-                  }}
-                >
-                  <NotificationsIcon fontSize="small" />
-                </Badge>
+                <NotificationsIcon fontSize="small" />
               </IconButton>
               
               <IconButton 
@@ -800,11 +785,6 @@ function App() {
                           color: selectedModule === item.id ? 'primary.main' : 'text.primary',
                         }}
                       />
-                      {item.badge > 0 && (
-                        <SimpleBadge color="error" size="small">
-                          {item.badge}
-                        </SimpleBadge>
-                      )}
                     </ListItemButton>
                   </ListItem>
                 ))}

@@ -615,7 +615,11 @@ function StudentManagement() {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Student Name"
+                label={
+                  <span>
+                    Student Name<span style={{ color: '#EF4444' }}> *</span>
+                  </span>
+                }
                 value={formData.name}
                 onChange={(e) => handleFormChange('name', e.target.value)}
                 InputProps={{

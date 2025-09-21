@@ -551,9 +551,7 @@ const InvoiceManagement = () => {
                       </TableCell>
                       <TableCell>{formatDate(invoice.issue_date)}</TableCell>
                       <TableCell>
-                        <Badge badgeContent={invoice.item_count} color="primary">
-                          <AssignmentIcon />
-                        </Badge>
+                        <AssignmentIcon />
                       </TableCell>
                       <TableCell>
                         <Box display="flex" alignItems="center">
@@ -567,9 +565,7 @@ const InvoiceManagement = () => {
                             </Tooltip>
                           )}
                           {invoice.image_count > 0 && (
-                            <Badge badgeContent={invoice.image_count} color="secondary" sx={{ ml: 1 }}>
-                              <UploadIcon fontSize="small" />
-                            </Badge>
+                            <UploadIcon fontSize="small" />
                           )}
                         </Box>
                       </TableCell>

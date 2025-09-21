@@ -23,9 +23,7 @@ function Header({ title = 'Inventory Management System', onMenuClick }) {
         
         {/* Right side actions */}
         <IconButton color="inherit">
-          <Badge badgeContent={4} color="error">
-            <Notifications />
-          </Badge>
+          <Notifications />
         </IconButton>
         <IconButton color="inherit">
           <AccountCircle />

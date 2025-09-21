@@ -15,9 +15,20 @@ from database_manager import get_db, DatabaseManager
 from logging_config import api_logger, main_logger, db_logger, log_performance
 import logging
 
+# Import email service
+try:
+    from email_service import email_service
+    EMAIL_SERVICE_LOADED = True
+    api_logger.info("Email service loaded successfully")
+except ImportError as e:
+    EMAIL_SERVICE_LOADED = False
+    email_service = None
+    api_logger.warning(f"Email service not available: {e}")
+
 # Try to import invoice_router with error handling
 try:
     from invoice_api import invoice_router
+    from auto_invoice_service import auto_generate_invoice_for_order
     INVOICE_MODULE_LOADED = True
 except ImportError as e:
     print(f"Warning: Could not import invoice_api: {e}")
@@ -239,7 +250,7 @@ class Order(BaseModel):
     student_id: str
     student_name: str
     student_email: str
-    course: str
+    course: Optional[str] = None  # Made optional to handle None values
     lender_id: Optional[str] = None  # Add lender support
     lender_name: Optional[str] = None  # Add lender name
     order_type: str
@@ -1552,6 +1563,21 @@ async def create_order(order: OrderCreate, db: DatabaseManager = Depends(get_db)
         
         api_logger.info(f"Order {order_id} created successfully with {len(order.items)} items, total value ${total_value}")
         
+        # Automatically generate invoice for lending orders
+        if INVOICE_MODULE_LOADED:
+            try:
+                api_logger.info(f"Generating automatic invoice for order {order_id}")
+                invoice_id = await auto_generate_invoice_for_order(db, order_id, "System Auto-Generation")
+                if invoice_id:
+                    api_logger.info(f"Successfully generated invoice {invoice_id} for order {order_id}")
+                else:
+                    api_logger.warning(f"Failed to generate invoice for order {order_id}")
+            except Exception as e:
+                api_logger.error(f"Error generating automatic invoice for order {order_id}: {str(e)}")
+                # Don't fail the order creation if invoice generation fails
+        else:
+            api_logger.warning("Invoice module not loaded - skipping automatic invoice generation")
+        
         # Log stock warnings summary
         if stock_warnings:
             api_logger.info(f"Stock warnings for order {order_id}: {'; '.join(stock_warnings)}")
@@ -1562,7 +1588,8 @@ async def create_order(order: OrderCreate, db: DatabaseManager = Depends(get_db)
     
     # Return the created order
     result = db.execute_query("""
-        SELECT o.*, s.name as student_name, s.email as student_email, s.course
+        SELECT o.*, s.name as student_name, s.email as student_email, 
+               COALESCE(s.course, '') as course
         FROM orders o
         JOIN students s ON o.student_id = s.id
         WHERE o.id = %s
@@ -1623,7 +1650,7 @@ class OrderUpdate(BaseModel):
 @app.put("/api/orders/{order_id}/status")
 async def update_order_status(order_id: str, status_update: OrderStatusUpdate, db: DatabaseManager = Depends(get_db)):
     """Update order status with automatic invoice creation"""
-    valid_statuses = ['pending', 'approved', 'completed', 'overdue']
+    valid_statuses = ['pending', 'closed', 'overdue']
     
     if status_update.status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}")
@@ -1651,20 +1678,19 @@ async def update_order_status(order_id: str, status_update: OrderStatusUpdate, d
     
     invoice_message = ""
     
-    # If status is approved, also approve all order items
-    if status_update.status == 'approved':
+    # If status is closed, mark all items as returned and create invoice if needed
+    if status_update.status == 'closed':
         items_query = """
         UPDATE order_items SET 
             quantity_approved = quantity_requested,
-            status = 'approved'
+            quantity_returned = quantity_requested,
+            status = 'returned',
+            return_date = CURRENT_TIMESTAMP
         WHERE order_id = %s
         """
         db.execute_command(items_query, (order_id,))
         
-        # 🆕 IMPROVED: Smart invoice management for approved orders
-        api_logger.info(f"🎯 Order {order_id} approved! Managing invoice...")
-        
-        # Check if invoice already exists for this order
+        # Create invoice if none exists
         existing_invoice_query = """
         SELECT invoice_number, id FROM invoices 
         WHERE order_id = %s 
@@ -1672,73 +1698,37 @@ async def update_order_status(order_id: str, status_update: OrderStatusUpdate, d
         LIMIT 1
         """
         existing_invoice = db.execute_query(existing_invoice_query, (order_id,))
-        api_logger.info(f"🔍 DEBUG STATUS ENDPOINT: Found {len(existing_invoice) if existing_invoice else 0} existing invoices for order {order_id}")
         
-        if existing_invoice:
-            # Update existing invoice instead of creating new one
-            invoice_id = existing_invoice[0]['id']
-            invoice_number = existing_invoice[0]['invoice_number']
-            
-            api_logger.info(f"📝 Updating existing invoice {invoice_number} for order {order_id}")
-            
-            # Update invoice status and sync with current order data
-            update_invoice_query = """
-            UPDATE invoices SET 
-                status = 'approved',
-                updated_at = CURRENT_TIMESTAMP,
-                notes = CONCAT(COALESCE(notes, ''), '\n', 'Order re-approved on ', NOW())
-            WHERE id = %s
-            """
-            db.execute_command(update_invoice_query, (invoice_id,))
-            
-            invoice_message = f" Updated existing invoice {invoice_number}."
-            
-        else:
-            # Create new invoice only if none exists
-            api_logger.info(f"� Creating new invoice for order {order_id}")
+        if not existing_invoice:
+            # Create new invoice for closed order
+            api_logger.info(f"🎯 Creating invoice for closed order {order_id}")
             created_invoice = await create_invoice_for_approved_order(order_id, db, "System")
             
             if created_invoice:
-                api_logger.info(f"🎉 Invoice {created_invoice.get('invoice_number')} created automatically for order {order_id}")
+                api_logger.info(f"🎉 Invoice {created_invoice.get('invoice_number')} created for closed order {order_id}")
                 invoice_message = f" Invoice {created_invoice.get('invoice_number')} created automatically."
             else:
                 api_logger.warning(f"⚠️ Failed to create invoice for order {order_id}")
                 invoice_message = " Note: Invoice creation failed - please create manually."
-    
-    # If status is changed from approved to pending, update invoice status
-    elif status_update.status == 'pending' and current_status == 'approved':
-        api_logger.info(f"🔄 Order {order_id} changed from approved to pending. Updating invoice status...")
-        
-        # Update any existing invoices to pending status
-        update_invoice_query = """
-        UPDATE invoices SET 
-            status = 'pending',
-            updated_at = CURRENT_TIMESTAMP,
-            notes = CONCAT(COALESCE(notes, ''), '\n', 'Order changed to pending on ', NOW())
-        WHERE order_id = %s
-        """
-        updated_invoices = db.execute_command(update_invoice_query, (order_id,))
-        
-        if updated_invoices:
-            invoice_message = " Related invoices updated to pending status."
         else:
-            invoice_message = ""
-    
-    # If status is completed, mark all items as returned
-    elif status_update.status == 'completed':
-        items_query = """
-        UPDATE order_items SET 
-            quantity_returned = quantity_approved,
-            status = 'returned',
-            return_date = CURRENT_TIMESTAMP
-        WHERE order_id = %s AND status = 'approved'
-        """
-        db.execute_command(items_query, (order_id,))
+            # Update existing invoice status
+            invoice_id = existing_invoice[0]['id']
+            invoice_number = existing_invoice[0]['invoice_number']
+            
+            update_invoice_query = """
+            UPDATE invoices SET 
+                status = 'closed',
+                updated_at = CURRENT_TIMESTAMP,
+                notes = CONCAT(COALESCE(notes, ''), '\n', 'Order closed on ', NOW())
+            WHERE id = %s
+            """
+            db.execute_command(update_invoice_query, (invoice_id,))
+            invoice_message = f" Updated invoice {invoice_number} status to closed."
     
     api_logger.info(f"Order {order_id} status updated to {status_update.status}")
     return {
         "message": f"Order status updated to {status_update.status} successfully.{invoice_message}",
-        "invoice_created": bool(status_update.status == 'approved' and current_status == 'pending' and 'created automatically' in invoice_message)
+        "invoice_created": bool(status_update.status == 'closed' and current_status == 'pending' and 'created automatically' in invoice_message)
     }
 
 async def create_invoice_for_approved_order(order_id: str, db: DatabaseManager, approved_by: str = "System") -> Optional[Dict]:
@@ -1924,7 +1914,7 @@ async def update_order(order_id: str, order_update: OrderUpdate, db: DatabaseMan
             update_values.append(order_update.student_id)
         
         if order_update.status is not None:
-            valid_statuses = ['pending', 'approved', 'completed', 'overdue', 'cancelled']
+            valid_statuses = ['pending', 'closed', 'overdue', 'cancelled']
             if order_update.status not in valid_statuses:
                 raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}")
             
@@ -2313,6 +2303,81 @@ async def delete_designation(designation: DesignationModel, db: DatabaseManager 
     except Exception as e:
         api_logger.error(f"Error deleting designation: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to delete designation")
+
+async def send_overdue_email_notifications(order_id: str, db: DatabaseManager) -> Dict:
+    """Send email notifications for overdue orders using real database data"""
+    if not EMAIL_SERVICE_LOADED or not email_service:
+        api_logger.warning("Email service not available - skipping email notifications")
+        return {"error": "Email service not available"}
+    
+    try:
+        api_logger.info(f"Sending overdue email notifications for order {order_id} using real database data")
+        
+        # Use the new database-integrated email service method
+        result = email_service.send_overdue_notification_by_order_id(order_id)
+        
+        if not result.get('order_found'):
+            api_logger.error(f"Order {order_id} not found in database")
+            return {"error": "Order not found in database"}
+        
+        api_logger.info(f"Email notifications processed for overdue order {order_id}")
+        api_logger.info(f"Results: Student sent: {result.get('student_email_sent')}, Admin sent: {result.get('admin_email_sent')}")
+        
+        if result.get('errors'):
+            api_logger.warning(f"Email notification errors: {result['errors']}")
+        
+        return result
+        
+    except Exception as e:
+        error_msg = f"Error sending overdue email notifications for order {order_id}: {str(e)}"
+        api_logger.error(error_msg)
+        return {"error": error_msg}
+
+@app.post("/api/orders/{order_id}/send-overdue-notification")
+async def trigger_overdue_notification(order_id: str, db: DatabaseManager = Depends(get_db)):
+    """Manually trigger overdue email notification for an order"""
+    try:
+        api_logger.info(f"Triggering overdue notification for order {order_id}")
+        
+        # Check if order exists (don't require it to be overdue already)
+        check_query = """
+        SELECT id, order_number, status, expected_return_date
+        FROM orders 
+        WHERE id = %s
+        """
+        
+        order_check = db.execute_query(check_query, (order_id,))
+        if not order_check:
+            api_logger.error(f"Order {order_id} not found")
+            raise HTTPException(status_code=404, detail="Order not found")
+        
+        order_info = order_check[0]
+        api_logger.info(f"Found order {order_id} with status: {order_info.get('status')}")
+        
+        # Send notifications
+        result = await send_overdue_email_notifications(order_id, db)
+        
+        if "error" in result:
+            api_logger.error(f"Error sending notifications for order {order_id}: {result['error']}")
+            return {
+                "message": "Failed to send overdue notifications",
+                "order_id": order_id,
+                "error": result["error"],
+                "results": {"student_email_sent": False, "admin_email_sent": False, "errors": [result["error"]]}
+            }
+        
+        api_logger.info(f"Successfully processed overdue notifications for order {order_id}")
+        return {
+            "message": "Overdue notifications processed",
+            "order_id": order_id,
+            "results": result
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        api_logger.error(f"Error triggering overdue notification: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to send overdue notification")
 
 if __name__ == "__main__":
     import uvicorn

@@ -1006,11 +1006,19 @@ const LenderManagement = () => {
           {/* Staff Table Headers */}
           <Box sx={{ mt: 2 }}>
             <Box sx={{ display: 'grid', gridTemplateColumns: '150px 200px 200px 150px 200px 150px 80px', gap: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1, fontWeight: 'bold' }}>
-              <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>STAFF ID*</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>FULL NAME*</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>EMAIL*</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
+                STAFF ID<span style={{ color: '#EF4444' }}>*</span>
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
+                FULL NAME<span style={{ color: '#EF4444' }}>*</span>
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
+                EMAIL<span style={{ color: '#EF4444' }}>*</span>
+              </Typography>
               <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>PHONE NUMBER</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>DEPARTMENT*</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
+                DEPARTMENT<span style={{ color: '#EF4444' }}>*</span>
+              </Typography>
               <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>DESIGNATION</Typography>
               <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>ACTIONS</Typography>
             </Box>
@@ -1166,23 +1174,21 @@ const LenderManagement = () => {
             ))}
 
             {/* Add More Staff Button */}
-            <Box sx={{ mt: 2, mb: 2 }}>
-              <Button
-                startIcon={<Add />}
+            <Box sx={{ mt: 2, mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+              <IconButton
                 onClick={addBulkStaff}
-                variant="outlined"
-                size="small"
                 sx={{ 
-                  color: '#3B82F6', 
-                  borderColor: '#3B82F6',
+                  backgroundColor: '#3B82F6',
+                  color: 'white',
+                  width: 32,
+                  height: 32,
                   '&:hover': {
-                    backgroundColor: 'rgba(59, 130, 246, 0.04)',
-                    borderColor: '#2563EB'
+                    backgroundColor: '#2563EB'
                   }
                 }}
               >
-                Add More Staff
-              </Button>
+                <Add sx={{ fontSize: '1rem' }} />
+              </IconButton>
             </Box>
           </Box>
         </DialogContent>
